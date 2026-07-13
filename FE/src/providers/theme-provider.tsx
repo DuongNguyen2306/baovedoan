@@ -2,20 +2,27 @@ import { createContext, useContext, useEffect, useState } from 'react'
 
 type Theme = 'light' | 'dark'
 
+const STORAGE_KEY = 'rhs-theme'
+
+function getInitialTheme(): Theme {
+  if (typeof window === 'undefined') return 'light'
+  const stored = localStorage.getItem(STORAGE_KEY) as Theme | null
+  if (stored === 'light' || stored === 'dark') return stored
+  if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) return 'dark'
+  return 'light'
+}
+
 const ThemeContext = createContext<{
   theme: Theme
   toggle: () => void
 } | null>(null)
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === 'undefined') return 'light'
-    return (localStorage.getItem('rhs-theme') as Theme) ?? 'light'
-  })
+  const [theme, setTheme] = useState<Theme>(getInitialTheme)
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
-    localStorage.setItem('rhs-theme', theme)
+    try { localStorage.setItem(STORAGE_KEY, theme) } catch {}
   }, [theme])
 
   return (

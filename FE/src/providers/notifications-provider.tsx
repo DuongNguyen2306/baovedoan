@@ -23,6 +23,7 @@ interface NotificationsContextValue {
   loaded: PagedNotificationResultDto | null
   loadingList: boolean
   loadingCount: boolean
+  error: string | null
   refreshCount: () => Promise<void>
   refreshList: (page?: number, pageSize?: number) => Promise<void>
   loadMore: () => Promise<void>
@@ -39,8 +40,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [loaded, setLoaded] = useState<PagedNotificationResultDto | null>(null)
   const [loadingList, setLoadingList] = useState(false)
   const [loadingCount, setLoadingCount] = useState(false)
-  const logged = isLoggedIn()
+  const [error, setError] = useState<string | null>(null)
   const timerRef = useRef<number | null>(null)
+  // Theo dõi role để reset khi đổi vai trò
+  const roleRef = useRef<string>(isLoggedIn() ? localStorage.getItem('userRole') ?? '' : '')
 
   const refreshCount = useCallback(async () => {
     if (!isLoggedIn()) {
@@ -51,8 +54,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     try {
       const data = await notificationApi.getUnreadCount()
       setUnreadCount(parseUnreadCount(data))
-    } catch {
-      // silently ignore — badge stays at last known value
+    } catch (err) {
+      console.warn('[notifications] getUnreadCount failed:', err)
     } finally {
       setLoadingCount(false)
     }
@@ -61,13 +64,18 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const refreshList = useCallback(async (page = 1, pageSize = 20) => {
     if (!isLoggedIn()) {
       setLoaded(null)
+      setError(null)
       return
     }
     setLoadingList(true)
+    setError(null)
     try {
       const data = await notificationApi.getMy(page, pageSize)
       setLoaded(parsePagedNotifications(data))
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Không tải được danh sách thông báo.'
+      console.error('[notifications] getMy failed:', err)
+      setError(msg)
       setLoaded({ items: [], totalCount: 0, page, pageSize, totalPages: 0, hasNextPage: false, hasPreviousPage: false })
     } finally {
       setLoadingList(false)
@@ -85,8 +93,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         ...more,
         items: [...loaded.items, ...more.items],
       })
-    } catch {
-      // ignore — pagination just stops here
+    } catch (err) {
+      console.warn('[notifications] loadMore failed:', err)
     } finally {
       setLoadingList(false)
     }
@@ -96,6 +104,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     async (id: string) => {
       try {
         await notificationApi.markAsRead(id)
+      } catch (err) {
+        console.warn('[notifications] markAsRead failed:', err)
       } finally {
         setLoaded((prev) => {
           if (!prev) return prev
@@ -118,6 +128,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const markAllAsRead = useCallback(async () => {
     try {
       await notificationApi.markAllAsRead()
+    } catch (err) {
+      console.warn('[notifications] markAllAsRead failed:', err)
     } finally {
       setLoaded((prev) => {
         if (!prev) return prev
@@ -129,16 +141,31 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    const logged = isLoggedIn()
+    const currentRole = logged ? localStorage.getItem('userRole') ?? '' : ''
+
     if (!logged) {
       setUnreadCount(0)
       setLoaded(null)
+      setError(null)
+      roleRef.current = ''
       if (timerRef.current) {
         window.clearInterval(timerRef.current)
         timerRef.current = null
       }
       return
     }
+
+    // Nếu đổi role → reset sạch để tránh hiển thị dữ liệu của role cũ
+    if (roleRef.current !== currentRole) {
+      setUnreadCount(0)
+      setLoaded(null)
+      setError(null)
+      roleRef.current = currentRole
+    }
+
     void refreshCount()
+    if (timerRef.current) window.clearInterval(timerRef.current)
     timerRef.current = window.setInterval(() => {
       void refreshCount()
     }, POLL_INTERVAL_MS)
@@ -148,7 +175,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         timerRef.current = null
       }
     }
-  }, [logged, refreshCount])
+  }, [refreshCount])
 
   const recent = useMemo(() => (loaded?.items ?? []).slice(0, 5), [loaded])
 
@@ -159,13 +186,14 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       loaded,
       loadingList,
       loadingCount,
+      error,
       refreshCount,
       refreshList,
       loadMore,
       markAsRead,
       markAllAsRead,
     }),
-    [unreadCount, recent, loaded, loadingList, loadingCount, refreshCount, refreshList, loadMore, markAsRead, markAllAsRead],
+    [unreadCount, recent, loaded, loadingList, loadingCount, error, refreshCount, refreshList, loadMore, markAsRead, markAllAsRead],
   )
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>
