@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { AppShell } from '@/components/layout/app-shell'
 import { PaymentNotice } from '@/components/layout/payment-notice'
 import { useHashRoute } from '@/hooks/useHashRoute'
+import { usersApi } from '@/api/users'
 import {
   ChangePasswordPage,
   ForgotPasswordPage,
@@ -11,6 +12,7 @@ import {
   ResetPasswordPage,
   VerifyOtpPage,
 } from '@/pages/auth-pages'
+import { VerifyIdentityPage } from '@/pages/verify-identity-page'
 import {
   ApplicationDetailPage,
   ApplicationsPage,
@@ -52,14 +54,15 @@ function RouteView({ route }: { route: RouteId }) {
     case 'login': return <LoginPage />
     case 'register': return <RegisterPage />
     case 'verify-otp': return <VerifyOtpPage />
+    case 'verify-identity': return <VerifyIdentityPage />
     case 'resend-otp': return <ResendOtpPage />
     case 'forgot-password': return <ForgotPasswordPage />
     case 'reset-password': return <ResetPasswordPage />
     case 'change-password': return <ChangePasswordPage />
     case 'home-user': return <ApplicantHomePage />
     case 'home-admin': return <AdminHomePage />
-    case 'home-ward': return <StaffRoleHomePage routeId="home-ward" />
-    case 'home-verifier': return <StaffRoleHomePage routeId="home-verifier" />
+    case 'home-developer': return <StaffRoleHomePage routeId="home-developer" />
+    case 'home-sxd': return <StaffRoleHomePage routeId="home-sxd" />
     case 'quan-tam': return <InterestedPage />
     case 'dashboard': return <SessionDashboardPage />
     case 'profile': return <ProfilePage />
@@ -87,8 +90,39 @@ export function App() {
   const logged = isLoggedIn()
 
   useEffect(() => {
-    if (config.auth && !logged) navigate('login')
-    else if (config.auth && logged && !canAccess(role, route)) navigate(roleHome(role))
+    if (config.auth && !logged) {
+      navigate('login')
+      return
+    }
+    if (config.auth && logged && !canAccess(role, route)) {
+      navigate(roleHome(role))
+      return
+    }
+    // Middleware: Applicant đã login mà chưa xác minh CCCD → ép sang verify-identity
+    if (
+      logged &&
+      role === 'Applicant' &&
+      route !== 'verify-identity' &&
+      route !== 'login' &&
+      route !== 'register' &&
+      route !== 'verify-otp'
+    ) {
+      void usersApi
+        .getProfile()
+        .then((data) => {
+          const u = (data as { user?: Record<string, unknown> } | null)?.user ?? null
+          const verified = Boolean(
+            u?.isCitizenIdVerified ??
+              u?.IsCitizenIdVerified ??
+              (typeof u?.citizenId === 'string' && u.citizenId.length > 0) ??
+              (typeof u?.CitizenId === 'string' && (u.CitizenId as string).length > 0),
+          )
+          if (!verified) navigate('verify-identity')
+        })
+        .catch(() => {
+          /* ignore — nếu lỗi mạng, không block người dùng */
+        })
+    }
   }, [route, config.auth, logged, role])
 
   if (config.auth && !logged) return null
