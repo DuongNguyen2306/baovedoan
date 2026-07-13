@@ -46,10 +46,10 @@ export function PaymentsPage() {
       <PageHeader routeId="payments" />
       <PageCard className="p-6">
         <Button variant="accent" className="mb-4" onClick={() => navigate('create-payment')}>Tạo thanh toán thử</Button>
-        {loading && <p className="text-sm text-slate-500">Đang tải...</p>}
+        {loading && <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>}
         {error && <Alert variant="error">{error}</Alert>}
         {!loading && payments.length === 0 && (
-          <p className="text-sm text-slate-500">Chưa có giao dịch nào. Bấm &quot;Tạo thanh toán thử&quot; để thử cổng VNPay.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có giao dịch nào. Bấm &quot;Tạo thanh toán thử&quot; để thử cổng VNPay.</p>
         )}
         <div className="grid gap-3">
           {payments.map((p) => {
@@ -59,7 +59,7 @@ export function PaymentsPage() {
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <h3 className="font-semibold">{p.orderId}</h3>
-                    <p className="text-sm text-slate-500">{p.orderInfo}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{p.orderInfo}</p>
                   </div>
                   <Badge variant={st.variant}>{st.text}</Badge>
                 </div>

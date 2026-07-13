@@ -1,23 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, X } from 'lucide-react'
+import { CheckCircle2, Heart, MapPin, X } from 'lucide-react'
 import { housingProjectsApi } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
 import { LocationFields } from '@/components/forms/location-fields'
+import { RichEditor } from '@/components/forms/rich-editor'
 import { HousingSearchForm } from '@/components/housing/housing-search-form'
 import { HouseCard } from '@/components/housing/house-card'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/label'
-import { Input, Select, Textarea } from '@/components/ui/input'
+import { Input, Select } from '@/components/ui/input'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { navigate } from '@/hooks/useHashRoute'
+import { useWishlist } from '@/hooks/useWishlist'
 import { extractProjects, extractSingleProject } from '@/lib/parsers'
 import { formatError, formatSuccess } from '@/lib/format-error'
 import { resolveProvinceName } from '@/lib/vietnam-locations'
 import { mapProjectToCard } from '@/lib/projects'
 import { FLASH_CREATE_PROJECT_KEY } from '@/lib/constants'
+import { getRole } from '@/router'
 import {
   applyClientFilters,
   EMPTY_HOUSING_SEARCH,
@@ -32,6 +35,7 @@ export function ProjectsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [flashSuccess, setFlashSuccess] = useState<string | null>(null)
+  const isApplicant = getRole() === 'Applicant'
 
   const load = async (nextFilter: HousingSearchFilter) => {
     setLoading(true)
@@ -88,8 +92,10 @@ export function ProjectsPage() {
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-slate-500">{loading ? 'Đang tải...' : `${cards.length} dự án`}</p>
-          <Button variant="accent" onClick={() => navigate('create-project')}>Tạo dự án mới</Button>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{loading ? 'Đang tải...' : `${cards.length} dự án`}</p>
+          {!isApplicant && (
+            <Button variant="accent" onClick={() => navigate('create-project')}>Tạo dự án mới</Button>
+          )}
         </div>
 
         <HousingSearchForm
@@ -109,31 +115,25 @@ export function ProjectsPage() {
         )}
 
         {!loading && cards.length === 0 && (
-          <EmptyState
-            title="Không tìm thấy dự án"
-            description="Thử điều chỉnh bộ lọc hoặc tạo dự án mới."
-            actionLabel="Tạo dự án mới"
-            onAction={() => navigate('create-project')}
-          />
+          isApplicant ? (
+            <EmptyState
+              title="Không tìm thấy dự án"
+              description="Thử điều chỉnh bộ lọc để xem thêm dự án nhà ở xã hội."
+            />
+          ) : (
+            <EmptyState
+              title="Không tìm thấy dự án"
+              description="Thử điều chỉnh bộ lọc hoặc tạo dự án mới."
+              actionLabel="Tạo dự án mới"
+              onAction={() => navigate('create-project')}
+            />
+          )
         )}
 
         {!loading && cards.length > 0 && (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {cards.map((house) => (
-              <div key={house.id} className="relative">
-                <HouseCard house={house} />
-                <Button
-                  className="absolute bottom-4 right-4 z-10"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    sessionStorage.setItem('projectId', house.id)
-                    navigate('project-detail')
-                  }}
-                >
-                  Quản trị
-                </Button>
-              </div>
+              <HouseCard key={house.id} house={house} />
             ))}
           </div>
         )}
@@ -151,6 +151,8 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
   const [addressDefault, setAddressDefault] = useState('')
   const [addressKey, setAddressKey] = useState('new')
   const [submitting, setSubmitting] = useState(false)
+  const [description, setDescription] = useState('')
+  const [imagesFiles, setImagesFiles] = useState<File[]>([])
 
   useEffect(() => {
     void housingProjectStatusesApi.list()
@@ -177,7 +179,7 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
       setAddressDefault(p.address ?? '')
       setAddressKey(`addr-${projectId}`)
       set('projectName', p.projectName || p.name || '')
-      set('description', p.description ?? '')
+      setDescription(p.description ?? '')
       set('minPrice', p.minPrice ?? 0)
       set('maxPrice', p.maxPrice ?? 0)
       set('minArea', p.minArea ?? 0)
@@ -191,7 +193,7 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
     const thumb = fd.get('thumbnailFile')
     return {
       projectName: String(fd.get('projectName')),
-      description: String(fd.get('description') || ''),
+      description,
       province: String(fd.get('province')),
       district: String(fd.get('district')),
       address: String(fd.get('address')),
@@ -202,13 +204,18 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
       availableUnits: parseInt(String(fd.get('availableUnits')), 10) || 0,
       housingProjectStatusId: String(fd.get('housingProjectStatusId')),
       thumbnailFile: thumb instanceof File && thumb.size > 0 ? thumb : undefined,
+      imagesFiles: imagesFiles.length > 0 ? imagesFiles : undefined,
     }
   }
 
   return (
-    <form id="project-form" className="mx-auto max-w-xl space-y-4" onSubmit={async (e) => {
+    <form id="project-form" className="mx-auto max-w-2xl space-y-4" onSubmit={async (e) => {
       e.preventDefault()
       setMsg(null)
+      if (!description.trim()) {
+        setMsg({ type: 'error', text: 'Vui lòng nhập mô tả dự án.' })
+        return
+      }
       setSubmitting(true)
       try {
         const body = readBody(new FormData(e.currentTarget))
@@ -219,6 +226,7 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
           return
         }
         setMsg({ type: 'success', text: formatSuccess(data) || 'Cập nhật dự án thành công!' })
+        setImagesFiles([])
         onDone?.()
       } catch (err) {
         setMsg({ type: 'error', text: formatError(err) })
@@ -226,9 +234,15 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
         setSubmitting(false)
       }
     }}>
-      {loading && <p className="text-sm text-slate-500">Đang tải...</p>}
+      {loading && <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>}
       <FormField label="Tên dự án" htmlFor="projectName"><Input id="projectName" name="projectName" required /></FormField>
-      <FormField label="Mô tả" htmlFor="description"><Textarea id="description" name="description" required /></FormField>
+      <div className="space-y-1.5">
+        <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+          Mô tả <span className="text-red-500">*</span>
+        </label>
+        <RichEditor value={description} onChange={setDescription} />
+        <input type="hidden" name="description" value={description} />
+      </div>
       <LocationFields
         province={province}
         district={district}
@@ -253,6 +267,26 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
       <FormField label="Ảnh thumbnail (tùy chọn)" htmlFor="thumbnailFile">
         <Input id="thumbnailFile" name="thumbnailFile" type="file" accept="image/jpeg,image/png,image/webp" />
       </FormField>
+      <FormField label="Ảnh chi tiết dự án (có thể chọn nhiều ảnh)" htmlFor="imagesFiles">
+        <Input
+          id="imagesFiles"
+          name="imagesFiles"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          onChange={(e) => {
+            const list = e.target.files
+            if (!list || list.length === 0) {
+              setImagesFiles([])
+              return
+            }
+            setImagesFiles(Array.from(list))
+          }}
+        />
+      </FormField>
+      {imagesFiles.length > 0 && (
+        <p className="text-xs text-slate-500 dark:text-slate-400">Đã chọn {imagesFiles.length} ảnh chi tiết.</p>
+      )}
       {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
       <div className="flex flex-wrap gap-2">
         <Button type="submit" variant="accent" disabled={submitting || loading}>
@@ -283,13 +317,162 @@ export function CreateProjectPage() {
 
 export function ProjectDetailPage() {
   const projectId = sessionStorage.getItem('projectId')
+  const isApplicant = getRole() === 'Applicant'
   return (
     <div>
       <PageHeader routeId="project-detail" />
       <PageCard className="p-6">
         <Button variant="ghost" className="mb-4" onClick={() => navigate('projects')}>← Danh sách dự án</Button>
-        {!projectId ? <Alert variant="error">Không tìm thấy dự án</Alert> : <ProjectForm projectId={projectId} />}
+        {!projectId ? (
+          <Alert variant="error">Không tìm thấy dự án</Alert>
+        ) : isApplicant ? (
+          <ProjectDetailView projectId={projectId} />
+        ) : (
+          <ProjectForm projectId={projectId} />
+        )}
       </PageCard>
+    </div>
+  )
+}
+
+function ProjectDetailView({ projectId }: { projectId: string }) {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [project, setProject] = useState<HousingProjectDto | null>(null)
+  const { isWishlisted, toggle } = useWishlist()
+  const [wishlistBusy, setWishlistBusy] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void housingProjectsApi
+      .getById(projectId)
+      .then((data) => {
+        if (cancelled) return
+        const p = extractSingleProject(data)
+        setProject(p)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(formatError(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [projectId])
+
+  if (loading) return <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>
+  if (error) return <Alert variant="error">{error}</Alert>
+  if (!project) return <Alert variant="error">Không tìm thấy dự án</Alert>
+
+  const wishlisted = isWishlisted(projectId)
+
+  const handleWishlist = async () => {
+    setWishlistBusy(true)
+    try {
+      await toggle(projectId)
+    } finally {
+      setWishlistBusy(false)
+    }
+  }
+
+  const handleApply = () => {
+    navigate('create-application')
+  }
+
+  const formatPrice = (v?: number) => {
+    if (!v) return '—'
+    if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)} tỷ`
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)} triệu`
+    return v.toLocaleString('vi-VN')
+  }
+
+  return (
+    <div className="space-y-6">
+      {project.thumbnailUrl && (
+        <img
+          src={project.thumbnailUrl}
+          alt={project.projectName || project.name || 'Dự án'}
+          className="h-64 w-full rounded-xl object-cover"
+        />
+      )}
+
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {project.projectName || project.name}
+          </h2>
+          {project.status && (
+            <span className="mt-2 inline-block rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+              {project.status}
+            </span>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" disabled={wishlistBusy} onClick={handleWishlist}>
+            <Heart className={wishlisted ? 'mr-2 h-4 w-4 fill-current text-rose-500' : 'mr-2 h-4 w-4'} />
+            {wishlisted ? 'Đã quan tâm' : 'Quan tâm'}
+          </Button>
+          <Button onClick={handleApply}>Đăng ký hồ sơ</Button>
+        </div>
+      </div>
+
+      {(project.address || project.district || project.province) && (
+        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+          <MapPin className="h-4 w-4" />
+          <span className="text-sm">
+            {[project.address, project.district, project.province].filter(Boolean).join(', ')}
+          </span>
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <InfoItem label="Giá tối thiểu" value={formatPrice(project.minPrice)} />
+        <InfoItem label="Giá tối đa" value={formatPrice(project.maxPrice)} />
+        <InfoItem label="Diện tích" value={`${project.minArea ?? 0} – ${project.maxArea ?? 0} m²`} />
+        <InfoItem label="Căn còn trống" value={`${project.availableUnits ?? 0} căn`} />
+      </div>
+
+      {project.description && (
+        <div>
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Mô tả dự án
+          </h3>
+          <div
+            className="prose prose-slate max-w-none rounded-xl bg-slate-50 p-4 text-sm leading-relaxed dark:prose-invert dark:bg-slate-800/50"
+            dangerouslySetInnerHTML={{ __html: project.description }}
+          />
+        </div>
+      )}
+
+      {project.images && project.images.length > 0 && (
+        <div>
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Hình ảnh dự án
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {project.images.map((img) => (
+              <img
+                key={img.id}
+                src={img.imageUrl}
+                alt=""
+                className="aspect-video w-full rounded-lg object-cover"
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function InfoItem({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800/50">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">{value}</p>
     </div>
   )
 }
