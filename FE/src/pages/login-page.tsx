@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { authApi } from '@/api/auth'
+import { usersApi } from '@/api/users'
 import { saveTokensFromResponse } from '@/api/http'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -44,8 +45,26 @@ export function LoginPage() {
             ''
           ),
         })
-        navigate(roleHome(role))
         void refreshProfile()
+        if (role === 'Applicant') {
+          try {
+            const profile = (await usersApi.getProfile()) as { user?: Record<string, unknown> } | null
+            const u = profile?.user ?? {}
+            const verified = Boolean(
+              u.isCitizenIdVerified ??
+                u.IsCitizenIdVerified ??
+                (typeof u.citizenId === 'string' && (u.citizenId as string).length > 0) ??
+                (typeof u.CitizenId === 'string' && (u.CitizenId as string).length > 0),
+            )
+            if (!verified) {
+              navigate('verify-identity')
+              return
+            }
+          } catch {
+            /* ignore — fallback dưới */
+          }
+        }
+        navigate(roleHome(role))
       }
     } catch (err) {
       setError(formatError(err))
@@ -68,7 +87,7 @@ export function LoginPage() {
             {error && <Alert variant="error">{error}</Alert>}
             <Button type="submit" className="w-full" variant="accent" disabled={loading}>{loading ? 'Đang xử lý...' : 'Đăng nhập'}</Button>
           </form>
-          <div className="mt-4 space-y-2 text-center text-sm text-slate-500">
+          <div className="mt-4 space-y-2 text-center text-sm text-slate-500 dark:text-slate-400">
             <p>
               <button type="button" className="font-semibold text-primary hover:underline" onClick={() => navigate('forgot-password')}>Quên mật khẩu?</button>
               {' · '}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { authApi } from '@/api/auth'
+import { saveTokensFromResponse } from '@/api/http'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -13,7 +14,7 @@ import { formatError, formatSuccess } from '@/lib/format-error'
 
 function AuthLinks({ prompt, link, route }: { prompt: string; link: string; route: Parameters<typeof navigate>[0] }) {
   return (
-    <p className="mt-4 text-center text-sm text-slate-500">
+    <p className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
       {prompt}{' '}
       <button type="button" className="font-semibold text-primary hover:underline" onClick={() => navigate(route)}>
         {link}
@@ -52,15 +53,33 @@ export function RegisterPage() {
   return (
     <div className="mx-auto max-w-md py-8">
       <Card>
-        <CardHeader><CardTitle>Đăng ký tài khoản</CardTitle><CardDescription>Tạo tài khoản người dùng trên cổng nhà ở xã hội</CardDescription></CardHeader>
+        <CardHeader>
+          <CardTitle>Đăng ký tài khoản</CardTitle>
+          <CardDescription>
+            Tạo tài khoản công dân trên cổng nhà ở xã hội. Sau khi xác thực email, hệ thống yêu cầu xác minh CCCD + khuôn mặt.
+          </CardDescription>
+        </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="space-y-4">
-            <FormField label="Địa chỉ email" htmlFor="email"><Input id="email" name="email" type="email" required /></FormField>
-            <FormField label="Mật khẩu" htmlFor="password"><Input id="password" name="password" type="password" required /></FormField>
-            <FormField label="Họ và tên" htmlFor="fullName"><Input id="fullName" name="fullName" required /></FormField>
-            <FormField label="Số điện thoại" htmlFor="phoneNumber"><Input id="phoneNumber" name="phoneNumber" type="tel" /></FormField>
+            <FormField label="Địa chỉ email" htmlFor="email">
+              <Input id="email" name="email" type="email" required />
+            </FormField>
+            <FormField label="Mật khẩu (tối thiểu 6 ký tự)" htmlFor="password">
+              <Input id="password" name="password" type="password" minLength={6} required />
+            </FormField>
+            <FormField label="Họ và tên tạm thời" htmlFor="fullName">
+              <Input id="fullName" name="fullName" required />
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Sẽ được cập nhật từ CCCD ở bước xác minh danh tính.
+              </p>
+            </FormField>
+            <FormField label="Số điện thoại" htmlFor="phoneNumber">
+              <Input id="phoneNumber" name="phoneNumber" type="tel" />
+            </FormField>
             {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
-            <Button type="submit" className="w-full" variant="accent" disabled={loading}>{loading ? 'Đang gửi...' : 'Gửi đăng ký'}</Button>
+            <Button type="submit" className="w-full" variant="accent" disabled={loading}>
+              {loading ? 'Đang gửi...' : 'Gửi đăng ký'}
+            </Button>
           </form>
           <AuthLinks prompt="Đã có tài khoản?" link="Đăng nhập" route="login" />
         </CardContent>
@@ -79,12 +98,21 @@ export function VerifyOtpPage() {
     setLoading(true)
     const fd = new FormData(e.currentTarget)
     try {
-      await authApi.verifyOtp({ email: String(fd.get('email')), otpCode: String(fd.get('otpCode')) })
-      localStorage.removeItem('accessToken')
-      localStorage.removeItem('refreshToken')
-      clearRole()
-      setMsg({ type: 'success', text: 'Xác thực thành công. Đăng nhập lại.' })
-      setTimeout(() => navigate('login'), 800)
+      const data = await authApi.verifyOtp({ email: String(fd.get('email')), otpCode: String(fd.get('otpCode')) })
+      saveTokensFromResponse(data)
+      const role: string = (() => {
+        const u = (data as { user?: { role?: string } } | null)?.user
+        return u?.role ?? ''
+      })()
+      const requireEkyc = role === 'Applicant'
+      if (requireEkyc) {
+        setMsg({ type: 'success', text: 'Xác thực email thành công. Tiếp tục xác minh danh tính CCCD.' })
+        setTimeout(() => navigate('verify-identity'), 800)
+      } else {
+        // Cán bộ do admin tạo trực tiếp — không cần eKYC, đăng nhập thẳng
+        setMsg({ type: 'success', text: 'Xác thực thành công.' })
+        setTimeout(() => navigate('login'), 800)
+      }
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
     } finally {
