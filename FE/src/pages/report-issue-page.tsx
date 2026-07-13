@@ -78,7 +78,7 @@ export function ReportIssuePage() {
             <FileWarning className="h-5 w-5 text-amber-600" />
             <h2 className="font-bold text-[#003D7A] dark:text-white">Tạo báo cáo mới</h2>
           </div>
-          <p className="mb-4 text-sm text-slate-500">
+          <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
             Mô tả chi tiết giúp quản trị viên xử lý nhanh hơn. Báo cáo của bạn sẽ xuất hiện trong danh sách bên dưới.
           </p>
 
@@ -166,7 +166,7 @@ export function ReportIssuePage() {
               <Bug className="h-5 w-5 text-primary" />
               <div>
                 <h2 className="font-bold text-[#003D7A] dark:text-white">Báo cáo của tôi</h2>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Theo dõi tiến độ xử lý từ quản trị viên.
                 </p>
               </div>
@@ -201,7 +201,7 @@ export function ReportIssuePage() {
                     <Badge variant={statusTone(r.status)}>{statusLabel(r.status)}</Badge>
                     <Badge variant="secondary">{issueTypeLabel(r.issueType)}</Badge>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                  <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
                     <span>Người gửi: {r.reporterName || '—'}</span>
                     <span>Tạo lúc: {formatDate(r.createdAt)}</span>
                   </div>

@@ -38,6 +38,7 @@ export function NotificationsPage() {
     loaded,
     unreadCount,
     loadingList,
+    error,
     refreshList,
     loadMore,
     markAsRead,
@@ -75,6 +76,11 @@ export function NotificationsPage() {
       />
 
       <div className="gov-card overflow-hidden p-0">
+        {error && (
+          <Alert variant="error" className="m-5 mb-0">
+            Không tải được thông báo: {error}. Vui lòng thử lại sau.
+          </Alert>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
           <div className="flex items-center gap-1.5">
             <Button

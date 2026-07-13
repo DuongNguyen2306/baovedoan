@@ -28,7 +28,7 @@ function QuickActions({ actions }: { actions: QuickAction[] }) {
       {actions.map((a) => (
         <button key={a.route} type="button" className="glass-card p-4 text-left transition hover:ring-2 hover:ring-primary/20" onClick={() => navigate(a.route)}>
           <p className="font-semibold">{a.title}</p>
-          <p className="mt-1 text-sm text-slate-500">{a.desc}</p>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{a.desc}</p>
           <span className="mt-2 inline-block text-sm font-semibold text-accent">{a.cta ?? 'Mở →'}</span>
         </button>
       ))}
@@ -69,7 +69,7 @@ export function InterestedPage() {
       {error && <p className="text-sm text-red-500">{error}</p>}
       {!loading && cards.length === 0 ? (
         <div className="glass-card p-8 text-center">
-          <p className="text-slate-500">Bạn chưa quan tâm dự án nào.<br />Nhấn trái tim trên trang chủ để lưu dự án.</p>
+          <p className="text-slate-500 dark:text-slate-400">Bạn chưa quan tâm dự án nào.<br />Nhấn trái tim trên trang chủ để lưu dự án.</p>
           <Button className="mt-4" variant="accent" onClick={() => navigate('home-user')}>Về trang chủ</Button>
         </div>
       ) : (
@@ -91,22 +91,20 @@ export function InterestedPage() {
 }
 
 
-export function StaffRoleHomePage({ routeId }: { routeId: 'home-ward' | 'home-verifier' }) {
+export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'home-sxd' }) {
   const [stats, setStats] = useState<Record<string, number | string>>({})
 
   useEffect(() => {
     const load = async () => {
-      if (routeId === 'home-ward') {
-        const apps = await housingApplicationsApi.getWmDashboard({ pageSize: 1 }).catch(() => null)
+      if (routeId === 'home-sxd') {
+        const apps = await housingApplicationsApi.getSxdDashboard({ pageSize: 1 }).catch(() => null)
         const total = countFromPaged(apps)
-        const pending = parsePagedApplications(apps).filter((a) => a.applicationStatus === 'UNDER_REVIEW').length
+        const pending = parsePagedApplications(apps).filter((a) => a.applicationStatus === 'PENDING_SXD_REVIEW').length
         setStats({ total, pending })
       } else {
-        const apps = await housingApplicationsApi.getVoDashboard({ pageSize: 1 }).catch(() =>
-          housingApplicationsApi.getAll({ pageSize: 1 }),
-        )
+        const apps = await housingApplicationsApi.getAll({ pageSize: 1 }).catch(() => null)
         const total = countFromPaged(apps)
-        const submitted = parsePagedApplications(apps).filter((a) => a.applicationStatus === 'SUBMITTED').length
+        const submitted = parsePagedApplications(apps).filter((a) => ['SUBMITTED', 'REVIEWING'].includes(a.applicationStatus)).length
         setStats({ total, pending: submitted })
       }
     }
@@ -114,14 +112,14 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-ward' | 'home-ve
   }, [routeId])
 
   const actions: QuickAction[] =
-    routeId === 'home-ward'
+    routeId === 'home-sxd'
         ? [
-            { title: 'Hồ sơ chờ duyệt', desc: 'Xét duyệt hồ sơ ở trạng thái thẩm định.', route: 'applications' },
+            { title: 'Hồ sơ chờ duyệt', desc: 'Hậu kiểm và phê duyệt hồ sơ.', route: 'applications' },
             { title: 'Dự án', desc: 'Xem danh sách dự án.', route: 'projects' },
           ]
         : [
-            { title: 'Hồ sơ thẩm định', desc: 'Nhận và xử lý hồ sơ được giao.', route: 'applications' },
-            { title: 'Tra cứu', desc: 'Tra cứu hồ sơ công khai.', route: 'tra-cuu' },
+            { title: 'Hồ sơ thẩm định', desc: 'Tiếp nhận và thẩm định hồ sơ.', route: 'applications' },
+            { title: 'Dự án', desc: 'Xem và quản lý dự án.', route: 'projects' },
           ]
 
   return (

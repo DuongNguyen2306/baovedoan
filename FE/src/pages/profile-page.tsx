@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { authApi } from '@/api/auth'
 import { usersApi } from '@/api/users'
 import { Alert } from '@/components/ui/alert'
@@ -16,7 +17,7 @@ export function ProfilePage() {
   const { fullName, email, avatarUrl, roleLabel, initials, updateProfile, refreshProfile } = useUserProfile()
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [pwMsg, setPwMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [showPw, setShowPw] = useState(false)
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
   const [phoneNumber, setPhoneNumber] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -46,7 +47,7 @@ export function ProfilePage() {
     <div className="glass-card overflow-hidden">
       <div className="border-b border-slate-200/80 p-6 dark:border-slate-800">
         <h2 className="text-2xl font-bold">Hồ sơ cá nhân</h2>
-        <p className="mt-1 text-sm text-slate-500">Cập nhật thông tin và ảnh đại diện của bạn.</p>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Cập nhật thông tin và ảnh đại diện của bạn.</p>
       </div>
       <div className="grid gap-8 p-6 lg:grid-cols-[220px_1fr]">
         <aside className="text-center">
@@ -87,39 +88,32 @@ export function ProfilePage() {
         <div className="space-y-6">
           <form className="space-y-4" onSubmit={async (e) => {
             e.preventDefault()
-            const fd = new FormData(e.currentTarget)
             try {
               const data = await usersApi.updateProfile({
-                fullName: String(fd.get('fullName')),
-                phoneNumber: String(fd.get('phoneNumber') || '') || null,
+                fullName,
+                phoneNumber: phoneNumber || null,
               })
-              setMsg({ type: 'success', text: formatSuccess(data) })
-              const u = (data as { user?: Record<string, unknown> })?.user
-              if (u) {
-                updateProfile({ fullName: String(u.fullName ?? u.FullName ?? fd.get('fullName')) })
-              }
+              setMsg({ type: 'success', text: formatSuccess(data) || 'Cập nhật thành công.' })
             } catch (err) { setMsg({ type: 'error', text: formatError(err) }) }
           }}>
             <FormField label="Địa chỉ email đăng ký" htmlFor="email">
               <Input id="email" name="email" readOnly className="opacity-70" value={email} />
             </FormField>
-            <div className="flex flex-wrap items-end gap-2">
-              <div className="flex-1">
-                <FormField label="Vai trò" htmlFor="role">
-                  <Input id="role" name="role" readOnly className="opacity-70" value={displayRole} />
-                </FormField>
-              </div>
-              <Button type="button" variant="outline" size="sm" onClick={() => setShowPw((v) => !v)}>{showPw ? 'Ẩn' : 'Đổi mật khẩu'}</Button>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="Vai trò" htmlFor="role">
+                <Input id="role" name="role" readOnly className="opacity-70" value={displayRole} />
+              </FormField>
+              <FormField label="Họ và tên" htmlFor="fullName">
+                <Input
+                  id="fullName"
+                  name="fullName"
+                  readOnly
+                  className="opacity-70"
+                  title="Họ tên được lấy từ CCCD và không thể thay đổi tại đây"
+                  value={fullName}
+                />
+              </FormField>
             </div>
-            <FormField label="Họ và tên" htmlFor="fullName">
-              <Input
-                id="fullName"
-                name="fullName"
-                required
-                value={fullName}
-                onChange={(e) => updateProfile({ fullName: e.target.value })}
-              />
-            </FormField>
             <FormField label="Số điện thoại" htmlFor="phoneNumber">
               <Input
                 id="phoneNumber"
@@ -127,32 +121,85 @@ export function ProfilePage() {
                 type="tel"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="Nhập số điện thoại"
               />
             </FormField>
-            {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
             <Button type="submit" variant="accent">Lưu thay đổi</Button>
+            {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
           </form>
-          {showPw && (
-            <form className="space-y-4 rounded-xl border border-slate-200 p-4 dark:border-slate-700" onSubmit={async (e) => {
-              e.preventDefault()
-              const fd = new FormData(e.currentTarget)
-              try {
-                await authApi.changePassword({
-                  currentPassword: String(fd.get('currentPassword')),
-                  newPassword: String(fd.get('newPassword')),
-                  confirmPassword: String(fd.get('confirmPassword')),
-                })
-                setPwMsg({ type: 'success', text: 'Đổi mật khẩu thành công.' })
-                e.currentTarget.reset()
-              } catch (err) { setPwMsg({ type: 'error', text: formatError(err) }) }
-            }}>
-              <p className="text-sm font-semibold">Bảo mật tài khoản</p>
-              <FormField label="Mật khẩu hiện tại" htmlFor="currentPassword"><Input id="currentPassword" name="currentPassword" type="password" required /></FormField>
-              <FormField label="Mật khẩu mới" htmlFor="newPassword"><Input id="newPassword" name="newPassword" type="password" required /></FormField>
-              <FormField label="Xác nhận mật khẩu" htmlFor="confirmPassword"><Input id="confirmPassword" name="confirmPassword" type="password" required /></FormField>
-              {pwMsg && <Alert variant={pwMsg.type === 'error' ? 'error' : 'success'}>{pwMsg.text}</Alert>}
-              <Button type="submit">Xác nhận đổi mật khẩu</Button>
-            </form>
+
+          <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+            <button
+              type="button"
+              onClick={() => setShowPasswordForm((v) => !v)}
+              aria-expanded={showPasswordForm}
+              aria-controls="change-password-panel"
+              className="flex w-full items-center justify-between text-left"
+            >
+              <div>
+                <p className="text-sm font-semibold">Bảo mật tài khoản</p>
+                <span className="text-xs text-slate-500 dark:text-slate-400">Đổi mật khẩu</span>
+              </div>
+              <ChevronDown
+                className={`h-4 w-4 text-slate-500 transition-transform duration-200 dark:text-slate-400 ${showPasswordForm ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {showPasswordForm && (
+              <form
+                id="change-password-panel"
+                className="mt-4 space-y-4 border-t border-slate-200 pt-4 dark:border-slate-700"
+                onSubmit={async (e) => {
+                  e.preventDefault()
+                  const fd = new FormData(e.currentTarget)
+                  const currentPassword = String(fd.get('currentPassword'))
+                  const newPassword = String(fd.get('newPassword'))
+                  const confirmPassword = String(fd.get('confirmPassword'))
+
+                  if (!currentPassword || !newPassword || !confirmPassword) {
+                    setPwMsg({ type: 'error', text: 'Vui lòng nhập đầy đủ thông tin.' })
+                    return
+                  }
+                  if (newPassword.length < 8) {
+                    setPwMsg({ type: 'error', text: 'Mật khẩu mới phải có ít nhất 8 ký tự.' })
+                    return
+                  }
+                  if (newPassword !== confirmPassword) {
+                    setPwMsg({ type: 'error', text: 'Mật khẩu xác nhận không khớp.' })
+                    return
+                  }
+                  if (currentPassword === newPassword) {
+                    setPwMsg({ type: 'error', text: 'Mật khẩu mới phải khác mật khẩu hiện tại.' })
+                    return
+                  }
+
+                  try {
+                    const res = await authApi.changePassword({ currentPassword, newPassword, confirmPassword })
+                    console.info('[change-password] success', res)
+                    setPwMsg({ type: 'success', text: 'Đổi mật khẩu thành công.' })
+                    setShowPasswordForm(false)
+                  } catch (err) {
+                    console.error('[change-password] failed', err)
+                    setPwMsg({ type: 'error', text: formatError(err) })
+                  }
+                }}
+              >
+                <FormField label="Mật khẩu hiện tại" htmlFor="currentPassword">
+                  <Input id="currentPassword" name="currentPassword" type="password" autoComplete="current-password" required />
+                </FormField>
+                <FormField label="Mật khẩu mới" htmlFor="newPassword">
+                  <Input id="newPassword" name="newPassword" type="password" autoComplete="new-password" required />
+                </FormField>
+                <FormField label="Xác nhận mật khẩu" htmlFor="confirmPassword">
+                  <Input id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" required />
+                </FormField>
+                <Button type="submit">Xác nhận đổi mật khẩu</Button>
+              </form>
+            )}
+          </div>
+          {pwMsg && (
+            <div data-testid="pw-msg" className="mt-4">
+              <Alert variant={pwMsg.type === 'error' ? 'error' : 'success'}>{pwMsg.text}</Alert>
+            </div>
           )}
         </div>
       </div>
