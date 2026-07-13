@@ -9,12 +9,14 @@ import { getRole, getRouteConfig, navigate } from '../router'
 import type { ApplicationDetailDto, ApplicationSummaryDto } from '../types'
 import { el, fdStr, field, formatError, onFormSubmit, showResult } from '../ui/helpers'
 import { pageHeader } from '../ui/page'
+import { labelReviewAction } from '../lib/labels'
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: 'Nháp',
   SUBMITTED: 'Đã nộp',
-  UNDER_REVIEW: 'Đang thẩm định',
+  REVIEWING: 'Đang thẩm định',
   NEED_MORE_DOCUMENTS: 'Cần bổ sung giấy tờ',
+  PROPOSED: 'Đề xuất duyệt',
   APPROVED: 'Đã duyệt',
   REJECTED: 'Từ chối',
 }
@@ -36,7 +38,9 @@ function statusBadge(status: string): HTMLElement {
       ? 'is-success'
       : status === 'REJECTED'
         ? 'is-failed'
-        : status === 'DRAFT'
+        : status === 'PROPOSED'
+          ? 'is-warn'
+          : status === 'DRAFT'
           ? 'is-pending'
           : status === 'NEED_MORE_DOCUMENTS'
             ? 'is-cancelled'
@@ -424,7 +428,7 @@ function renderDetail(app: ApplicationDetailDto, host: HTMLElement, result: HTML
     actions.append(submitBtn)
   }
 
-  if (role === 'Verification Officer' && ['SUBMITTED', 'NEED_MORE_DOCUMENTS'].includes(app.applicationStatus)) {
+  if (role === 'Housing Developer' && ['SUBMITTED', 'NEED_MORE_DOCUMENTS'].includes(app.applicationStatus)) {
     const assignBtn = el('button', { type: 'button', class: 'btn-primary' }, 'Nhận hồ sơ thẩm định')
     assignBtn.addEventListener('click', async () => {
       try {
@@ -439,32 +443,40 @@ function renderDetail(app: ApplicationDetailDto, host: HTMLElement, result: HTML
     actions.append(assignBtn)
   }
 
-  if (role === 'Verification Officer' && app.applicationStatus === 'UNDER_REVIEW') {
-    const approveBtn = el('button', { type: 'button', class: 'btn-primary' }, 'Phê duyệt')
-    approveBtn.addEventListener('click', () => {
-      void reviewAction(app.applicationId, 'vo', 'APPROVE', host, result)
+  if (role === 'Housing Developer' && app.applicationStatus === 'REVIEWING') {
+    // REVIEWING → nút gửi SXD
+    const submitSxdBtn = el('button', { type: 'button', class: 'btn-primary' }, 'Gửi Sở Xây dựng')
+    submitSxdBtn.addEventListener('click', async () => {
+      try {
+        await housingApplicationsApi.submitToDepartment([app.applicationId])
+        const refreshed = await housingApplicationsApi.getById(app.applicationId)
+        renderDetail(parseApplicationDetail(refreshed)!, host, result)
+        showResult(result, { success: true, message: 'Đã gửi hồ sơ lên Sở Xây dựng.' })
+      } catch (err) {
+        showResult(result, null, err)
+      }
+    })
+    const moreBtn = el('button', { type: 'button', class: 'btn-secondary' }, 'Yêu cầu bổ sung')
+    moreBtn.addEventListener('click', () => {
+      void reviewAction(app.applicationId, 'developer', 'REQUEST_MORE_DOCUMENTS', host, result, true)
     })
     const rejectBtn = el('button', { type: 'button', class: 'btn-secondary is-danger' }, 'Từ chối')
     rejectBtn.addEventListener('click', () => {
-      void reviewAction(app.applicationId, 'vo', 'REJECT', host, result, true)
+      void reviewAction(app.applicationId, 'developer', 'REJECT', host, result, true)
     })
-    actions.append(approveBtn, rejectBtn)
+    actions.append(submitSxdBtn, moreBtn, rejectBtn)
   }
 
-  if (role === 'Ward Manager' && app.applicationStatus === 'UNDER_REVIEW') {
-    const wmApprove = el('button', { type: 'button', class: 'btn-primary' }, 'Phê duyệt')
-    wmApprove.addEventListener('click', () => {
-      void reviewAction(app.applicationId, 'wm', 'APPROVE', host, result)
+  if (role === 'Department Of Construction' && app.applicationStatus === 'PENDING_SXD_REVIEW') {
+    const sxdApprove = el('button', { type: 'button', class: 'btn-primary' }, 'Phê duyệt')
+    sxdApprove.addEventListener('click', () => {
+      void reviewAction(app.applicationId, 'sxd', 'APPROVE', host, result)
     })
-    const wmMore = el('button', { type: 'button', class: 'btn-secondary' }, 'Yêu cầu bổ sung')
-    wmMore.addEventListener('click', () => {
-      void reviewAction(app.applicationId, 'wm', 'REQUEST_MORE_DOCUMENTS', host, result, true)
+    const sxdReject = el('button', { type: 'button', class: 'btn-secondary is-danger' }, 'Từ chối')
+    sxdReject.addEventListener('click', () => {
+      void reviewAction(app.applicationId, 'sxd', 'REJECT', host, result, true)
     })
-    const wmReject = el('button', { type: 'button', class: 'btn-secondary is-danger' }, 'Từ chối')
-    wmReject.addEventListener('click', () => {
-      void reviewAction(app.applicationId, 'wm', 'REJECT', host, result, true)
-    })
-    actions.append(wmApprove, wmMore, wmReject)
+    actions.append(sxdApprove, sxdReject)
   }
 
   const historySection = el('section', { class: 'app-detail-section' },
@@ -494,7 +506,7 @@ function renderDetail(app: ApplicationDetailDto, host: HTMLElement, result: HTML
 
 async function reviewAction(
   applicationId: string,
-  reviewer: 'vo' | 'wm',
+  reviewer: 'developer' | 'sxd',
   action: string,
   host: HTMLElement,
   result: HTMLElement,
@@ -510,10 +522,10 @@ async function reviewAction(
   }
   try {
     const body = { action, note: note?.trim() || null }
-    if (reviewer === 'vo') {
-      await housingApplicationsApi.voReview(applicationId, body)
+    if (reviewer === 'developer') {
+      await housingApplicationsApi.developerReview(applicationId, body)
     } else {
-      await housingApplicationsApi.wmReview(applicationId, body)
+      await housingApplicationsApi.sxdReview(applicationId, body)
     }
     const refreshed = await housingApplicationsApi.getById(applicationId)
     renderDetail(parseApplicationDetail(refreshed)!, host, result)

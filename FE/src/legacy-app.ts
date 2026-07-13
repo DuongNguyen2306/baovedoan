@@ -28,8 +28,8 @@ import {
   adminHomeView,
   interestedView,
   userHomeView,
-  verifierHomeView,
-  wardHomeView,
+  developerHomeView,
+  sxdHomeView,
 } from './views/home'
 import { dashboardView, profileView } from './views/users'
 import { createProjectView, projectDetailView, projectsView } from './views/projects'
@@ -56,8 +56,8 @@ const viewMap: Record<RouteId, () => HTMLElement> = {
   'forgot-password': forgotPasswordView,
   'reset-password': resetPasswordView,
   'home-admin': adminHomeView,
-  'home-ward': wardHomeView,
-  'home-verifier': verifierHomeView,
+  'home-developer': developerHomeView,
+  'home-sxd': sxdHomeView,
   'home-user': userHomeView,
   'quan-tam': interestedView,
   dashboard: dashboardView,

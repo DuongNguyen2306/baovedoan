@@ -82,8 +82,8 @@ export function registerView(): HTMLElement {
       'select',
       { name: 'role', id: 'role', class: 'form-select' },
       el('option', { value: 'Applicant' }, 'Người dùng'),
-      el('option', { value: 'Ward Manager' }, 'Quản lý phường'),
-      el('option', { value: 'Verification Officer' }, 'Cán bộ thẩm định'),
+      el('option', { value: 'Department Of Construction' }, 'Sở Xây dựng'),
+      el('option', { value: 'Housing Developer' }, 'Chủ đầu tư'),
     ),
   )
 

@@ -98,4 +98,44 @@
     from { transform: scale(0) rotate(-10deg); opacity: 0; }
     to { transform: scale(1) rotate(0deg); opacity: 1; }
   }
+
+  /* Scrollbar — light subtle, dark dùng slate đậm */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(203 213 225 / 0.6);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(148 163 184 / 0.8);
+    background-clip: padding-box;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgb(51 65 85 / 0.7);
+    background-clip: padding-box;
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: rgb(71 85 105 / 0.9);
+    background-clip: padding-box;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(203 213 225 / 0.6) transparent;
+  }
+  .dark * {
+    scrollbar-color: rgb(51 65 85 / 0.7) transparent;
+  }
+
+  /* Selection color có chủ đích cho dark */
+  ::selection {
+    background-color: rgb(0 180 216 / 0.4);
+    color: inherit;
+  }
 }

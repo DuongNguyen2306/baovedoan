@@ -15,6 +15,16 @@
       rel="stylesheet"
     />
     <title>HTTT Nhà ở xã hội · RHS</title>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('rhs-theme');
+          if (t === 'dark' || (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

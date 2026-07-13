@@ -13,14 +13,14 @@ export const ROLE_THEMES: Record<string, RoleTheme> = {
     badge: 'Quản trị viên',
     icon: '⚙',
   },
-  'Ward Manager': {
-    className: 'role-ward',
-    badge: 'Quản lý phường',
+  'Department Of Construction': {
+    className: 'role-sxd',
+    badge: 'Sở Xây dựng',
     icon: '◫',
   },
-  'Verification Officer': {
-    className: 'role-verifier',
-    badge: 'Cán bộ thẩm định',
+  'Housing Developer': {
+    className: 'role-developer',
+    badge: 'Chủ đầu tư',
     icon: '✓',
   },
   Applicant: {

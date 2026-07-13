@@ -24,24 +24,24 @@ const STATUS: Record<string, string> = {
 }
 
 const ACTIONS: QuickAction[] = [
-  { title: 'Hồ sơ chờ nhận', desc: 'Danh sách hồ sơ SUBMITTED cần nhận thẩm định.', route: 'applications' },
-  { title: 'Hồ sơ đang xử lý', desc: 'Hồ sơ UNDER_REVIEW đang được bạn thẩm định.', route: 'applications' },
+  { title: 'Hồ sơ chờ nhận', desc: 'Danh sách hồ sơ đã nộp cần nhận thẩm định.', route: 'applications' },
+  { title: 'Hồ sơ đang xử lý', desc: 'Hồ sơ đang thẩm định thuộc hàng chờ của bạn.', route: 'applications' },
   { title: 'Dự án nhà ở', desc: 'Tra cứu thông tin dự án liên quan hồ sơ.', route: 'projects' },
   { title: 'Bảng điều phối', desc: 'Kiểm tra phiên và quyền truy cập.', route: 'dashboard' },
   { title: 'Hồ sơ cá nhân', desc: 'Thông tin tài khoản cán bộ.', route: 'profile' },
 ]
 
 const STEPS: WorkflowStep[] = [
-  { num: '1', title: 'Nhận hồ sơ', desc: 'Chuyển SUBMITTED → UNDER_REVIEW.' },
+  { num: '1', title: 'Nhận hồ sơ', desc: 'Chuyển trạng thái từ "Đã nộp" sang "Đang thẩm định".' },
   { num: '2', title: 'Thẩm định', desc: 'Kiểm tra hồ sơ và tài liệu đính kèm.' },
-  { num: '3', title: 'Kết luận', desc: 'Phê duyệt hoặc từ chối kèm ghi chú.' },
+  { num: '3', title: 'Kết luận', desc: 'Đề xuất duyệt hoặc yêu cầu bổ sung giấy tờ.' },
 ]
 
 export function verifierHomeView(): HTMLElement {
   const statsHost = el('div', { class: 'role-stats-inner' },
-    statCard('—', 'Chờ nhận', 'SUBMITTED'),
-    statCard('—', 'Đang thẩm định', 'UNDER_REVIEW'),
-    statCard('—', 'Cần bổ sung', 'NEED_MORE_DOCUMENTS'),
+    statCard('—', 'Chờ nhận', 'Đã nộp'),
+    statCard('—', 'Đang thẩm định', 'Hồ sơ đang xử lý'),
+    statCard('—', 'Cần bổ sung', 'Yêu cầu thêm'),
     statCard('—', 'Dự án', 'Tham chiếu'),
   )
 
@@ -77,16 +77,16 @@ export function verifierHomeView(): HTMLElement {
     }
 
     statsHost.replaceChildren(
-      statCard(submitted.status === 'fulfilled' ? countFromPaged(submitted.value) : 0, 'Chờ nhận', 'SUBMITTED'),
-      statCard(underReview.status === 'fulfilled' ? countFromPaged(underReview.value) : 0, 'Đang thẩm định', 'UNDER_REVIEW'),
-      statCard(needMore.status === 'fulfilled' ? countFromPaged(needMore.value) : 0, 'Cần bổ sung', 'NEED_MORE_DOCUMENTS'),
+      statCard(submitted.status === 'fulfilled' ? countFromPaged(submitted.value) : 0, 'Chờ nhận', 'Đã nộp'),
+      statCard(underReview.status === 'fulfilled' ? countFromPaged(underReview.value) : 0, 'Đang thẩm định', 'Hồ sơ đang xử lý'),
+      statCard(needMore.status === 'fulfilled' ? countFromPaged(needMore.value) : 0, 'Cần bổ sung', 'Yêu cầu thêm'),
       statCard(projects.status === 'fulfilled' ? countFromPaged(projects.value) : 0, 'Dự án', 'Tham chiếu'),
     )
 
     if (queue.status === 'fulfilled') {
       const apps = parsePagedApplications(queue.value)
       if (apps.length === 0) {
-        queueRows.replaceChildren(el('p', { class: 'role-empty' }, 'Không có hồ sơ SUBMITTED.'))
+        queueRows.replaceChildren(el('p', { class: 'role-empty' }, 'Không có hồ sơ nào đang chờ nhận.'))
       } else {
         queueRows.replaceChildren(
           ...apps.map((a) =>

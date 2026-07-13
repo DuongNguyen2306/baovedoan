@@ -12,8 +12,8 @@ function setFieldValue(wrap: HTMLElement, value: string): void {
 
 const ROLE_LABELS: Record<string, string> = {
   Applicant: 'Người dùng',
-  'Ward Manager': 'Quản lý phường',
-  'Verification Officer': 'Cán bộ thẩm định',
+  'Department Of Construction': 'Sở Xây dựng',
+  'Housing Developer': 'Chủ đầu tư',
   'System Administrator': 'Quản trị viên',
 }
 

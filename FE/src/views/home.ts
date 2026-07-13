@@ -1,4 +1,4 @@
 export { adminHomeView } from './roles/admin-home'
-export { wardHomeView } from './roles/ward-home'
-export { verifierHomeView } from './roles/verifier-home'
+export { sxdHomeView } from './roles/sxd-home'
+export { developerHomeView } from './roles/developer-home'
 export { userHomeView, interestedView } from './roles/applicant-home'

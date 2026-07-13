@@ -41,8 +41,8 @@ const STEPS: WorkflowStep[] = [
 
 export function wardHomeView(): HTMLElement {
   const statsHost = el('div', { class: 'role-stats-inner' },
-    statCard('—', 'Chờ duyệt', 'UNDER_REVIEW'),
-    statCard('—', 'Đã nộp', 'SUBMITTED'),
+    statCard('—', 'Chờ duyệt', 'Đang thẩm định'),
+    statCard('—', 'Đã nộp', 'Hồ sơ mới'),
     statCard('—', 'Dự án', 'Trên địa bàn'),
     statCard('—', 'Thanh toán', 'Giao dịch'),
   )
@@ -104,7 +104,7 @@ export function wardHomeView(): HTMLElement {
     if (recent.status === 'fulfilled') {
       const apps = parsePagedApplications(recent.value)
       if (apps.length === 0) {
-        appRows.replaceChildren(el('p', { class: 'role-empty' }, 'Chưa có hồ sơ UNDER_REVIEW.'))
+        appRows.replaceChildren(el('p', { class: 'role-empty' }, 'Chưa có hồ sơ nào đang chờ duyệt.'))
       } else {
         appRows.replaceChildren(
           ...apps.map((a) =>

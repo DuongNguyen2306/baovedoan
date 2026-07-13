@@ -5,12 +5,14 @@ import {
 import { getRouteConfig } from '../router'
 import { el, field, formatError } from '../ui/helpers'
 import { pageHeader } from '../ui/page'
+import { labelReviewAction } from '../lib/labels'
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: 'Nháp',
   SUBMITTED: 'Đã nộp',
-  UNDER_REVIEW: 'Đang thẩm định',
+  REVIEWING: 'Đang thẩm định',
   NEED_MORE_DOCUMENTS: 'Cần bổ sung giấy tờ',
+  PROPOSED: 'Đề xuất duyệt',
   APPROVED: 'Đã duyệt',
   REJECTED: 'Từ chối',
 }
@@ -18,6 +20,7 @@ const STATUS_LABELS: Record<string, string> = {
 function statusClass(status: string): string {
   if (status === 'APPROVED') return 'is-success'
   if (status === 'REJECTED') return 'is-failed'
+  if (status === 'PROPOSED') return 'is-warn'
   if (status === 'NEED_MORE_DOCUMENTS') return 'is-cancelled'
   if (status === 'DRAFT') return 'is-pending'
   return 'is-info'
@@ -74,7 +77,7 @@ export function traCuuView(): HTMLElement {
           el('ol', { class: 'lookup-steps' },
             ...histories.map((h) =>
               el('li', { class: 'lookup-step' },
-                el('strong', {}, h.action),
+                el('strong', {}, labelReviewAction(h.action)),
                 el('span', {}, `${new Date(h.changedAt).toLocaleString('vi-VN')} · ${h.changedByFullName}`),
                 h.note ? el('p', {}, h.note) : el('span'),
               ),
