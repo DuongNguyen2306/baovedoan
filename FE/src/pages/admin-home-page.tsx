@@ -33,7 +33,7 @@ export function AdminHomePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[#003D7A] dark:text-white">Quản lý tài khoản hệ thống</h1>
-        <p className="mt-1 text-sm text-slate-600">Quản trị viên chỉ phụ trách tạo, cập nhật, phân quyền và vô hiệu hoá tài khoản cán bộ.</p>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Quản trị viên chỉ phụ trách tạo, cập nhật, phân quyền và vô hiệu hoá tài khoản cán bộ.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -46,12 +46,12 @@ export function AdminHomePage() {
             <Users className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tổng tài khoản cán bộ</p>
-            <p className="text-3xl font-extrabold text-[#003D7A]">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Tổng tài khoản cán bộ</p>
+            <p className="text-3xl font-extrabold text-[#003D7A] dark:text-white">
               {loading ? '—' : stats.total}
             </p>
             {loading ? <Skeleton className="mt-1 h-3 w-24" /> : (
-              <p className="mt-0.5 text-xs text-slate-500">{stats.active} đang hoạt động</p>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{stats.active} đang hoạt động</p>
             )}
           </div>
         </motion.div>
@@ -66,18 +66,18 @@ export function AdminHomePage() {
             <UserCheck className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Đang hoạt động</p>
-            <p className="text-3xl font-extrabold text-[#003D7A]">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Đang hoạt động</p>
+            <p className="text-3xl font-extrabold text-[#003D7A] dark:text-white">
               {loading ? '—' : stats.active}
             </p>
-            <p className="mt-0.5 text-xs text-slate-500">Đăng nhập và xử lý hồ sơ</p>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Đăng nhập và xử lý hồ sơ</p>
           </div>
         </motion.div>
       </div>
 
       <div>
         <h2 className="gov-section-title">Thao tác nhanh</h2>
-        <p className="mt-1 text-sm text-slate-600">Mọi chức năng đều xoay quanh tài khoản cán bộ trong hệ thống.</p>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Mọi chức năng đều xoay quanh tài khoản cán bộ trong hệ thống.</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <motion.button
             type="button"
@@ -93,7 +93,7 @@ export function AdminHomePage() {
               </div>
             </div>
             <div className="p-5">
-              <p className="text-sm text-slate-600">Xem, sửa, khóa và đặt lại mật khẩu tài khoản cán bộ.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">Xem, sửa, khóa và đặt lại mật khẩu tài khoản cán bộ.</p>
               <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary">
                 Mở danh sách <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
               </span>
@@ -115,7 +115,7 @@ export function AdminHomePage() {
               </div>
             </div>
             <div className="p-5">
-              <p className="text-sm text-slate-600">Tạo tài khoản Ward Manager hoặc Verification Officer.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">Tạo tài khoản Sở Xây dựng hoặc Chủ đầu tư.</p>
               <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary">
                 Tạo tài khoản <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
               </span>
@@ -125,8 +125,8 @@ export function AdminHomePage() {
       </div>
 
       <div className="rounded-2xl border border-dashed border-slate-200 bg-secondary/30 p-5 dark:border-slate-700 dark:bg-slate-900/30">
-        <p className="text-sm text-slate-600">
-          <strong className="text-[#003D7A]">Phạm vi quyền Admin:</strong> chỉ quản lý tài khoản cán bộ (thêm, sửa, phân quyền, khóa/mở, đặt lại mật khẩu). Các nghiệp vụ khác (dự án, hồ sơ, thanh toán) do Ward Manager và Verification Officer phụ trách.
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          <strong className="text-[#003D7A] dark:text-white">Phạm vi quyền Admin:</strong> chỉ quản lý tài khoản cán bộ (thêm, sửa, phân quyền, khóa/mở, đặt lại mật khẩu). Các nghiệp vụ khác (dự án, hồ sơ, thanh toán) do Chủ đầu tư và Sở Xây dựng phụ trách.
         </p>
         <Button
           variant="outline"

@@ -82,11 +82,11 @@ function ResetPasswordPanel({ staffId, onDone }: { staffId: string; onDone: (msg
 
   return (
     <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-      <p className="flex items-center gap-2 font-semibold text-[#003D7A]">
+      <p className="flex items-center gap-2 font-semibold text-[#003D7A] dark:text-white">
         <KeyRound className="h-4 w-4" />
         Đặt lại mật khẩu
       </p>
-      <p className="mt-1 text-xs text-slate-500">Dùng khi cán bộ quên mật khẩu — cấp mật khẩu tạm mới.</p>
+      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Dùng khi cán bộ quên mật khẩu — cấp mật khẩu tạm mới.</p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <FormField label="Mật khẩu mới" htmlFor="new-pwd">
           <Input id="new-pwd" type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} minLength={8} placeholder="Tối thiểu 8 ký tự" />
@@ -143,11 +143,11 @@ function AssignPermissionPanel({
 
   return (
     <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-      <p className="flex items-center gap-2 font-semibold text-[#003D7A]">
+      <p className="flex items-center gap-2 font-semibold text-[#003D7A] dark:text-white">
         <Shield className="h-4 w-4" />
         Phân quyền truy cập
       </p>
-      <p className="mt-1 text-xs text-slate-500">Gán vai trò Ward Manager / Verification Officer và trạng thái tài khoản.</p>
+      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Gán vai trò Sở Xây dựng / Chủ đầu tư và trạng thái tài khoản.</p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <FormField label="Vai trò" htmlFor="perm-role">
           <Select id="perm-role" value={role} onChange={(e) => setRole(e.target.value)}>
@@ -258,7 +258,7 @@ function EditStaffModal({
         </FormField>
 
         <FormField label="Email">
-          <Input value={staff.email} disabled className="bg-slate-50 text-slate-500" />
+          <Input value={staff.email} disabled className="bg-slate-50 text-slate-500 dark:bg-slate-800/50 dark:text-slate-400" />
         </FormField>
 
         <FormField label="Số điện thoại" htmlFor="edit-phone">
@@ -515,17 +515,17 @@ export function AdminStaffPage() {
                         <span className="font-medium text-[#003D7A] dark:text-white">{s.fullName}</span>
                       </div>
                     </td>
-                    <td className="px-5 py-3 text-slate-600">
+                    <td className="px-5 py-3 text-slate-600 dark:text-slate-300">
                       <span className="inline-flex items-center gap-1"><Mail className="h-3.5 w-3.5" />{s.email}</span>
                     </td>
-                    <td className="px-5 py-3 text-slate-600">
+                    <td className="px-5 py-3 text-slate-600 dark:text-slate-300">
                       {s.phoneNumber ? (
                         <span className="inline-flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{s.phoneNumber}</span>
                       ) : '—'}
                     </td>
                     <td className="px-5 py-3">{staffRoleLabel(s.roleName)}</td>
                     <td className="px-5 py-3"><StaffStatusBadge status={s.status} /></td>
-                    <td className="px-5 py-3 text-slate-500">
+                    <td className="px-5 py-3 text-slate-500 dark:text-slate-400">
                       {s.createdAt ? new Date(s.createdAt).toLocaleDateString('vi-VN') : '—'}
                     </td>
                     <td className="px-5 py-3">
@@ -581,7 +581,7 @@ export function AdminStaffPage() {
 
         {!loading && totalPages > 1 && (
           <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3 text-sm dark:border-slate-800">
-            <span className="text-slate-500">Trang {page}/{totalPages} · {totalCount} cán bộ</span>
+            <span className="text-slate-500 dark:text-slate-400">Trang {page}/{totalPages} · {totalCount} cán bộ</span>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
                 <ChevronLeft className="h-4 w-4" />
@@ -671,7 +671,7 @@ export function CreateStaffPage() {
       <GovHeroBanner
         badge="Tạo tài khoản"
         title="Thêm cán bộ mới"
-        subtitle="Tạo tài khoản Ward Manager hoặc Verification Officer với mật khẩu tạm."
+        subtitle="Tạo tài khoản Sở Xây dựng hoặc Chủ đầu tư với mật khẩu tạm."
         compact
       />
 
@@ -714,7 +714,7 @@ export function CreateStaffPage() {
             <Input id="phoneNumber" name="phoneNumber" type="tel" placeholder="0901234567" />
           </FormField>
           <FormField label="Vai trò" htmlFor="role">
-            <Select id="role" name="role" required defaultValue="Ward Manager">
+            <Select id="role" name="role" required defaultValue="Department Of Construction">
               {STAFF_ROLE_OPTIONS.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
               ))}
@@ -832,7 +832,7 @@ export function StaffDetailPage() {
                 }
               }}
             >
-              <p className="font-semibold text-[#003D7A]">Thông tin cán bộ</p>
+              <p className="font-semibold text-[#003D7A] dark:text-white">Thông tin cán bộ</p>
               <FormField label="Họ và tên" htmlFor="fullName">
                 <Input id="fullName" name="fullName" required defaultValue={staff.fullName} key={`name-${staff.id}`} />
               </FormField>
@@ -944,7 +944,7 @@ export function DeactivateReasonDialog({
       description={targetStaffName ? `Tài khoản: ${targetStaffName}` : undefined}
       size="sm"
     >
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-slate-600 dark:text-slate-300">
         Cán bộ sẽ không thể đăng nhập cho đến khi được kích hoạt lại. Có thể nhập lý do để lưu vết kiểm toán.
       </p>
       <div className="mt-4">
