@@ -45,6 +45,9 @@ export interface ChangePasswordDto {
 export interface UpdateProfileDto {
   fullName: string
   phoneNumber?: string | null
+  citizenId?: string | null
+  dateOfBirth?: string | null
+  address?: string | null
 }
 
 export interface UserProfileDto {
@@ -52,6 +55,10 @@ export interface UserProfileDto {
   email: string
   fullName: string
   phoneNumber?: string | null
+  citizenId?: string | null
+  dateOfBirth?: string | null
+  address?: string | null
+  isCitizenIdVerified?: boolean
   role?: string
   profileImageUrl?: string
   createdAt?: string
@@ -105,6 +112,7 @@ export interface CreateHousingProjectRequestDto {
   housingProjectStatusId: string
   thumbnailUrl?: string
   thumbnailFile?: File
+  imagesFiles?: File[]
 }
 
 export interface ProjectFilterDto {
