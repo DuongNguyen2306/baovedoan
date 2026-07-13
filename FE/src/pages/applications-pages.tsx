@@ -17,7 +17,7 @@ import type { ApplicationDetailDto, ApplicationSummaryDto } from '@/types'
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1 border-b border-slate-100 py-3 last:border-0 dark:border-slate-800 sm:flex-row sm:justify-between">
-      <span className="text-sm text-slate-500">{label}</span>
+      <span className="text-sm text-slate-500 dark:text-slate-400">{label}</span>
       <span className="text-sm font-medium">{value}</span>
     </div>
   )
@@ -38,6 +38,10 @@ export function ApplicationsPage() {
     try {
       const data = isApplicant
         ? await housingApplicationsApi.getMy({ pageIndex: 1, pageSize: 20, ...filter })
+        : role === 'Housing Developer'
+        ? await housingApplicationsApi.getAll({ pageIndex: 1, pageSize: 20, ...filter })
+        : role === 'Department Of Construction'
+        ? await housingApplicationsApi.getSxdDashboard({ pageIndex: 1, pageSize: 20, ...filter })
         : await housingApplicationsApi.getAll({ pageIndex: 1, pageSize: 20, ...filter })
       setApps(parsePagedApplications(data))
     } catch (err) {
@@ -47,12 +51,22 @@ export function ApplicationsPage() {
     }
   }
 
-  useEffect(() => { void load() }, [isApplicant])
+  useEffect(() => { void load() }, [isApplicant, role])
 
   return (
     <div>
       <PageHeader routeId="applications" />
       <PageCard className="p-6">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {loading ? 'Đang tải...' : `Tổng cộng ${apps.length} hồ sơ`}
+          </p>
+          {isApplicant && (
+            <Button variant="accent" onClick={() => navigate('create-application')}>
+              + Tạo hồ sơ mới
+            </Button>
+          )}
+        </div>
         <form className="mb-6 grid gap-3 sm:grid-cols-3" onSubmit={(e) => {
           e.preventDefault()
           void load({ search: search || undefined, status: status || undefined })
@@ -66,10 +80,10 @@ export function ApplicationsPage() {
           </FormField>
           <div className="flex items-end"><Button type="submit" variant="outline">Lọc</Button></div>
         </form>
-        {loading && <p className="text-sm text-slate-500">Đang tải...</p>}
+        {loading && <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>}
         {error && <Alert variant="error">{error}</Alert>}
         {!loading && !error && apps.length === 0 && (
-          <p className="text-sm text-slate-500">{isApplicant ? 'Bạn chưa có hồ sơ nào.' : 'Không có hồ sơ phù hợp.'}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{isApplicant ? 'Bạn chưa có hồ sơ nào.' : 'Không có hồ sơ phù hợp.'}</p>
         )}
         <div className="grid gap-3">
           {apps.map((app) => (
@@ -86,9 +100,9 @@ export function ApplicationsPage() {
                 <h3 className="font-semibold">{app.projectName || 'Dự án'}</h3>
                 <StatusBadge status={app.applicationStatus} />
               </div>
-              <p className="mt-1 text-sm text-slate-500">{app.applicantFullName} · CCCD: {app.citizenId}</p>
-              <p className="text-sm text-slate-500">Thu nhập: {Number(app.estimatedMonthlyIncome).toLocaleString('vi-VN')} VNĐ/tháng</p>
-              <p className="text-xs text-slate-400">{app.documentCount} tài liệu · {new Date(app.createdAt).toLocaleDateString('vi-VN')}</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{app.applicantFullName} · CCCD: {app.citizenId}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Thu nhập: {Number(app.estimatedMonthlyIncome).toLocaleString('vi-VN')} VNĐ/tháng</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500">{app.documentCount} tài liệu · {new Date(app.createdAt).toLocaleDateString('vi-VN')}</p>
             </button>
           ))}
         </div>
@@ -113,34 +127,69 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
   const [app, setApp] = useState<ApplicationDetailDto | null>(null)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [acting, setActing] = useState('')
 
   const refresh = async () => {
     const data = await housingApplicationsApi.getById(appId)
-    setApp(parseApplicationDetail(data))
+    setApp((prev) => {
+      if (prev === null && data == null) return prev
+      return parseApplicationDetail(data)
+    })
   }
 
   useEffect(() => {
-    void refresh().catch((err) => setMsg({ type: 'error', text: formatError(err) })).finally(() => setLoading(false))
+    let cancelled = false
+    const run = async () => {
+      try {
+        await refresh()
+      } catch (err) {
+        if (!cancelled) setMsg({ type: 'error', text: formatError(err) })
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void run()
+    return () => { cancelled = true }
   }, [appId])
 
-  const review = async (reviewer: 'vo' | 'wm', action: string, needNote = false) => {
+  const review = async (action: string, needNote = false) => {
+    if (acting) return
     let note: string | null = null
     if (needNote) {
       note = window.prompt('Nhập ghi chú / lý do:')
       if (!note?.trim()) { setMsg({ type: 'error', text: 'Ghi chú là bắt buộc.' }); return }
     }
+    setActing(`${role}-${action}`)
     try {
       const body = { action, note: note?.trim() || null }
-      if (reviewer === 'vo') await housingApplicationsApi.voReview(appId, body)
-      else await housingApplicationsApi.wmReview(appId, body)
+      if (role === 'Housing Developer') await housingApplicationsApi.developerReview(appId, body)
+      else if (role === 'Department Of Construction') await housingApplicationsApi.sxdReview(appId, body)
       await refresh()
       setMsg({ type: 'success', text: 'Cập nhật hồ sơ thành công.' })
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setActing('')
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Đang tải...</p>
+  const submitToSxd = async (applicationIds: string[]) => {
+    if (acting) return
+    setActing('submit-sxd')
+    try {
+      await housingApplicationsApi.submitToDepartment(applicationIds)
+      await refresh()
+      setMsg({ type: 'success', text: `Đã gửi ${applicationIds.length} hồ sơ lên Sở Xây dựng.` })
+    } catch (err) {
+      setMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setActing('')
+    }
+  }
+
+  if (loading) return <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>
   if (!app) return <Alert variant="error">Không đọc được dữ liệu hồ sơ.</Alert>
 
   const canEditDocs = role === 'Applicant' && (app.applicationStatus === 'DRAFT' || app.applicationStatus === 'NEED_MORE_DOCUMENTS')
@@ -166,23 +215,38 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
       </div>
       <div className="glass-card p-4">
         <h3 className="mb-2 font-semibold">Tài liệu đính kèm</h3>
-        {(app.documents ?? []).length === 0 && <p className="text-sm text-slate-500">Chưa có tài liệu.</p>}
+        {(app.documents ?? []).length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có tài liệu.</p>}
         {(app.documents ?? []).map((doc) => (
           <div key={doc.documentId} className="flex flex-wrap items-center justify-between gap-2 border-b py-3 last:border-0">
             <div>
               <p className="font-medium">{DOC_TYPE_LABELS[doc.documentType] ?? doc.documentType}</p>
-              <p className="text-xs text-slate-500">{doc.fileName} · {(doc.fileSizeBytes / 1024).toFixed(0)} KB</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{doc.fileName} · {(doc.fileSizeBytes / 1024).toFixed(0)} KB</p>
             </div>
             <div className="flex gap-2">
               <a href={doc.fileUrl} target="_blank" rel="noopener" className="text-sm font-semibold text-primary hover:underline">Xem PDF</a>
               {canEditDocs && (
-                <Button variant="ghost" size="sm" className="text-red-600" onClick={async () => {
-                  try {
-                    await housingApplicationsApi.deleteDocument(app.applicationId, doc.documentId)
-                    await refresh()
-                    setMsg({ type: 'success', text: 'Đã xóa tài liệu.' })
-                  } catch (err) { setMsg({ type: 'error', text: formatError(err) }) }
-                }}>Xóa</Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-600 dark:text-red-400"
+                  disabled={deletingId === doc.documentId}
+                  onClick={async () => {
+                    if (deletingId) return
+                    if (!window.confirm(`Xóa tài liệu "${DOC_TYPE_LABELS[doc.documentType] ?? doc.documentType}"?`)) return
+                    setDeletingId(doc.documentId)
+                    try {
+                      await housingApplicationsApi.deleteDocument(app.applicationId, doc.documentId)
+                      await refresh()
+                      setMsg({ type: 'success', text: 'Đã xóa tài liệu.' })
+                    } catch (err) {
+                      setMsg({ type: 'error', text: formatError(err) })
+                    } finally {
+                      setDeletingId(null)
+                    }
+                  }}
+                >
+                  {deletingId === doc.documentId ? 'Đang xóa…' : 'Xóa'}
+                </Button>
               )}
             </div>
           </div>
@@ -190,50 +254,98 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
         {canEditDocs && (
           <form className="mt-4 space-y-3 border-t pt-4" onSubmit={async (e) => {
             e.preventDefault()
-            const fd = new FormData(e.currentTarget)
+            if (uploading) return
+            const formEl = e.currentTarget
+            const fd = new FormData(formEl)
             const file = fd.get('file') as File | null
+            const documentType = String(fd.get('documentType') ?? '')
+            if (!documentType) { setMsg({ type: 'error', text: 'Chọn loại giấy tờ.' }); return }
             if (!file?.size) { setMsg({ type: 'error', text: 'Chọn file PDF.' }); return }
+            const ok = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+            if (!ok) { setMsg({ type: 'error', text: 'Tài liệu phải là file PDF.' }); return }
+            if (file.size > 10 * 1024 * 1024) { setMsg({ type: 'error', text: 'File PDF tối đa 10 MB.' }); return }
+            setUploading(true)
             try {
-              await housingApplicationsApi.uploadDocument(app.applicationId, String(fd.get('documentType')), file)
+              await housingApplicationsApi.uploadDocument(app.applicationId, documentType, file)
               await refresh()
               setMsg({ type: 'success', text: 'Tải lên tài liệu thành công.' })
-              e.currentTarget.reset()
-            } catch (err) { setMsg({ type: 'error', text: formatError(err) }) }
+              formEl.reset()
+            } catch (err) {
+              setMsg({ type: 'error', text: formatError(err) })
+            } finally {
+              setUploading(false)
+            }
           }}>
             <FormField label="Loại giấy tờ" htmlFor="documentType">
               <Select id="documentType" name="documentType">
                 {Object.entries(DOC_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </Select>
             </FormField>
-            <FormField label="Tệp PDF" htmlFor="doc-file"><Input id="doc-file" name="file" type="file" accept="application/pdf" required /></FormField>
-            <Button type="submit" variant="outline">Tải lên tài liệu</Button>
+            <FormField label="Tệp PDF (tối đa 10 MB)" htmlFor="doc-file"><Input id="doc-file" name="file" type="file" accept="application/pdf,.pdf" required /></FormField>
+            <Button type="submit" variant="outline" disabled={uploading}>{uploading ? 'Đang tải lên…' : 'Tải lên tài liệu'}</Button>
           </form>
         )}
       </div>
       <div className="flex flex-wrap gap-2">
         {role === 'Applicant' && app.applicationStatus === 'DRAFT' && (
-          <Button variant="accent" onClick={async () => {
-            try { await housingApplicationsApi.submit(app.applicationId); await refresh(); setMsg({ type: 'success', text: 'Đã nộp hồ sơ.' }) }
-            catch (err) { setMsg({ type: 'error', text: formatError(err) }) }
-          }}>Nộp hồ sơ</Button>
+          <Button variant="accent" disabled={acting === 'submit'} onClick={async () => {
+            if (acting) return
+            setActing('submit')
+            try {
+              await housingApplicationsApi.submit(app.applicationId)
+              await refresh()
+              setMsg({ type: 'success', text: 'Đã nộp hồ sơ.' })
+            } catch (err) {
+              setMsg({ type: 'error', text: formatError(err) })
+            } finally {
+              setActing('')
+            }
+          }}>{acting === 'submit' ? 'Đang nộp…' : 'Nộp hồ sơ'}</Button>
         )}
-        {role === 'Verification Officer' && ['SUBMITTED', 'NEED_MORE_DOCUMENTS'].includes(app.applicationStatus) && (
-          <Button variant="accent" onClick={async () => {
-            try { await housingApplicationsApi.assign(app.applicationId); await refresh(); setMsg({ type: 'success', text: 'Đã nhận hồ sơ.' }) }
-            catch (err) { setMsg({ type: 'error', text: formatError(err) }) }
-          }}>Nhận hồ sơ thẩm định</Button>
+        {role === 'Applicant' && !['APPROVED', 'DEPOSIT_PAID', 'REJECTED', 'CANCELED', 'EXPIRED'].includes(app.applicationStatus) && (
+          <Button variant="outline" className="text-red-600" disabled={acting === 'cancel'} onClick={async () => {
+            if (acting) return
+            const reason = window.prompt('Lý do hủy hồ sơ (tùy chọn):')
+            setActing('cancel')
+            try {
+              await housingApplicationsApi.cancel(app.applicationId, reason ?? undefined)
+              await refresh()
+              setMsg({ type: 'success', text: 'Đã hủy hồ sơ.' })
+            } catch (err) {
+              setMsg({ type: 'error', text: formatError(err) })
+            } finally {
+              setActing('')
+            }
+          }}>{acting === 'cancel' ? 'Đang hủy…' : 'Hủy hồ sơ'}</Button>
         )}
-        {role === 'Verification Officer' && app.applicationStatus === 'UNDER_REVIEW' && (
+        {role === 'Housing Developer' && ['SUBMITTED', 'NEED_MORE_DOCUMENTS'].includes(app.applicationStatus) && (
+          <Button variant="accent" disabled={acting === 'assign'} onClick={async () => {
+            if (acting) return
+            setActing('assign')
+            try {
+              await housingApplicationsApi.assign(app.applicationId)
+              await refresh()
+              setMsg({ type: 'success', text: 'Đã nhận hồ sơ.' })
+            } catch (err) {
+              setMsg({ type: 'error', text: formatError(err) })
+            } finally {
+              setActing('')
+            }
+          }}>{acting === 'assign' ? 'Đang nhận…' : 'Nhận hồ sơ thẩm định'}</Button>
+        )}
+        {role === 'Housing Developer' && app.applicationStatus === 'REVIEWING' && (
           <>
-            <Button variant="accent" onClick={() => void review('vo', 'APPROVE')}>Phê duyệt</Button>
-            <Button variant="outline" onClick={() => void review('vo', 'REJECT', true)}>Từ chối</Button>
+            <Button variant="outline" disabled={!!acting} onClick={() => void review('REQUEST_MORE_DOCUMENTS', true)}>Yêu cầu bổ sung</Button>
+            <Button variant="accent" disabled={!!acting} onClick={() => void review('REJECT', true)}>Từ chối</Button>
+            <Button variant="accent" disabled={acting === 'submit-sxd'} onClick={() => void submitToSxd([app.applicationId])}>
+              {acting === 'submit-sxd' ? 'Đang gửi…' : 'Gửi Sở Xây dựng'}
+            </Button>
           </>
         )}
-        {role === 'Ward Manager' && app.applicationStatus === 'UNDER_REVIEW' && (
+        {role === 'Department Of Construction' && app.applicationStatus === 'PENDING_SXD_REVIEW' && (
           <>
-            <Button variant="accent" onClick={() => void review('wm', 'APPROVE')}>Phê duyệt</Button>
-            <Button variant="outline" onClick={() => void review('wm', 'REQUEST_MORE_DOCUMENTS', true)}>Yêu cầu bổ sung</Button>
-            <Button variant="outline" onClick={() => void review('wm', 'REJECT', true)}>Từ chối</Button>
+            <Button variant="accent" disabled={!!acting} onClick={() => void review('APPROVE')}>Phê duyệt</Button>
+            <Button variant="outline" disabled={!!acting} onClick={() => void review('REJECT', true)}>Từ chối</Button>
           </>
         )}
       </div>
@@ -244,8 +356,8 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             {app.reviewHistories!.map((h, i) => (
               <li key={i}>
                 <strong>{labelApplicationStatus(h.oldStatus)} → {labelApplicationStatus(h.newStatus)}</strong>
-                <span className="text-slate-500"> · {h.changedByFullName} · {new Date(h.changedAt).toLocaleString('vi-VN')}</span>
-                {h.note && <p className="text-slate-600">{h.note}</p>}
+                <span className="text-slate-500 dark:text-slate-400"> · {h.changedByFullName} · {new Date(h.changedAt).toLocaleString('vi-VN')}</span>
+                {h.note && <p className="text-slate-600 dark:text-slate-300">{h.note}</p>}
               </li>
             ))}
           </ul>
