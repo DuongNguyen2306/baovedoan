@@ -44,6 +44,9 @@ function toFormData(body: CreateHousingProjectRequestDto): FormData {
   fd.append('HousingProjectStatusId', body.housingProjectStatusId)
   if (body.thumbnailUrl) fd.append('ThumbnailUrl', body.thumbnailUrl)
   if (body.thumbnailFile) fd.append('ThumbnailFile', body.thumbnailFile)
+  if (body.imagesFiles) {
+    for (const file of body.imagesFiles) fd.append('ImagesFiles', file)
+  }
   return fd
 }
 

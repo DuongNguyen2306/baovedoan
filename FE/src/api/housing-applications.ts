@@ -54,17 +54,39 @@ export const housingApplicationsApi = {
       { auth: true },
     ),
 
-  getVoDashboard: (filter?: ApplicationFilterDto) =>
+  getSxdDashboard: (filter?: ApplicationFilterDto) =>
     request<PagedResultDto<ApplicationSummaryDto>>(
-      `/api/housing-applications/dashboard/vo${buildQuery(filter)}`,
+      `/api/housing-applications/dashboard/sxd${buildQuery(filter)}`,
       { auth: true },
     ),
 
-  getWmDashboard: (filter?: ApplicationFilterDto) =>
-    request<PagedResultDto<ApplicationSummaryDto>>(
-      `/api/housing-applications/dashboard/wm${buildQuery(filter)}`,
-      { auth: true },
-    ),
+  submitToDepartment: (applicationIds: string[]) =>
+    request<ApiResult>('/api/housing-developer/submit-to-department', {
+      method: 'POST',
+      body: JSON.stringify({ applicationIds }),
+      auth: true,
+    }),
+
+  developerReview: (id: string, body: ReviewRequestDto) =>
+    request<ApiResult>(`/api/housing-applications/${id}/developer-review`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+      auth: true,
+    }),
+
+  sxdReview: (id: string, body: ReviewRequestDto) =>
+    request<ApiResult>(`/api/housing-applications/${id}/sxd-review`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+      auth: true,
+    }),
+
+  cancel: (id: string, reason?: string) =>
+    request<ApiResult>(`/api/housing-applications/${id}/cancel`, {
+      method: 'PATCH',
+      body: JSON.stringify({ reason: reason ?? null }),
+      auth: true,
+    }),
 
   getById: (id: string) =>
     request<ApplicationDetailDto>(`/api/housing-applications/${id}`, { auth: true }),

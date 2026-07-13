@@ -26,30 +26,78 @@ export interface UnreadCountResponse {
 }
 
 export function parsePagedNotifications(data: unknown): PagedNotificationResultDto {
-  const o = (data ?? {}) as Record<string, unknown>
-  const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
-  const src = (nested ?? o) as Record<string, unknown>
-  const items = (src.items ?? src.Items) as NotificationDto[] | undefined
-  const safe = Array.isArray(items) ? items : []
-  return {
-    items: safe,
-    totalCount: Number(src.totalCount ?? src.TotalCount ?? safe.length),
-    page: Number(src.page ?? src.Page ?? 1),
-    pageSize: Number(src.pageSize ?? src.PageSize ?? 20),
-    totalPages: Number(src.totalPages ?? src.TotalPages ?? 1),
-    hasNextPage: Boolean(src.hasNextPage ?? src.HasNextPage ?? false),
-    hasPreviousPage: Boolean(src.hasPreviousPage ?? src.HasPreviousPage ?? false),
+  const empty: PagedNotificationResultDto = {
+    items: [],
+    totalCount: 0,
+    page: 1,
+    pageSize: 20,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPreviousPage: false,
   }
+  if (!data || typeof data !== 'object') return empty
+  const o = data as Record<string, unknown>
+
+  // Backend có thể trả nhiều dạng:
+  //   1) { success, data: { items, totalCount, ... } }
+  //   2) { items, totalCount, ... } (không có wrapper)
+  //   3) { Data: { Items, TotalCount, ... } } (PascalCase)
+  const nested =
+    (o.data as Record<string, unknown> | undefined) ??
+    (o.Data as Record<string, unknown> | undefined) ??
+    undefined
+
+  const fromNested = (n: Record<string, unknown>): PagedNotificationResultDto => {
+    const items = (n.items ?? n.Items ?? n.data ?? n.Data) as NotificationDto[] | undefined
+    const safe = Array.isArray(items) ? items : []
+    return {
+      items: safe,
+      totalCount: Number(n.totalCount ?? n.TotalCount ?? safe.length),
+      page: Number(n.page ?? n.Page ?? 1),
+      pageSize: Number(n.pageSize ?? n.PageSize ?? 20),
+      totalPages: Number(n.totalPages ?? n.TotalPages ?? 1),
+      hasNextPage: Boolean(n.hasNextPage ?? n.HasNextPage ?? false),
+      hasPreviousPage: Boolean(n.hasPreviousPage ?? n.HasPreviousPage ?? false),
+    }
+  }
+
+  if (nested && typeof nested === 'object') {
+    const parsed = fromNested(nested)
+    if (parsed.items.length > 0 || parsed.totalCount > 0) return parsed
+  }
+  // Fallback: thử đọc trực tiếp từ root
+  const fromRoot = fromNested(o)
+  return fromRoot.items.length > 0 || fromRoot.totalCount > 0 ? fromRoot : empty
 }
 
 export function parseUnreadCount(data: unknown): number {
-  if (!data || typeof data !== 'object') return 0
+  if (data == null) return 0
+  if (typeof data === 'number') return data
+  if (typeof data !== 'object') return 0
   const o = data as Record<string, unknown>
-  if (typeof o.unreadCount === 'number') return o.unreadCount
-  const nested = o.data ?? o.Data
-  if (nested && typeof nested === 'object') {
-    const n = nested as Record<string, unknown>
-    if (typeof n.unreadCount === 'number') return n.unreadCount
+
+  const tryRead = (src: Record<string, unknown>): number | undefined => {
+    const v = src.unreadCount ?? src.UnreadCount ?? src.count ?? src.Count
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+    if (typeof v === 'string') {
+      const n = Number(v)
+      return Number.isFinite(n) ? n : undefined
+    }
+    return undefined
+  }
+
+  // Dạng 1: trực tiếp ở root
+  const root = tryRead(o)
+  if (root !== undefined) return root
+
+  // Dạng 2: { success, data: <number | object> }
+  const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
+  if (nested != null) {
+    if (typeof nested === 'number') return nested
+    if (typeof nested === 'object') {
+      const v = tryRead(nested as Record<string, unknown>)
+      if (v !== undefined) return v
+    }
   }
   return 0
 }
