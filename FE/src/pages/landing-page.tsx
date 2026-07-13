@@ -392,7 +392,7 @@ function AnimatedStat({ value, label, sub, icon: Icon, delay = 0 }: { value: str
       <p className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white shadow-md">
         <Icon className="h-5 w-5" />
       </p>
-      <p className="mt-4 text-3xl font-extrabold tracking-tight text-[#003D7A] md:text-4xl">
+      <p className="mt-4 text-3xl font-extrabold tracking-tight text-[#003D7A] dark:text-white">
         {display}
       </p>
       <p className="mt-1 text-sm font-semibold text-slate-700">{label}</p>
@@ -485,7 +485,7 @@ export function LandingPage() {
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-slate-500">Trong tuần</p>
-                  <p className="text-sm font-bold text-[#003D7A]">+312 hồ sơ mới</p>
+                  <p className="text-sm font-bold text-[#003D7A] dark:text-white">+312 hồ sơ mới</p>
                 </div>
               </div>
             </motion.div>
@@ -506,7 +506,7 @@ export function LandingPage() {
       <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-8">
         <motion.div {...fadeUp}>
           <h2 className="gov-section-title text-2xl">Dự án đang mở bán</h2>
-          <p className="mt-2 max-w-2xl text-slate-600">
+          <p className="mt-2 max-w-2xl text-slate-600 dark:text-slate-300">
             Các dự án nhà ở xã hội đang mở đăng ký — cập nhật liên tục từ chủ đầu tư.
           </p>
           <div className="mt-8">
@@ -519,7 +519,7 @@ export function LandingPage() {
       <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-8">
         <motion.div {...fadeUp}>
           <h2 className="gov-section-title text-2xl">Vì sao chọn cổng số này</h2>
-          <p className="mt-2 max-w-2xl text-slate-600">
+          <p className="mt-2 max-w-2xl text-slate-600 dark:text-slate-300">
             Cam kết của chúng tôi với người dân và cơ quan quản lý nhà nước.
           </p>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
@@ -528,7 +528,7 @@ export function LandingPage() {
                 <p className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <p.icon className="h-5 w-5" />
                 </p>
-                <h3 className="mt-4 text-lg font-bold text-[#003D7A]">{p.title}</h3>
+                <h3 className="mt-4 text-lg font-bold text-[#003D7A] dark:text-white">{p.title}</h3>
                 <p className="mt-1 text-sm text-slate-600">{p.desc}</p>
               </div>
             ))}
@@ -540,7 +540,7 @@ export function LandingPage() {
       <section className="mx-auto max-w-7xl px-4 pb-20 lg:px-8">
         <motion.div {...fadeUp}>
           <h2 className="gov-section-title text-2xl">Quy trình tham gia</h2>
-          <p className="mt-2 max-w-2xl text-slate-600">
+          <p className="mt-2 max-w-2xl text-slate-600 dark:text-slate-300">
             Bốn bước rõ ràng để người dân đăng ký và theo dõi nhà ở xã hội.
           </p>
           <div className="relative mt-10">
@@ -559,7 +559,7 @@ export function LandingPage() {
                   <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-xs font-extrabold text-white shadow-md">
                     {step.num}
                   </span>
-                  <h3 className="mt-3 font-semibold text-[#003D7A]">{step.title}</h3>
+                  <h3 className="mt-3 font-semibold text-[#003D7A] dark:text-white">{step.title}</h3>
                   <p className="mt-1 text-sm text-slate-600">{step.desc}</p>
                 </motion.div>
               ))}
@@ -574,7 +574,7 @@ export function LandingPage() {
           <div className="mb-8 flex items-end justify-between">
             <div>
               <h2 className="gov-section-title text-2xl">Tin tức & thông báo</h2>
-              <p className="mt-2 max-w-2xl text-slate-600">
+              <p className="mt-2 max-w-2xl text-slate-600 dark:text-slate-300">
                 Cập nhật mới nhất từ chương trình nhà ở xã hội.
               </p>
             </div>
@@ -596,7 +596,7 @@ export function LandingPage() {
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-accent">
                   {n.tag}
                 </span>
-                <h3 className="mt-3 text-base font-bold leading-snug text-[#003D7A]">
+                <h3 className="mt-3 text-base font-bold leading-snug text-[#003D7A] dark:text-white">
                   {n.title}
                 </h3>
                 <div className="mt-4 flex items-center justify-between text-xs text-slate-500">

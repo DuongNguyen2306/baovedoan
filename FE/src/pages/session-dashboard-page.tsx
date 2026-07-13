@@ -38,7 +38,7 @@ export function SessionDashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[#003D7A] dark:text-white">Công cụ quản trị phiên</h1>
-        <p className="mt-1 text-sm text-slate-600">Kiểm tra quyền, làm mới token và quản lý phiên đăng nhập.</p>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Kiểm tra quyền, làm mới token và quản lý phiên đăng nhập.</p>
       </div>
 
       <div className="gov-card p-6">
@@ -46,12 +46,12 @@ export function SessionDashboardPage() {
           {cards.map((c) => {
             const Icon = c.icon
             return (
-              <div key={c.key} className="rounded-xl border border-primary/10 bg-secondary/20 p-5">
+              <div key={c.key} className="rounded-xl border border-primary/10 bg-secondary/20 p-5 dark:border-slate-700 dark:bg-slate-800/40">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="h-5 w-5" />
                 </div>
                 <h3 className="mt-3 font-bold text-[#003D7A] dark:text-white">{c.title}</h3>
-                <p className="mt-1 text-sm text-slate-600">{c.desc}</p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{c.desc}</p>
                 <Button
                   className="mt-4"
                   variant="outline"

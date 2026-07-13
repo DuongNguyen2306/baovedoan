@@ -54,7 +54,7 @@ export function LookupPage() {
       <div>
         <p className="text-xs font-bold uppercase tracking-widest text-accent">Tra cứu công khai</p>
         <h1 className="mt-1 text-3xl font-bold">Tra cứu hồ sơ</h1>
-        <p className="mt-2 text-slate-500">Nhập mã hồ sơ (UUID) để xem trạng thái. Cần đăng nhập nếu hồ sơ thuộc tài khoản của bạn.</p>
+        <p className="mt-2 text-slate-500 dark:text-slate-400">Nhập mã hồ sơ (UUID) để xem trạng thái. Cần đăng nhập nếu hồ sơ thuộc tài khoản của bạn.</p>
       </div>
 
       <Card>
@@ -65,12 +65,12 @@ export function LookupPage() {
         <CardContent>
           <form onSubmit={search} className="flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
               <input
                 value={id}
                 onChange={(e) => setId(e.target.value)}
                 placeholder="Nhập mã hồ sơ..."
-                className="h-11 w-full rounded-xl border border-slate-200 bg-white/80 pl-10 pr-4 text-sm outline-none ring-accent focus:ring-2 dark:border-slate-700 dark:bg-slate-900/80"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white/80 pl-10 pr-4 text-sm outline-none placeholder:text-slate-400 ring-accent focus:ring-2 dark:border-slate-700 dark:bg-slate-900/80 dark:placeholder:text-slate-500"
               />
             </div>
             <Button type="submit" disabled={loading}>
@@ -122,7 +122,7 @@ export function LookupPage() {
               {timeline.length > 0 ? (
                 <StatusTimeline items={timeline} />
               ) : (
-                <p className="text-sm text-slate-500">Chưa có lịch sử xử lý.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có lịch sử xử lý.</p>
               )}
             </CardContent>
           </Card>

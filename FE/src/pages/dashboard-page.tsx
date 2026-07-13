@@ -95,14 +95,14 @@ export function DashboardPage() {
   })
 
   const apps = parsePagedApplications(data)
-  const pending = apps.filter((a) => a.applicationStatus === 'UNDER_REVIEW' || a.applicationStatus === 'SUBMITTED').length
+  const pending = apps.filter((a) => ['SUBMITTED', 'REVIEWING'].includes(a.applicationStatus)).length
 
   return (
     <div className="space-y-8">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
         <p className="text-xs font-bold uppercase tracking-widest text-accent">Phân tích thông minh</p>
         <h1 className="mt-1 text-3xl font-bold tracking-tight">Bảng điều khiển</h1>
-        <p className="mt-2 text-slate-500">
+        <p className="mt-2 text-slate-500 dark:text-slate-400">
           {role || 'Người dùng'} · Cập nhật thời gian thực ·{' '}
           <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => navigate(home)}>
             Về trang chủ vai trò
@@ -204,7 +204,7 @@ export function DashboardPage() {
                   >
                     <div>
                       <p className="font-medium">{a.projectName}</p>
-                      <p className="text-xs text-slate-500">{a.applicationStatus} · {formatDate(a.createdAt)}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{a.applicationStatus} · {formatDate(a.createdAt)}</p>
                     </div>
                     <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">{a.applicationStatus}</span>
                   </motion.li>
@@ -224,7 +224,7 @@ export function DashboardPage() {
                 <li key={item.text} className="flex gap-3 border-l-2 border-accent/40 pl-4">
                   <div>
                     <p className="text-sm font-medium">{item.text}</p>
-                    <p className="text-xs text-slate-500">{item.time}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{item.time}</p>
                   </div>
                 </li>
               ))}
