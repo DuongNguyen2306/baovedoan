@@ -2,14 +2,18 @@ import { APPLICATION_STATUS } from '@/lib/constants'
 
 /** Trạng thái dự án nhà ở (theo mã hoặc tên từ BE/DB) */
 export const PROJECT_STATUS_VI: Record<string, string> = {
-  OPEN: 'Đang mở đăng ký',
+  PENDING: 'Chờ phê duyệt',
   UPCOMING: 'Sắp mở bán',
+  OPEN: 'Đang mở đăng ký',
   CLOSED: 'Đã đóng đăng ký',
   FULL: 'Đã hết suất',
-  Open: 'Đang mở đăng ký',
+  REJECTED: 'Bị từ chối',
+  Pending: 'Chờ phê duyệt',
   Upcoming: 'Sắp mở bán',
+  Open: 'Đang mở đăng ký',
   Closed: 'Đã đóng đăng ký',
   Full: 'Đã hết suất',
+  Rejected: 'Bị từ chối',
 }
 
 export function labelProjectStatus(value?: string | null): string {
@@ -47,10 +51,10 @@ export function paymentStatusBadge(value?: string | null): {
 /** Vai trò người dùng */
 export const ROLE_LABELS_VI: Record<string, string> = {
   Applicant: 'Người dùng',
-  'Ward Manager': 'Quản lý phường',
-  'Verification Officer': 'Cán bộ thẩm định',
-  'System Administrator': 'Quản trị hệ thống',
   'Housing Authority Officer': 'Cán bộ nhà ở',
+  'System Administrator': 'Quản trị hệ thống',
+  'Department Of Construction': 'Sở Xây dựng',
+  'Housing Developer': 'Chủ đầu tư',
 }
 
 export function labelRole(value?: string | null): string {
@@ -75,9 +79,14 @@ export const REVIEW_ACTION_VI: Record<string, string> = {
   APPROVE: 'Phê duyệt',
   REJECT: 'Từ chối',
   REQUEST_MORE_DOCUMENTS: 'Yêu cầu bổ sung hồ sơ',
-  ASSIGN: 'Nhận hồ sơ thẩm định',
+  ASSIGN_OFFICER: 'Nhận hồ sơ thẩm định',
   SUBMIT: 'Nộp hồ sơ',
-  CREATE: 'Tạo hồ sơ',
+  SAVE_DRAFT: 'Lưu nháp',
+  PAYMENT_TIMEOUT: 'Hết hạn thanh toán',
+  DEPOSIT_PAYMENT: 'Thanh toán đặt cọc',
+  CANCEL: 'Tự hủy',
+  SUBMIT_TO_DEPARTMENT: 'Gửi Sở Xây dựng',
+  TACIT_APPROVAL: 'Tự động phê duyệt (20 ngày)',
 }
 
 export function labelReviewAction(value?: string | null): string {

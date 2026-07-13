@@ -45,8 +45,8 @@ export function parseStaffDetail(data: unknown): StaffRow | null {
 }
 
 export const STAFF_ROLE_OPTIONS = [
-  { value: 'Ward Manager', label: 'Quản lý phường' },
-  { value: 'Verification Officer', label: 'Cán bộ thẩm định' },
+  { value: 'Department Of Construction', label: 'Sở Xây dựng' },
+  { value: 'Housing Developer', label: 'Chủ đầu tư' },
 ] as const
 
 export const STAFF_STATUS_OPTIONS = [

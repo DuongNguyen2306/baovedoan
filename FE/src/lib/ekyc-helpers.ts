@@ -91,5 +91,17 @@ export function validateLivenessVideo(file: File): string | null {
 }
 
 export function isValidCitizenId(value: string): boolean {
-  return /^\d{12}$/.test(value.trim())
+  return /^\d{9}(\d{3})?$/.test(value.trim())
+}
+
+export const MAX_DOC_BYTES = 10 * 1024 * 1024
+export const DOC_TYPE_KEYS = ['HOUSING_CONDITION_PROOF', 'POVERTY_HOUSEHOLD_CERTIFICATE'] as const
+export type DocTypeKey = (typeof DOC_TYPE_KEYS)[number]
+
+export function validateDocumentFile(file: File): string | null {
+  const ok = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+  if (!ok) return 'Tài liệu phải là file PDF.'
+  if (file.size > MAX_DOC_BYTES) return 'File PDF tối đa 10 MB.'
+  if (file.size < 200) return 'File quá nhỏ, vui lòng chọn file hợp lệ.'
+  return null
 }

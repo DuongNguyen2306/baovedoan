@@ -8,7 +8,7 @@ import {
   Users,
 } from 'lucide-react'
 
-export type RoleThemeId = 'public' | 'applicant' | 'ward' | 'verifier' | 'admin'
+export type RoleThemeId = 'public' | 'applicant' | 'sxd' | 'developer' | 'admin'
 
 export interface RoleTheme {
   id: RoleThemeId
@@ -78,48 +78,48 @@ export const ROLE_THEMES: Record<RoleThemeId, RoleTheme> = {
     homeRoute: 'home-user',
     Icon: UserCircle2,
   },
-  ward: {
-    id: 'ward',
-    badge: 'Quản lý phường',
-    badgeFull: 'Quản lý phường / xã',
-    navBg: 'bg-orange-600',
-    navBgHover: 'hover:bg-orange-500/30',
+  sxd: {
+    id: 'sxd',
+    badge: 'Sở Xây dựng',
+    badgeFull: 'Sở Xây dựng',
+    navBg: 'bg-blue-700',
+    navBgHover: 'hover:bg-blue-600/30',
     navActiveBg: 'bg-white/20',
-    navTextColor: 'text-orange-50/85',
+    navTextColor: 'text-blue-50/85',
     navActiveTextColor: 'text-white',
-    activeBar: 'bg-yellow-300',
-    brandAccent: 'bg-orange-600',
-    brandAccentHover: 'hover:bg-orange-700',
-    brandRing: 'ring-orange-500/40',
-    ctaBg: 'bg-yellow-400',
-    ctaBgHover: 'hover:bg-yellow-500',
-    ctaText: 'text-orange-950',
-    ctaLabel: 'Duyệt hồ sơ',
-    ctaShort: 'Duyệt',
-    ctaRoute: 'applications',
-    homeRoute: 'home-ward',
-    Icon: Building2,
-  },
-  verifier: {
-    id: 'verifier',
-    badge: 'Thẩm tra',
-    badgeFull: 'Cán bộ thẩm tra xác minh',
-    navBg: 'bg-purple-700',
-    navBgHover: 'hover:bg-purple-600/30',
-    navActiveBg: 'bg-white/20',
-    navTextColor: 'text-purple-50/85',
-    navActiveTextColor: 'text-white',
-    activeBar: 'bg-pink-300',
-    brandAccent: 'bg-purple-700',
-    brandAccentHover: 'hover:bg-purple-800',
-    brandRing: 'ring-purple-500/40',
-    ctaBg: 'bg-pink-500',
-    ctaBgHover: 'hover:bg-pink-600',
-    ctaText: 'text-white',
+    activeBar: 'bg-amber-300',
+    brandAccent: 'bg-blue-700',
+    brandAccentHover: 'hover:bg-blue-800',
+    brandRing: 'ring-blue-500/40',
+    ctaBg: 'bg-amber-500',
+    ctaBgHover: 'hover:bg-amber-600',
+    ctaText: 'text-blue-950',
     ctaLabel: 'Hồ sơ chờ duyệt',
     ctaShort: 'Duyệt',
     ctaRoute: 'applications',
-    homeRoute: 'home-verifier',
+    homeRoute: 'home-sxd',
+    Icon: Building2,
+  },
+  developer: {
+    id: 'developer',
+    badge: 'Chủ đầu tư',
+    badgeFull: 'Chủ đầu tư',
+    navBg: 'bg-indigo-700',
+    navBgHover: 'hover:bg-indigo-600/30',
+    navActiveBg: 'bg-white/20',
+    navTextColor: 'text-indigo-50/85',
+    navActiveTextColor: 'text-white',
+    activeBar: 'bg-rose-300',
+    brandAccent: 'bg-indigo-700',
+    brandAccentHover: 'hover:bg-indigo-800',
+    brandRing: 'ring-indigo-500/40',
+    ctaBg: 'bg-rose-500',
+    ctaBgHover: 'hover:bg-rose-600',
+    ctaText: 'text-white',
+    ctaLabel: 'Thẩm định hồ sơ',
+    ctaShort: 'Duyệt',
+    ctaRoute: 'applications',
+    homeRoute: 'home-developer',
     Icon: ClipboardCheck,
   },
   admin: {
@@ -149,16 +149,16 @@ export const ROLE_THEMES: Record<RoleThemeId, RoleTheme> = {
 export function resolveRoleTheme(role: string | null, logged: boolean): RoleTheme {
   if (!logged || !role) return ROLE_THEMES.public
   if (role === 'Applicant') return ROLE_THEMES.applicant
-  if (role === 'Ward Manager') return ROLE_THEMES.ward
-  if (role === 'Verification Officer') return ROLE_THEMES.verifier
+  if (role === 'Department Of Construction') return ROLE_THEMES.sxd
+  if (role === 'Housing Developer') return ROLE_THEMES.developer
   if (role === 'System Administrator') return ROLE_THEMES.admin
   return ROLE_THEMES.public
 }
 
 export const ROLE_ICONS = {
   applicant: UserCircle2,
-  ward: Building2,
-  verifier: ClipboardCheck,
+  sxd: Building2,
+  developer: ClipboardCheck,
   admin: ShieldCheck,
   public: Users,
 } as const
