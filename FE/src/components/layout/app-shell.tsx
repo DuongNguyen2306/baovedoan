@@ -6,6 +6,7 @@ import { GovBreadcrumb } from '@/components/layout/gov-breadcrumb'
 import { GovFooter } from '@/components/layout/gov-footer'
 import { GovTopBar } from '@/components/layout/gov-top-bar'
 import { NotificationBell } from '@/components/layout/notification-bell'
+import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { UserWelcomeBar } from '@/components/layout/user-welcome-bar'
 import { Button } from '@/components/ui/button'
 import { resolveRoleTheme } from '@/lib/role-theme'
@@ -33,7 +34,7 @@ function HeaderNavLink({ id, active }: { id: RouteId; active: boolean }) {
 
 function LandingHeader() {
   return (
-    <header className="sticky top-0 z-50 border-b border-primary/15 bg-white shadow-[0_2px_16px_rgb(0_61_122_/_12%)]">
+    <header className="sticky top-0 z-50 border-b border-primary/15 bg-white shadow-[0_2px_16px_rgb(0_61_122_/_12%)] dark:border-slate-800 dark:bg-slate-900 dark:shadow-[0_2px_16px_rgb(0_0_0_/_50%)]">
       <div className="flex h-1">
         <div className="flex-1 bg-[#DA251D]" />
         <div className="flex-1 bg-[#FFCD00]" />
@@ -48,14 +49,17 @@ function LandingHeader() {
         >
           <BrandLogo size="sm" showPortal showAcronym className="inline-flex max-w-[min(100%,520px)]" />
         </button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="rounded-md border-primary/30 font-semibold text-primary"
-          onClick={() => navigate('login')}
-        >
-          Đăng nhập
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <ThemeToggle />
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-md border-primary/30 font-semibold text-primary"
+            onClick={() => navigate('login')}
+          >
+            Đăng nhập
+          </Button>
+        </div>
       </div>
     </header>
   )
@@ -63,7 +67,7 @@ function LandingHeader() {
 
 function AuthHeader() {
   return (
-    <header className="border-b border-primary/15 bg-white shadow-[0_2px_16px_rgb(0_61_122_/_12%)]">
+    <header className="border-b border-primary/15 bg-white shadow-[0_2px_16px_rgb(0_61_122_/_12%)] dark:border-slate-800 dark:bg-slate-900 dark:shadow-[0_2px_16px_rgb(0_0_0_/_50%)]">
       <div className="flex h-1">
         <div className="flex-1 bg-[#DA251D]" />
         <div className="flex-1 bg-[#FFCD00]" />
@@ -78,14 +82,17 @@ function AuthHeader() {
         >
           <BrandLogo size="sm" showPortal showAcronym className="inline-flex max-w-[min(100%,520px)]" />
         </button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="rounded-md border-primary/30 font-semibold text-primary"
-          onClick={() => navigate('landing')}
-        >
-          Trang chủ
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <ThemeToggle />
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-md border-primary/30 font-semibold text-primary"
+            onClick={() => navigate('landing')}
+          >
+            Trang chủ
+          </Button>
+        </div>
       </div>
     </header>
   )
@@ -134,6 +141,7 @@ function InternalHeader({ logged, role }: { logged: boolean; role: string }) {
               </span>
             )}
             <div className="flex shrink-0 items-center gap-2">
+              <ThemeToggle />
               {logged && <NotificationBell />}
               {!logged && <Button variant="outline" size="sm" className="rounded-md border-primary/30 font-semibold text-primary" onClick={() => navigate('login')}>Đăng nhập</Button>}
               {logged && (

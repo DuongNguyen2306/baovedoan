@@ -10,7 +10,7 @@ const buttonVariants = cva(
       variant: {
         default: 'bg-primary text-white shadow-lg shadow-primary/25 hover:bg-primary-dark hover:shadow-primary/35',
         secondary: 'glass text-primary hover:bg-secondary dark:text-accent',
-        outline: 'border border-slate-200 bg-white/50 hover:bg-secondary dark:border-slate-700 dark:bg-slate-900/50',
+        outline: 'border border-slate-200 bg-white/50 hover:bg-secondary dark:border-slate-700 dark:bg-slate-900/50 dark:hover:bg-slate-800',
         ghost: 'hover:bg-secondary/80 dark:hover:bg-slate-800',
         accent: 'bg-gradient-to-r from-primary to-accent text-white shadow-lg shadow-accent/20 hover:opacity-95',
       },

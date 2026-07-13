@@ -36,7 +36,7 @@ function typeLabel(t: string): string {
 }
 
 export function NotificationBell() {
-  const { unreadCount, recent, loadingCount, refreshCount, markAllAsRead, markAsRead } = useNotifications()
+  const { unreadCount, recent, loadingCount, loadingList, refreshCount, refreshList, markAllAsRead, markAsRead } = useNotifications()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement | null>(null)
 
@@ -52,8 +52,11 @@ export function NotificationBell() {
   }, [open])
 
   useEffect(() => {
-    if (open) void refreshCount()
-  }, [open, refreshCount])
+    if (open) {
+      void refreshCount()
+      void refreshList()
+    }
+  }, [open, refreshCount, refreshList])
 
   const Icon = unreadCount > 0 ? BellRing : Bell
 
@@ -93,7 +96,7 @@ export function NotificationBell() {
             <div className="flex items-center justify-between border-b border-slate-100 bg-primary/5 px-4 py-3 dark:border-slate-800">
               <div>
                 <p className="text-sm font-bold text-[#003D7A] dark:text-white">Thông báo</p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   {unreadCount > 0 ? `${unreadCount} chưa đọc` : 'Bạn đã xem hết'}
                 </p>
               </div>
@@ -112,14 +115,14 @@ export function NotificationBell() {
             </div>
 
             <div className="max-h-[400px] overflow-y-auto">
-              {loadingCount && recent.length === 0 ? (
+              {(loadingCount || loadingList) && recent.length === 0 ? (
                 <div className="space-y-2 p-4">
                   <Skeleton className="h-16 w-full" />
                   <Skeleton className="h-16 w-full" />
                   <Skeleton className="h-16 w-full" />
                 </div>
               ) : recent.length === 0 ? (
-                <div className="px-6 py-10 text-center text-sm text-slate-500">
+                <div className="px-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
                   Hiện chưa có thông báo nào.
                 </div>
               ) : (
@@ -147,8 +150,8 @@ export function NotificationBell() {
                           {n.title}
                         </p>
                       </div>
-                      <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{n.content}</p>
-                      <div className="mt-1 flex items-center gap-2 text-[10px] uppercase tracking-wide text-slate-400">
+                      <p className="mt-0.5 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">{n.content}</p>
+                      <div className="mt-1 flex items-center gap-2 text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
                         <span>{typeLabel(n.notificationType)}</span>
                         <span>·</span>
                         <span>{timeAgo(n.createdAt)}</span>

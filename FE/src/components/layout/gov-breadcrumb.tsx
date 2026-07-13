@@ -5,8 +5,8 @@ import { useHashRoute, navigate } from '@/hooks/useHashRoute'
 const HOME_LABEL: Partial<Record<RouteId, string>> = {
   'home-user': 'Trang chủ',
   'home-admin': 'Trang quản trị',
-  'home-ward': 'Trang phường',
-  'home-verifier': 'Trang thẩm định',
+  'home-developer': 'Trang chủ đầu tư',
+  'home-sxd': 'Trang Sở Xây dựng',
 }
 
 export function GovBreadcrumb() {

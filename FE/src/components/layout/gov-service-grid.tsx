@@ -31,7 +31,7 @@ export function GovServiceGrid() {
                 <Icon className="h-5 w-5" />
               </span>
               <span className="text-xs font-bold text-[#003D7A] dark:text-slate-100">{svc.label}</span>
-              <span className="text-[10px] leading-tight text-slate-500">{svc.desc}</span>
+              <span className="text-[10px] leading-tight text-slate-500 dark:text-slate-400">{svc.desc}</span>
             </button>
           )
         })}

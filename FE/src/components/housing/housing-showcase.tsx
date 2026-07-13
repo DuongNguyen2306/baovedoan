@@ -59,9 +59,9 @@ function PromoHero({
           </div>
 
           <div className="mt-5 border-t border-slate-100 pt-4 dark:border-slate-800">
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Giá từ</p>
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">Giá từ</p>
             <p className="text-3xl font-bold text-[#DA251D]">{house.price}</p>
-            <p className="text-sm font-medium text-slate-500">{house.units}</p>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{house.units}</p>
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
@@ -120,7 +120,7 @@ function PromoCard({
       </div>
 
       <div className="flex flex-1 flex-col p-5">
-        <p className="flex items-center gap-1 text-sm text-slate-500">
+        <p className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
           <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
           {house.location}
         </p>
@@ -140,10 +140,10 @@ function PromoCard({
 
         <div className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800">
           <p className="text-2xl font-bold text-[#DA251D]">{house.price}</p>
-          <p className="text-xs font-medium text-slate-500">{house.units}</p>
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{house.units}</p>
         </div>
 
-        <p className="mt-2 line-clamp-2 flex-1 text-xs leading-relaxed text-slate-500">{house.description}</p>
+        <p className="mt-2 line-clamp-2 flex-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{house.description}</p>
 
         <div className="mt-4 flex gap-2">
           <Button className="flex-1" variant="outline" size="sm" onClick={() => navigate('projects')}>
@@ -217,7 +217,7 @@ export function HousingShowcase() {
             Các khu nhà ở xã hội được công bố chính thức trên toàn quốc.
           </p>
         </div>
-        <Button variant="outline" className="border-primary/30 bg-white" onClick={() => navigate('tim-nha')}>
+        <Button variant="outline" className="border-primary/30 bg-white dark:bg-slate-800 dark:text-slate-100" onClick={() => navigate('tim-nha')}>
           Tìm kiếm nâng cao <ArrowRight className="ml-1 h-4 w-4" />
         </Button>
       </div>
@@ -253,7 +253,7 @@ export function HousingShowcase() {
       )}
 
       {!loading && !hero && (
-        <p className="text-sm text-slate-500">Chưa có dự án nào được công bố.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có dự án nào được công bố.</p>
       )}
     </section>
   )

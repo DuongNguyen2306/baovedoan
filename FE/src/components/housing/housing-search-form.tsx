@@ -51,7 +51,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
           <div>
             <p className="font-semibold text-[#003D7A] dark:text-white">Tìm kiếm nhà ở</p>
             {!compact && (
-              <p className="text-xs text-slate-500">Lọc theo vị trí, giá, diện tích và trạng thái dự án</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Lọc theo vị trí, giá, diện tích và trạng thái dự án</p>
             )}
           </div>
         </div>
@@ -199,7 +199,7 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
 
       {activeCount > 0 && (
         <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
-          <span className="text-xs text-slate-500">{activeCount} bộ lọc đang áp dụng</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">{activeCount} bộ lọc đang áp dụng</span>
           <Button
             type="button"
             variant="ghost"

@@ -2,6 +2,7 @@ import { User, Users } from 'lucide-react'
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
 import { type RouteId } from '@/router'
 import { ROLE_THEMES } from '@/lib/role-theme'
+import { NotificationBell } from '@/components/layout/notification-bell'
 
 const THEME = ROLE_THEMES.admin
 
@@ -23,6 +24,7 @@ export const ADMIN_SUB_NAV_ROUTES: RouteId[] = [
   'staff-detail',
   'profile',
   'change-password',
+  'notifications',
 ]
 
 function isActive(current: RouteId, item: NavItem): boolean {
@@ -35,7 +37,7 @@ export function AdminSubNav() {
 
   return (
     <nav className={`${THEME.navBg} text-white`} aria-label="Điều hướng quản trị">
-      <div className="mx-auto flex max-w-7xl overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="mx-auto flex max-w-7xl items-center overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {ITEMS.map((item) => {
           const active = isActive(route, item)
           const Icon = item.icon
@@ -59,6 +61,19 @@ export function AdminSubNav() {
             </button>
           )
         })}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('notifications')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('notifications')}
+          className={`relative ml-auto shrink-0 rounded-md px-3 py-1.5 transition-colors ${
+            route === 'notifications'
+              ? `${THEME.navActiveBg} ${THEME.navActiveTextColor}`
+              : `${THEME.navTextColor} ${THEME.navBgHover} hover:text-white`
+          }`}
+        >
+          <NotificationBell />
+        </div>
       </div>
     </nav>
   )

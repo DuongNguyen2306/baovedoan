@@ -107,12 +107,12 @@ export function PromoProjectsCarousel() {
 
   if (!loading && total === 0) {
     return (
-      <div className="relative overflow-hidden rounded-3xl border border-primary/15 bg-white p-10 text-center shadow-sm">
+      <div className="relative overflow-hidden rounded-3xl border border-primary/15 bg-white p-10 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
           <Building2 className="h-7 w-7" />
         </div>
-        <h3 className="mt-4 text-lg font-bold text-[#003D7A]">Chưa có dự án đang mở bán</h3>
-        <p className="mt-1 text-sm text-slate-500">
+        <h3 className="mt-4 text-lg font-bold text-[#003D7A] dark:text-white">Chưa có dự án đang mở bán</h3>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           {error ? `Tạm thời không tải được dự án (${error}).` : 'Danh sách đang được cập nhật.'}
         </p>
         <div className="mt-6">
@@ -128,7 +128,7 @@ export function PromoProjectsCarousel() {
 
   return (
     <div
-      className="relative overflow-hidden rounded-3xl border border-primary/15 bg-white shadow-[0_30px_60px_-30px_rgb(0_61_122_/_45%)]"
+      className="relative overflow-hidden rounded-3xl border border-primary/15 bg-white shadow-[0_30px_60px_-30px_rgb(0_61_122_/_45%)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-[0_30px_60px_-30px_rgb(0_0_0_/_60%)]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
@@ -199,7 +199,7 @@ export function PromoProjectsCarousel() {
                 Dự án nổi bật
               </div>
 
-              <h3 className="text-2xl font-extrabold tracking-tight text-[#003D7A] md:text-3xl">
+              <h3 className="text-2xl font-extrabold tracking-tight text-[#003D7A] dark:text-white md:text-3xl">
                 {project.name}
               </h3>
 
@@ -209,17 +209,17 @@ export function PromoProjectsCarousel() {
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-3">
-                <div className="rounded-xl bg-primary/5 px-3 py-2">
+                <div className="rounded-xl bg-primary/5 px-3 py-2 dark:bg-accent/10">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Giá</p>
-                  <p className="mt-0.5 font-bold text-[#003D7A]">{project.price}</p>
+                  <p className="mt-0.5 font-bold text-[#003D7A] dark:text-white">{project.price}</p>
                 </div>
-                <div className="rounded-xl bg-primary/5 px-3 py-2">
+                <div className="rounded-xl bg-primary/5 px-3 py-2 dark:bg-accent/10">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Loại</p>
-                  <p className="mt-0.5 font-bold text-[#003D7A]">{project.type}</p>
+                  <p className="mt-0.5 font-bold text-[#003D7A] dark:text-white">{project.type}</p>
                 </div>
-                <div className="rounded-xl bg-primary/5 px-3 py-2">
+                <div className="rounded-xl bg-primary/5 px-3 py-2 dark:bg-accent/10">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Diện tích</p>
-                  <p className="mt-0.5 font-bold text-[#003D7A]">{project.area}</p>
+                  <p className="mt-0.5 font-bold text-[#003D7A] dark:text-white">{project.area}</p>
                 </div>
               </div>
 
