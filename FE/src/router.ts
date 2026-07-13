@@ -5,12 +5,13 @@ export type RouteId =
   | 'login'
   | 'register'
   | 'verify-otp'
+  | 'verify-identity'
   | 'resend-otp'
   | 'forgot-password'
   | 'reset-password'
   | 'home-admin'
-  | 'home-ward'
-  | 'home-verifier'
+  | 'home-developer'
+  | 'home-sxd'
   | 'home-user'
   | 'quan-tam'
   | 'dashboard'
@@ -99,6 +100,16 @@ export const routes: RouteConfig[] = [
     cta: 'Xác nhận mã',
   },
   {
+    id: 'verify-identity',
+    label: 'Xác minh danh tính',
+    group: 'security',
+    auth: true,
+    roles: ['Applicant'],
+    title: 'Xác minh danh tính CCCD',
+    subtitle: 'Quét CCCD và xác thực khuôn mặt để hoàn tất đăng ký tài khoản.',
+    cta: 'Hoàn tất xác minh',
+  },
+  {
     id: 'resend-otp',
     label: 'Gửi lại OTP',
     group: 'security',
@@ -133,23 +144,23 @@ export const routes: RouteConfig[] = [
     cta: '',
   },
   {
-    id: 'home-ward',
+    id: 'home-developer',
     label: 'Trang chủ',
     group: 'workspace',
     auth: true,
-    roles: ['Ward Manager'],
-    title: 'Trang quản lý phường',
-    subtitle: 'Phê duyệt hồ sơ và quản lý dự án trên địa bàn phường.',
+    roles: ['Housing Developer'],
+    title: 'Trang chủ đầu tư',
+    subtitle: 'Tiếp nhận, thẩm định và gửi hồ sơ lên Sở Xây dựng.',
     cta: '',
   },
   {
-    id: 'home-verifier',
+    id: 'home-sxd',
     label: 'Trang chủ',
     group: 'workspace',
     auth: true,
-    roles: ['Verification Officer'],
-    title: 'Trang cán bộ thẩm định',
-    subtitle: 'Tiếp nhận, thẩm định và kết luận hồ sơ đăng ký nhà ở.',
+    roles: ['Department Of Construction'],
+    title: 'Trang Sở Xây dựng',
+    subtitle: 'Hậu kiểm và phê duyệt cuối cùng các hồ sơ đăng ký nhà ở xã hội.',
     cta: '',
   },
   {
@@ -407,10 +418,10 @@ export function roleHome(role: string): RouteId {
   switch (role.trim()) {
     case 'System Administrator':
       return 'home-admin'
-    case 'Ward Manager':
-      return 'home-ward'
-    case 'Verification Officer':
-      return 'home-verifier'
+    case 'Housing Developer':
+      return 'home-developer'
+    case 'Department Of Construction':
+      return 'home-sxd'
     case 'Applicant':
       return 'home-user'
     default:
@@ -418,29 +429,26 @@ export function roleHome(role: string): RouteId {
   }
 }
 
-// Phân quyền theo cấp: Admin > Quản lý phường > Người dùng.
+// Phân quyền theo cấp: Admin > CĐT > SXD > Người dùng.
 // Admin có toàn bộ quyền (canAccess luôn true). Các role khác chỉ
 // truy cập được những route trong danh sách của mình.
 const ROLE_ACCESS: Record<string, RouteId[]> = {
-  'Ward Manager': [
-    'home-ward',
+  'Housing Developer': [
+    'home-developer',
     'applications',
     'projects',
     'create-project',
     'project-detail',
-    'payments',
-    'create-payment',
     'application-detail',
     'profile',
     'change-password',
   ],
-  'Verification Officer': [
-    'home-verifier',
+  'Department Of Construction': [
+    'home-sxd',
     'applications',
     'projects',
     'project-detail',
     'application-detail',
-    'dashboard',
     'profile',
     'change-password',
   ],
@@ -449,7 +457,10 @@ const ROLE_ACCESS: Record<string, RouteId[]> = {
     'quan-tam',
     'applications',
     'application-detail',
+    'create-application',
     'projects',
+    'project-detail',
+    'notifications',
     'profile',
     'change-password',
   ],
@@ -469,6 +480,7 @@ export const AUTH_FORM_ROUTES = new Set<RouteId>([
   'login',
   'register',
   'verify-otp',
+  'verify-identity',
   'resend-otp',
   'forgot-password',
   'reset-password',
@@ -479,10 +491,10 @@ export function publicNavRoutes(): RouteId[] {
 }
 
 const NAV_BY_ROLE: Record<string, RouteId[]> = {
-  'System Administrator': ['admin-staff', 'profile'],
-  'Ward Manager': ['home-ward', 'applications', 'projects', 'payments', 'notifications', 'profile'],
-  'Verification Officer': ['home-verifier', 'applications', 'projects', 'notifications', 'profile'],
-  Applicant: ['home-user', 'quan-tam', 'applications', 'projects', 'profile'],
+  'System Administrator': ['admin-staff', 'notifications', 'profile'],
+  'Housing Developer': ['home-developer', 'applications', 'projects', 'notifications', 'profile'],
+  'Department Of Construction': ['home-sxd', 'applications', 'projects', 'notifications', 'profile'],
+  Applicant: ['home-user', 'quan-tam', 'applications', 'projects', 'notifications', 'profile'],
 }
 
 export function navRoutes(role: string): RouteId[] {
