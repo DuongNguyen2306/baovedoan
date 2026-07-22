@@ -5,6 +5,12 @@ import {
   housingApplicationsApi,
   parseApplicationDetail,
 } from '@/api/housing-applications'
+import {
+  publicPostCheckApi,
+  parsePublicPostCheckItem,
+  parsePublicPostCheckList,
+  parsePublicPostCheckStats,
+} from '@/api/public-post-check'
 import { StatusTimeline } from '@/components/ui/accordion'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,11 +21,18 @@ import { labelApplicationStatus, labelReviewAction } from '@/lib/labels'
 import { formatError } from '@/lib/format-error'
 import { isLoggedIn, navigate } from '@/router'
 
+type LookupMode = 'public' | 'auth'
+
 export function LookupPage() {
   const [id, setId] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [detail, setDetail] = useState<ReturnType<typeof parseApplicationDetail>>(null)
+  const [publicList, setPublicList] = useState<ReturnType<typeof parsePublicPostCheckList>>([])
+  const [stats, setStats] = useState<ReturnType<typeof parsePublicPostCheckStats>>(null)
+  const [publicItem, setPublicItem] = useState<ReturnType<typeof parsePublicPostCheckItem>>(null)
+  // LookupMode reserved for future "logged-in chi tiết" toggle.
+  void (null as unknown as LookupMode)
 
   const search = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,15 +40,39 @@ export function LookupPage() {
     setLoading(true)
     setError('')
     setDetail(null)
+    setPublicItem(null)
     try {
-      const raw = await housingApplicationsApi.getById(id.trim())
-      setDetail(parseApplicationDetail(raw))
+      if (isLoggedIn()) {        const raw = await housingApplicationsApi.getById(id.trim())
+        setDetail(parseApplicationDetail(raw))
+      } else {
+        const raw = await publicPostCheckApi.getById(id.trim())
+        const item = parsePublicPostCheckItem(raw)
+        if (item) setPublicItem(item)
+        else setError('Không tìm thấy hồ sơ trong danh sách công bố.')
+      }
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         setError('Vui lòng đăng nhập để tra cứu hồ sơ này.')
       } else {
         setError(formatError(err))
       }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadPublicList = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const [listData, statsData] = await Promise.all([
+        publicPostCheckApi.list(),
+        publicPostCheckApi.stats(),
+      ])
+      setPublicList(parsePublicPostCheckList(listData))
+      setStats(parsePublicPostCheckStats(statsData))
+    } catch (err) {
+      setError(formatError(err))
     } finally {
       setLoading(false)
     }
@@ -54,13 +91,15 @@ export function LookupPage() {
       <div>
         <p className="text-xs font-bold uppercase tracking-widest text-accent">Tra cứu công khai</p>
         <h1 className="mt-1 text-3xl font-bold">Tra cứu hồ sơ</h1>
-        <p className="mt-2 text-slate-500 dark:text-slate-400">Nhập mã hồ sơ (UUID) để xem trạng thái. Cần đăng nhập nếu hồ sơ thuộc tài khoản của bạn.</p>
+        <p className="mt-2 text-slate-500 dark:text-slate-400">
+          Tra cứu công khai hồ sơ nhà ở xã hội. Có thể xem danh sách đã công bố mà không cần đăng nhập.
+        </p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Tìm kiếm</CardTitle>
-          <CardDescription>Mã UUID được cấp khi nộp hồ sơ thành công</CardDescription>
+          <CardDescription>Nhập mã hồ sơ (UUID) để xem trạng thái công bố.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={search} className="flex gap-2">
@@ -97,8 +136,13 @@ export function LookupPage() {
         </div>
       )}
 
-      {!loading && !detail && !error && (
-        <EmptyState title="Chưa tra cứu" description="Nhập mã hồ sơ ở trên để xem tiến độ xử lý chi tiết." />
+      {!loading && !detail && !publicItem && !error && (
+        <EmptyState
+          title="Chưa tra cứu"
+          description="Nhập mã hồ sơ ở trên để xem tiến độ xử lý chi tiết."
+          actionLabel="Xem danh sách công bố"
+          onAction={() => void loadPublicList()}
+        />
       )}
 
       {detail && (
@@ -128,6 +172,53 @@ export function LookupPage() {
           </Card>
         </motion.div>
       )}
+
+      {publicItem && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{publicItem.projectName ?? 'Dự án'}</CardTitle>
+            <CardDescription>{publicItem.fullName ?? '—'} · {publicItem.citizenId ?? '—'}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <span className="inline-flex rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+              {publicItem.applicationStatus ?? '—'}
+            </span>
+            {publicItem.slotCode && (
+              <p className="mt-2 text-sm">Mã căn: <strong>{publicItem.slotCode}</strong></p>
+            )}
+            {publicItem.lotteryResult && (
+              <p className="mt-1 text-sm">Kết quả bốc thăm: <strong>{publicItem.lotteryResult}</strong></p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {publicList.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Danh sách hồ sơ công bố ({publicList.length})</CardTitle>
+            {stats && (
+              <CardDescription>
+                Tổng: {stats.totalApplications ?? '—'} · Đạt: {stats.approved ?? '—'} · Từ chối: {stats.rejected ?? '—'}
+              </CardDescription>
+            )}
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {publicList.slice(0, 50).map((it) => (
+                <div key={it.applicationId} className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{it.fullName ?? '—'}</span>
+                    <span className="text-xs text-slate-500">{it.applicationStatus ?? ''}</span>
+                  </div>
+                  <p className="text-xs text-slate-500">{it.projectName ?? ''}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </motion.div>
   )
 }
+
