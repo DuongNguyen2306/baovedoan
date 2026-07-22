@@ -50,31 +50,17 @@ const STEPS = [
 ]
 
 const fadeUp = {
-  initial: { opacity: 0, y: 24 },
-  whileInView: { opacity: 1, y: 0 },
+  initial: { opacity: 0 },
+  whileInView: { opacity: 1 },
   viewport: { once: true },
-  transition: { duration: 0.5, ease: 'easeOut' as const },
+  transition: { duration: 0.4, ease: 'easeOut' as const },
 }
 
-/** Thông báo nổi cố định bên phải — auto 5s mở / 5s thu, đứng im khi có tương tác */
+/** Thông báo nổi cố định bên phải — toggle thủ công, không autoplay để tránh repaint liên tục */
 function AppFloatingNotice() {
   const [expanded, setExpanded] = useState(false)
-  const [interacted, setInteracted] = useState(false)
 
-  useEffect(() => {
-    if (interacted) return
-    const id = window.setInterval(() => {
-      setExpanded((prev) => !prev)
-    }, 5000)
-    return () => window.clearInterval(id)
-  }, [interacted])
-
-  const handleEnter = () => setInteracted(true)
-
-  const handleToggle = (next: boolean) => {
-    setExpanded(next)
-    setInteracted(true)
-  }
+  const handleToggle = (next: boolean) => setExpanded(next)
 
   const wrapperMotion = {
     initial: false,
@@ -85,7 +71,7 @@ function AppFloatingNotice() {
 
   return (
     <div className="pointer-events-none fixed right-4 top-1/2 z-40 -translate-y-1/2">
-      <div className="pointer-events-auto" onMouseEnter={handleEnter}>
+      <div className="pointer-events-auto">
         <AnimatePresence mode="popLayout" initial={false}>
           {expanded ? (
             <motion.div
@@ -383,9 +369,9 @@ function AnimatedStat({ value, label, sub, icon: Icon, delay = 0 }: { value: str
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: 20 }}
-      animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-      transition={{ delay, duration: 0.5 }}
+      initial={{ opacity: 0 }}
+      animate={inView ? { opacity: 1 } : { opacity: 0 }}
+      transition={{ delay, duration: 0.4 }}
       className="gov-card relative overflow-hidden p-6"
     >
       <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-primary/5" />
@@ -550,11 +536,12 @@ export function LandingPage() {
               {STEPS.map((step, i) => (
                 <motion.div
                   key={step.num}
-                  initial={{ opacity: 0, x: -12 }}
-                  whileInView={{ opacity: 1, x: 0 }}
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 1 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.1 }}
-                  className="gov-card relative p-5"
+                  className="gov-card anim-up relative p-5"
+                  style={{ animationDelay: `${i * 0.1}s` }}
                 >
                   <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-xs font-extrabold text-white shadow-md">
                     {step.num}
@@ -586,11 +573,12 @@ export function LandingPage() {
             {LANDING_NEWS.map((n, i) => (
               <motion.article
                 key={n.title}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className="gov-card relative overflow-hidden p-6"
+                className="gov-card anim-up relative overflow-hidden p-6"
+                style={{ animationDelay: `${i * 0.1}s` }}
               >
                 <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-primary/5" />
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-accent">
