@@ -9,9 +9,27 @@ export interface HousingProjectStatusDto {
   label: string
 }
 
+export interface PolicyConfigDto {
+  policyName: string
+  policyValue: string
+  description?: string
+  unit?: string
+  updatedAt?: string
+}
+
 export const housingProjectStatusesApi = {
   list: () =>
     request<ApiResult>('/api/housing-project-statuses'),
+
+  getPolicy: (name: string) =>
+    request<ApiResult>(`/api/PolicyConfig/${encodeURIComponent(name)}`),
+
+  updatePolicy: (name: string, body: { policyValue: string; description?: string }) =>
+    request<ApiResult>(`/api/PolicyConfig/${encodeURIComponent(name)}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+      auth: true,
+    }),
 }
 
 export function parseStatuses(data: unknown): HousingProjectStatusDto[] {

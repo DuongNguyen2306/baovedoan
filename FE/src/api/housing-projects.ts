@@ -35,17 +35,27 @@ function toFormData(body: CreateHousingProjectRequestDto): FormData {
   fd.append('Description', body.description)
   fd.append('Province', body.province)
   fd.append('District', body.district)
-  fd.append('Address', body.address)
+  if (body.street) fd.append('Street', body.street)
+  if (body.ward) fd.append('Ward', body.ward)
+  fd.append('Address', body.address ?? '')
   fd.append('MinPrice', String(body.minPrice))
   fd.append('MaxPrice', String(body.maxPrice))
   fd.append('MinArea', String(body.minArea))
   fd.append('MaxArea', String(body.maxArea))
   fd.append('AvailableUnits', String(body.availableUnits))
+  if (body.decisionNumber) fd.append('DecisionNumber', body.decisionNumber)
+  if (body.approvalDate) fd.append('ApprovalDate', body.approvalDate)
+  if (body.isConfirmed !== undefined) fd.append('IsConfirmed', String(body.isConfirmed))
+  if (body.depositAmount !== undefined) fd.append('DepositAmount', String(body.depositAmount))
+  if (body.lotteryDate) fd.append('LotteryDate', body.lotteryDate)
+  if (body.lotteryLocation) fd.append('LotteryLocation', body.lotteryLocation)
+  if (body.applicationOpenDate) fd.append('ApplicationOpenDate', body.applicationOpenDate)
+  if (body.applicationCloseDate) fd.append('ApplicationCloseDate', body.applicationCloseDate)
   fd.append('HousingProjectStatusId', body.housingProjectStatusId)
   if (body.thumbnailUrl) fd.append('ThumbnailUrl', body.thumbnailUrl)
   if (body.thumbnailFile) fd.append('ThumbnailFile', body.thumbnailFile)
   if (body.imagesFiles) {
-    for (const file of body.imagesFiles) fd.append('ImagesFiles', file)
+    for (const file of body.imagesFiles) fd.append('ImageFiles', file)
   }
   return fd
 }
@@ -76,4 +86,24 @@ export const housingProjectsApi = {
       method: 'DELETE',
       auth: true,
     }),
+
+  getEvaluation: (id: string) =>
+    request<ApiResult>(`/api/HousingProjects/${id}/application-evaluation`, { auth: true }),
+
+  executeDeveloperDecision: (id: string, body: DeveloperWorkflowDecisionRequestDto) =>
+    request<ApiResult>(`/api/HousingProjects/${id}/developer-decision`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      auth: true,
+    }),
+}
+
+export interface DeveloperWorkflowDecisionRequestDto {
+  /** e.g. APPROVE_ALL, RUN_LOTTERY, REJECT, COMPLETE */
+  decision: string
+  /** Danh sách applicationId (cho REJECT/COMPLETE) */
+  applicationIds?: string[]
+  /** Override tổng số căn (cho RUN_LOTTERY) */
+  totalUnits?: number
+  notes?: string
 }
