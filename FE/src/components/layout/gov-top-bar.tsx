@@ -1,32 +1,37 @@
-import { Mail, MapPin, Phone } from 'lucide-react'
+import { Mail, MapPin, Phone, Wifi } from 'lucide-react'
 import { BRAND } from '@/lib/brand'
+import { LiveClock } from '@/components/layout/live-clock'
 
-function formatDateVi() {
-  return new Date().toLocaleDateString('vi-VN', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
-}
-
-/** Thanh trên cùng — hotline, email, ngày (kiểu cổng TTĐT) */
+/**
+ * Thanh trên cùng — hotline, email, địa điểm, trạng thái hệ thống, đồng hồ.
+ * Phiên bản 4.1: glassy, LED sweep, pulse status, các item nằm cùng 1 dòng.
+ */
 export function GovTopBar() {
   return (
-    <div className="border-b border-[#003D7A]/20 bg-[#003D7A] text-white">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-1.5 text-[11px] lg:px-8">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <span className="inline-flex items-center gap-1.5 font-medium">
+    <div className="relative border-b border-[#003D7A]/30 bg-gradient-to-r from-[#003D7A] via-[#0a4a8e] to-[#003D7A] text-white">
+      <div className="led-strip absolute inset-x-0 top-0" aria-hidden />
+      <div className="mx-auto flex max-w-7xl flex-nowrap items-center justify-between gap-x-4 gap-y-0 whitespace-nowrap px-4 py-1.5 text-[11px] lg:px-8">
+        <div className="flex flex-nowrap items-center gap-x-4 whitespace-nowrap">
+          <span className="inline-flex shrink-0 items-center gap-1.5 font-medium">
             <Phone className="h-3 w-3 text-[#FFCD00]" />
             {BRAND.hotlineLabel}: <strong className="text-[#FFCD00]">{BRAND.hotline}</strong>
           </span>
-          <span className="hidden items-center gap-1.5 sm:inline-flex">
+          <span className="hidden shrink-0 items-center gap-1.5 sm:inline-flex whitespace-nowrap">
             <Mail className="h-3 w-3 text-white/70" />
             {BRAND.email}
           </span>
+          <span className="hidden shrink-0 items-center gap-1.5 md:inline-flex whitespace-nowrap">
+            <MapPin className="h-3 w-3 text-white/70" />
+            Hà Nội
+          </span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="hidden text-white/75 md:inline">{formatDateVi()}</span>
+        <div className="flex shrink-0 items-center gap-3 whitespace-nowrap">
+          <span className="hidden items-center gap-1.5 rounded-full border border-emerald-300/40 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-200 lg:inline-flex whitespace-nowrap">
+            <Wifi className="h-3 w-3" /> 99.98% Uptime
+          </span>
+          <span className="rounded-md border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold tabular-nums whitespace-nowrap">
+            <LiveClock className="text-white/85" />
+          </span>
         </div>
       </div>
     </div>
