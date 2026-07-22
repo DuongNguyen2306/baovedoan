@@ -112,7 +112,7 @@ export const housingApplicationsApi = {
 
   assign: (id: string) =>
     request<ApiResult>(`/api/housing-applications/${id}/assign`, {
-      method: 'POST',
+      method: 'PATCH',
       auth: true,
     }),
 
