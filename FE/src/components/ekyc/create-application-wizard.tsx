@@ -365,14 +365,19 @@ export function CreateApplicationWizard() {
     }
   }
 
-  const uploadOneDoc = async (key: string, file: File): Promise<boolean> => {
-    if (!draftId) {
+  const uploadOneDoc = async (
+    key: string,
+    file: File,
+    applicationId?: string | null,
+  ): Promise<boolean> => {
+    const id = applicationId ?? draftId
+    if (!id) {
       setMsg({ type: 'error', text: 'Bạn cần lưu nháp hồ sơ trước khi upload tài liệu.' })
       return false
     }
     setDocs((d) => ({ ...d, [key]: { type: key, file, state: 'uploading' } }))
     try {
-      const res = await housingApplicationsApi.uploadDocument(draftId, key, file)
+      const res = await housingApplicationsApi.uploadDocument(id, key, file)
       const detail = (res as { documentId?: string; DocumentId?: string } | null) ?? null
       const documentId = String(detail?.documentId ?? detail?.DocumentId ?? '')
       setDocs((d) => ({ ...d, [key]: { type: key, file, documentId, state: 'uploaded' } }))
@@ -395,9 +400,10 @@ export function CreateApplicationWizard() {
   }
 
   const handleUploadAll = async () => {
-    if (!draftId) {
-      const id = await createDraft()
-      if (!id) return
+    let appId = draftId
+    if (!appId) {
+      appId = await createDraft()
+      if (!appId) return
     }
     setBusy('upload-all')
     let ok = true
@@ -405,7 +411,7 @@ export function CreateApplicationWizard() {
       const entry = docs[key]
       if (!entry) continue
       if (entry.state === 'uploaded') continue
-      const res = await uploadOneDoc(key, entry.file)
+      const res = await uploadOneDoc(key, entry.file, appId)
       if (!res) ok = false
     }
     setBusy('')
@@ -435,8 +441,11 @@ export function CreateApplicationWizard() {
     setBusy('submit')
     setMsg(null)
     try {
-      const result = await housingApplicationsApi.submit(draftId) as { newStatus?: string }
-      const newStatus = result?.newStatus ?? 'SUBMITTED'
+      const result = await housingApplicationsApi.submit(draftId) as {
+        newStatus?: string
+        NewStatus?: string
+      }
+      const newStatus = result?.newStatus ?? result?.NewStatus ?? 'SUBMITTED'
       setDraftStatus(newStatus)
       setMsg({ type: 'success', text: `Nộp hồ sơ thành công (trạng thái: ${newStatus}). Hệ thống sẽ chuyển sang trang chi tiết.` })
       setTimeout(() => {

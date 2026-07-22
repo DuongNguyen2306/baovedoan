@@ -103,7 +103,17 @@ export async function request<T = unknown>(
   if (res.status === 204 || res.status === 205) return null as T
 
   const text = await res.text()
-  const data = text ? (JSON.parse(text) as unknown) : null
+  let data: unknown = null
+  if (text) {
+    try {
+      data = JSON.parse(text) as unknown
+    } catch {
+      if (!res.ok) {
+        throw new ApiError(res.status, { message: text.slice(0, 300) || `HTTP ${res.status}` })
+      }
+      throw new Error('Phản hồi từ máy chủ không phải JSON hợp lệ.')
+    }
+  }
 
   if (!res.ok) throw new ApiError(res.status, data)
 
