@@ -29,6 +29,7 @@ import {
 import { extractApplicationId, extractProjects } from '@/lib/parsers'
 import { formatError } from '@/lib/format-error'
 import { useUserProfile } from '@/providers/user-profile-provider'
+import type { CreateApplicationDto } from '@/types'
 
 // Luồng chính theo yêu cầu: 5 bước. Step 2 (Hộ gia đình) lưu cùng create-application qua `householdMembers[]`.
 // Step 3 (Nhóm đối tượng) chọn priorityGroup + khai báo lịch sử hợp đồng nhà ở xã hội.
@@ -52,12 +53,12 @@ interface HouseholdMember {
   note: string
 }
 
-// maritals: BE dùng string, FE giữ cùng label/value cho đồng nhất.
+// maritals: mã BE (EligibilityRuleEngine dùng MARRIED).
 const MARITAL_STATUSES = [
-  { value: 'Chưa kết hôn', label: 'Chưa kết hôn' },
-  { value: 'Đã kết hôn', label: 'Đã kết hôn' },
-  { value: 'Ly hôn', label: 'Ly hôn' },
-  { value: 'Góa', label: 'Góa' },
+  { value: 'SINGLE', label: 'Độc thân' },
+  { value: 'MARRIED', label: 'Đã kết hôn' },
+  { value: 'DIVORCED', label: 'Ly hôn' },
+  { value: 'WIDOWED', label: 'Góa' },
 ]
 
 /** Nhóm đối tượng ưu tiên — đồng bộ với BE (PriorityGroupConstants.cs Đ76 Luật Nhà ở 2023). */
@@ -75,14 +76,15 @@ const PRIORITY_GROUPS = [
   { value: 'LAND_RECOVERY_AFFECTED', label: 'Bị thu hồi đất / giải tỏa nhà ở', description: 'Bị thu hồi đất ở/giải tỏa nhà ở thuộc sở hữu Nhà nước (khoản 10 Đ76).' },
 ]
 
-/** Quan hệ trong hộ (placeholder — BE sẽ chuẩn hóa). */
+/** Quan hệ trong hộ — mã BE (HouseholdRelationshipConstants). */
 const HOUSEHOLD_RELATIONS = [
-  'Vợ/Chồng',
-  'Con',
-  'Bố/Mẹ',
-  'Ông/Bà',
-  'Anh/Chị/Em',
-  'Khác',
+  { value: 'SPOUSE', label: 'Vợ / Chồng' },
+  { value: 'CHILD', label: 'Con' },
+  { value: 'PARENT', label: 'Cha / Mẹ' },
+  { value: 'SIBLING', label: 'Anh / Chị / Em' },
+  { value: 'GRANDPARENT', label: 'Ông / Bà' },
+  { value: 'GRANDCHILD', label: 'Cháu' },
+  { value: 'OTHER', label: 'Khác' },
 ]
 
 const STEPS: { id: Step; label: string; icon: typeof UserCheck }[] = [
@@ -174,7 +176,7 @@ export function CreateApplicationWizard() {
     currentResidence: '',
     permanentAddress: '',
     housingStatus: 'NO_HOUSE' as 'NO_HOUSE' | 'SMALL_HOUSE',
-    maritalStatus: 'Chưa kết hôn' as typeof MARITAL_STATUSES[number]['value'],
+    maritalStatus: 'SINGLE' as typeof MARITAL_STATUSES[number]['value'],
     monthlyIncome: '',
     spouseMonthlyIncome: '',
     averageHousingAreaPerPerson: '',
@@ -182,7 +184,7 @@ export function CreateApplicationWizard() {
   })
 
   /** Bước 3 — Hộ gia đình (chờ BE: gửi kèm create-application). */
-  const [householdSize, setHouseholdSize] = useState('')
+  const [householdSize, setHouseholdSize] = useState('0')
   const [household, setHousehold] = useState<HouseholdMember[]>([])
 
   /** Bước 3 — Nhóm đối tượng theo Nghị định 100/2024. */
@@ -257,38 +259,89 @@ export function CreateApplicationWizard() {
     form.maritalStatus.trim().length > 0 &&
     Number(form.monthlyIncome) >= 0
 
-  const step2Ready = householdSize !== '' && Number(householdSize) >= 1 && household.every((m) => m.fullName.trim().length > 0 && m.relationship !== '')
+  const step2Ready =
+    householdSize !== '' &&
+    Number(householdSize) >= 0 &&
+    household.every((m) => m.fullName.trim().length > 0 && m.relationship !== '')
 
   const step3Ready = form.priorityGroup !== '' && (!hasPriorContract || priorContractNote.trim().length > 0)
 
   const allDocsUploaded = requiredDocs.every((k) => docs[k]?.state === 'uploaded')
 
+  const buildCreateBody = (): CreateApplicationDto | null => {
+    if (!form.projectId || !form.priorityGroup) return null
+    if (form.housingStatus === 'SMALL_HOUSE') {
+      const area = parseFloat(form.averageHousingAreaPerPerson)
+      if (!form.averageHousingAreaPerPerson.trim() || Number.isNaN(area) || area < 0 || area >= 15) {
+        setMsg({
+          type: 'error',
+          text: 'Khi khai nhà diện tích nhỏ: diện tích bình quân đầu người phải dưới 15 m².',
+        })
+        return null
+      }
+    }
+    return {
+      projectId: form.projectId,
+      fullName: form.fullName.trim(),
+      citizenId: form.citizenId.trim(),
+      occupation: form.occupation.trim() || null,
+      workPlace: form.workPlace.trim() || null,
+      currentResidence: form.currentResidence.trim(),
+      permanentAddress: form.permanentAddress.trim(),
+      housingStatus: form.housingStatus,
+      maritalStatus: form.maritalStatus,
+      monthlyIncome: form.monthlyIncome !== '' ? parseFloat(form.monthlyIncome) : null,
+      spouseMonthlyIncome: form.spouseMonthlyIncome ? parseFloat(form.spouseMonthlyIncome) : null,
+      averageHousingAreaPerPerson: form.averageHousingAreaPerPerson
+        ? parseFloat(form.averageHousingAreaPerPerson)
+        : null,
+      priorityGroup: form.priorityGroup,
+      householdMembers:
+        household.length > 0
+          ? household.map((m) => ({
+              fullName: m.fullName.trim(),
+              relationship: m.relationship,
+              dateOfBirth: m.dateOfBirth || null,
+              citizenId: m.citizenId.trim() || null,
+              note: m.note.trim() || null,
+            }))
+          : null,
+    }
+  }
+
   const createDraft = async (): Promise<string | null> => {
+    const body = buildCreateBody()
+    if (!body) {
+      if (!form.priorityGroup) {
+        setMsg({ type: 'error', text: 'Vui lòng chọn nhóm đối tượng (bước 3) trước khi lưu nháp.' })
+      }
+      return null
+    }
     setBusy('create')
     setMsg(null)
     try {
-      const data = await housingApplicationsApi.create({
-        projectId: form.projectId,
-        fullName: form.fullName.trim(),
-        citizenId: form.citizenId.trim(),
-        occupation: form.occupation.trim() || null,
-        workPlace: form.workPlace.trim() || null,
-        currentResidence: form.currentResidence.trim(),
-        permanentAddress: form.permanentAddress.trim(),
-        housingStatus: form.housingStatus,
-        maritalStatus: form.maritalStatus,
-        monthlyIncome: parseFloat(form.monthlyIncome) || null,
-        spouseMonthlyIncome: form.spouseMonthlyIncome ? parseFloat(form.spouseMonthlyIncome) : null,
-        averageHousingAreaPerPerson: form.averageHousingAreaPerPerson ? parseFloat(form.averageHousingAreaPerPerson) : null,
-        priorityGroup: form.priorityGroup,
-        householdMembers: household.length > 0 ? household.map((m) => ({
-          fullName: m.fullName,
-          relationship: m.relationship,
-          dateOfBirth: m.dateOfBirth ? `${m.dateOfBirth}-01-01` : null,
-          citizenId: m.citizenId || null,
-          note: m.note || null,
-        })) : null,
-      })
+        if (draftId) {
+          // UpdateApplicationRequestDto không nhận projectId
+          const updateBody = {
+            fullName: body.fullName,
+            citizenId: body.citizenId,
+            occupation: body.occupation,
+            workPlace: body.workPlace,
+            currentResidence: body.currentResidence,
+            permanentAddress: body.permanentAddress,
+            housingStatus: body.housingStatus,
+            maritalStatus: body.maritalStatus,
+            monthlyIncome: body.monthlyIncome,
+            spouseMonthlyIncome: body.spouseMonthlyIncome,
+            averageHousingAreaPerPerson: body.averageHousingAreaPerPerson,
+            priorityGroup: body.priorityGroup,
+            householdMembers: body.householdMembers,
+          }
+          await housingApplicationsApi.update(draftId, updateBody)
+        setDraftStatus('DRAFT')
+        return draftId
+      }
+      const data = await housingApplicationsApi.create(body)
       const appId = extractApplicationId(data)
       if (!appId) {
         setMsg({ type: 'error', text: 'BE không trả về mã hồ sơ. Vui lòng thử lại.' })
@@ -369,10 +422,13 @@ export function CreateApplicationWizard() {
       return
     }
     if (!allDocsUploaded) {
-      setMsg({ type: 'error', text: 'Vui lòng upload đủ 2 tài liệu PDF trước khi nộp hồ sơ.' })
+      setMsg({
+        type: 'error',
+        text: `Vui lòng upload đủ ${requiredDocs.length} giấy tờ PDF bắt buộc trước khi nộp hồ sơ.`,
+      })
       return
     }
-    if (draftStatus !== 'DRAFT' && draftStatus !== 'PENDING_REVIEW') {
+    if (draftStatus !== 'DRAFT' && draftStatus !== 'NEED_MORE_DOCUMENTS') {
       setMsg({ type: 'warning', text: `Hồ sơ đang ở trạng thái "${draftStatus}", không thể nộp lại.` })
       return
     }
@@ -396,12 +452,14 @@ export function CreateApplicationWizard() {
     }
   }
 
-  const goNextFromStep1 = async () => {
-    if (!draftId) {
-      const id = await createDraft()
-      if (!id) return
-    }
+  const goNextFromStep1 = () => {
     setStep(2)
+  }
+
+  const goNextFromStep3 = async () => {
+    const id = await createDraft()
+    if (!id) return
+    setStep(4)
   }
 
   const addHouseholdMember = () => {
@@ -551,15 +609,12 @@ export function CreateApplicationWizard() {
                 </div>
 
                 <div className="flex flex-wrap justify-between gap-2 pt-2">
-                  <span className="text-xs text-slate-500 dark:text-slate-400">Mã hồ sơ: <span className="font-mono">{draftId ?? '—'}</span></span>
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" disabled={isBusy} onClick={() => void handleSaveDraft()}>
-                      {busy === 'create' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu…</> : 'Lưu nháp'}
-                    </Button>
-                    <Button type="button" variant="accent" disabled={!step1Ready || isBusy} onClick={() => void goNextFromStep1()}>
-                      Tiếp tục <ArrowRight className="ml-1 h-4 w-4" />
-                    </Button>
-                  </div>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    Nháp sẽ được tạo sau khi chọn nhóm đối tượng (bước 3).
+                  </span>
+                  <Button type="button" variant="accent" disabled={!step1Ready || isBusy} onClick={() => goNextFromStep1()}>
+                    Tiếp tục <ArrowRight className="ml-1 h-4 w-4" />
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -579,9 +634,21 @@ export function CreateApplicationWizard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <FormField label="Số thành viên hộ (bao gồm người nộp) *" htmlFor="householdSize">
-                  <Input id="householdSize" type="number" min={1} max={20} value={householdSize} onChange={(e) => setHouseholdSize(e.target.value)} placeholder="Ví dụ: 4" required />
+                <FormField label="Số thành viên thêm (ngoài bạn) *" htmlFor="householdSize">
+                  <Input
+                    id="householdSize"
+                    type="number"
+                    min={0}
+                    max={20}
+                    value={householdSize}
+                    onChange={(e) => setHouseholdSize(e.target.value)}
+                    placeholder="0 nếu sống một mình"
+                    required
+                  />
                 </FormField>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Tổng người trong hộ = 1 (bạn) + số thành viên thêm. Độc thân có thể để 0.
+                </p>
 
                 <div className="space-y-3">
                   {household.map((m, idx) => (
@@ -599,7 +666,9 @@ export function CreateApplicationWizard() {
                         <FormField label="Quan hệ *" htmlFor={`m-rel-${m.id}`}>
                           <Select id={`m-rel-${m.id}`} value={m.relationship} onChange={(e) => updateMember(m.id, { relationship: e.target.value })} required>
                             <option value="">— Chọn —</option>
-                            {HOUSEHOLD_RELATIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                            {HOUSEHOLD_RELATIONS.map((r) => (
+                              <option key={r.value} value={r.value}>{r.label}</option>
+                            ))}
                           </Select>
                         </FormField>
                         <FormField label="Năm sinh" htmlFor={`m-year-${m.id}`}>
@@ -662,9 +731,16 @@ export function CreateApplicationWizard() {
 
                 <div className="flex flex-wrap justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
                   <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep(2)}>← Quay lại</Button>
-                  <Button type="button" variant="accent" disabled={!step3Ready || isBusy} onClick={() => setStep(4)}>
-                    Tiếp tục <ArrowRight className="ml-1 h-4 w-4" />
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" disabled={!step3Ready || isBusy} onClick={() => void handleSaveDraft()}>
+                      {busy === 'create' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu…</> : 'Chỉ lưu nháp'}
+                    </Button>
+                    <Button type="button" variant="accent" disabled={!step3Ready || isBusy} onClick={() => void goNextFromStep3()}>
+                      {busy === 'create'
+                        ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu nháp…</>
+                        : <>Lưu nháp & tải giấy tờ <ArrowRight className="ml-1 h-4 w-4" /></>}
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -679,7 +755,9 @@ export function CreateApplicationWizard() {
                   <FileCheck2 className="h-5 w-5 text-primary" />
                   Bước 4 — Tài liệu đính kèm
                 </CardTitle>
-                <CardDescription>Upload 2 tài liệu PDF (tối đa 10 MB / file). Bắt buộc trước khi nộp hồ sơ.</CardDescription>
+                <CardDescription>
+                  Upload PDF bắt buộc theo nhóm đối tượng (tối đa 10 MB / file). Cần {requiredDocs.length} loại giấy tờ.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {summary}
@@ -734,7 +812,7 @@ export function CreateApplicationWizard() {
 
                 <div className="flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
                   <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep(3)}>← Quay lại</Button>
-                  <Button type="button" variant="accent" disabled={!allDocsUploaded || (draftStatus !== 'DRAFT' && draftStatus !== 'PENDING_REVIEW') || isBusy} onClick={() => setStep(5)}>
+                  <Button type="button" variant="accent" disabled={!allDocsUploaded || (draftStatus !== 'DRAFT' && draftStatus !== 'NEED_MORE_DOCUMENTS') || isBusy} onClick={() => setStep(5)}>
                     Tiếp tục rà soát <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
@@ -768,7 +846,7 @@ export function CreateApplicationWizard() {
                       <p><strong>Nơi ở hiện tại:</strong> {form.currentResidence || '—'}</p>
                       <p><strong>Thường trú:</strong> {form.permanentAddress || '—'}</p>
                       <p><strong>Thực trạng nhà:</strong> {HOUSING_STATUS_LABELS[form.housingStatus] ?? '—'}</p>
-                      <p><strong>Tình trạng hôn nhân:</strong> {form.maritalStatus || '—'}</p>
+                      <p><strong>Tình trạng hôn nhân:</strong> {MARITAL_STATUSES.find((s) => s.value === form.maritalStatus)?.label ?? (form.maritalStatus || '—')}</p>
                       <p><strong>Nhóm đối tượng:</strong> {PRIORITY_GROUPS.find((g) => g.value === form.priorityGroup)?.label ?? '—'}</p>
                       <p><strong>Thu nhập:</strong> {form.monthlyIncome ? `${Number(form.monthlyIncome).toLocaleString('vi-VN')} đ` : '—'}{form.spouseMonthlyIncome ? ` · Vợ/chồng: ${Number(form.spouseMonthlyIncome).toLocaleString('vi-VN')} đ` : ''}</p>
                       {form.averageHousingAreaPerPerson && <p><strong>Diện tích TB/người:</strong> {form.averageHousingAreaPerPerson} m²</p>}
@@ -784,12 +862,17 @@ export function CreateApplicationWizard() {
                         <ul className="space-y-1">
                           {household.map((m, idx) => (
                             <li key={m.id}>
-                              <strong>#{idx + 1}</strong> {m.fullName} — {m.relationship}{m.dateOfBirth ? ` (${m.dateOfBirth})` : ''}{m.citizenId ? `, CCCD: ${m.citizenId}` : ''}
+                              <strong>#{idx + 1}</strong> {m.fullName} —{' '}
+                              {HOUSEHOLD_RELATIONS.find((r) => r.value === m.relationship)?.label ?? m.relationship}
+                              {m.dateOfBirth ? ` (${m.dateOfBirth})` : ''}
+                              {m.citizenId ? `, CCCD: ${m.citizenId}` : ''}
                             </li>
                           ))}
                         </ul>
                       )}
-                      <p className="mt-2 text-xs text-slate-500">Tổng: {householdSize || '0'} thành viên.</p>
+                      <p className="mt-2 text-xs text-slate-500">
+                        Tổng người trong hộ: {1 + (Number(householdSize) || 0)} (bạn + {householdSize || 0} thành viên thêm).
+                      </p>
                     </div>
                   </section>
 
@@ -825,7 +908,7 @@ export function CreateApplicationWizard() {
 
                 <div className="flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
                   <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep(4)}>← Quay lại</Button>
-                  <Button type="button" variant="accent" disabled={!allDocsUploaded || (draftStatus !== 'DRAFT' && draftStatus !== 'PENDING_REVIEW') || isBusy} onClick={() => void handleSubmit()}>
+                  <Button type="button" variant="accent" disabled={!allDocsUploaded || (draftStatus !== 'DRAFT' && draftStatus !== 'NEED_MORE_DOCUMENTS') || isBusy} onClick={() => void handleSubmit()}>
                     {busy === 'submit' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang nộp…</> : 'Nộp hồ sơ'}
                   </Button>
                 </div>

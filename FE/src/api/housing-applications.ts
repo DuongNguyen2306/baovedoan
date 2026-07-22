@@ -35,6 +35,13 @@ export function parseApplicationDetail(data: unknown): ApplicationDetailDto | nu
 }
 
 export const housingApplicationsApi = {
+  update: (id: string, body: Omit<CreateApplicationDto, 'projectId'>) =>
+    request<ApiResult>(`/api/housing-applications/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+      auth: true,
+    }),
+
   create: (body: CreateApplicationDto) =>
     request<ApiResult>('/api/housing-applications', {
       method: 'POST',
