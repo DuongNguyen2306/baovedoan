@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Send } from 'lucide-react'
 import { housingApplicationsApi, parseApplicationDetail, parsePagedApplications } from '@/api/housing-applications'
 import { CreateApplicationWizard } from '@/components/ekyc/create-application-wizard'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
@@ -26,11 +27,15 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 export function ApplicationsPage() {
   const role = getRole()
   const isApplicant = role === 'Applicant'
+  const isDeveloper = role === 'Housing Developer'
   const [apps, setApps] = useState<ApplicationSummaryDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkSending, setBulkSending] = useState(false)
+  const [bulkMsg, setBulkMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const load = async (filter?: { search?: string; status?: string }) => {
     setLoading(true)
@@ -39,7 +44,7 @@ export function ApplicationsPage() {
       const data = isApplicant
         ? await housingApplicationsApi.getMy({ pageIndex: 1, pageSize: 20, ...filter })
         : role === 'Housing Developer'
-        ? await housingApplicationsApi.getAll({ pageIndex: 1, pageSize: 20, ...filter })
+        ? await housingApplicationsApi.getDeveloperDashboard({ pageIndex: 1, pageSize: 20, ...filter })
         : role === 'Department Of Construction'
         ? await housingApplicationsApi.getSxdDashboard({ pageIndex: 1, pageSize: 20, ...filter })
         : await housingApplicationsApi.getAll({ pageIndex: 1, pageSize: 20, ...filter })
@@ -52,6 +57,47 @@ export function ApplicationsPage() {
   }
 
   useEffect(() => { void load() }, [isApplicant, role])
+
+  // Bước 10: CĐT chọn các hồ sơ hợp lệ (REVIEWING) để gom vào danh sách dự kiến → gửi SXD
+  const submittable = useMemo(
+    () => apps.filter((a) => a.applicationStatus === 'REVIEWING'),
+    [apps],
+  )
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    setSelected((prev) => {
+      if (prev.size === submittable.length) return new Set()
+      return new Set(submittable.map((a) => a.applicationId))
+    })
+  }
+
+  const submitSelectedToSxd = async () => {
+    if (selected.size === 0 || bulkSending) return
+    if (!window.confirm(
+      `Gửi ${selected.size} hồ sơ đã chọn lên Sở Xây dựng? Hành động này không thể hoàn tác.`,
+    )) return
+    setBulkSending(true)
+    setBulkMsg(null)
+    try {
+      await housingApplicationsApi.submitToDepartment(Array.from(selected))
+      setBulkMsg({ type: 'success', text: `Đã gửi ${selected.size} hồ sơ lên Sở Xây dựng.` })
+      setSelected(new Set())
+      await load({ search: search || undefined, status: status || undefined })
+    } catch (err) {
+      setBulkMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setBulkSending(false)
+    }
+  }
 
   return (
     <div>
@@ -80,31 +126,82 @@ export function ApplicationsPage() {
           </FormField>
           <div className="flex items-end"><Button type="submit" variant="outline">Lọc</Button></div>
         </form>
+
+        {/* Bước 10-11: Thanh chọn + gửi hàng loạt */}
+        {isDeveloper && submittable.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-800 dark:bg-blue-950/30">
+            <label className="flex items-center gap-2 text-sm font-semibold text-blue-900 dark:text-blue-200">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-blue-600"
+                checked={submittable.length > 0 && selected.size === submittable.length}
+                onChange={toggleSelectAll}
+              />
+              Đã chọn <strong>{selected.size}</strong> / {submittable.length} hồ sơ đang thẩm định
+            </label>
+            <Button
+              variant="accent"
+              size="sm"
+              disabled={selected.size === 0 || bulkSending}
+              onClick={() => void submitSelectedToSxd()}
+            >
+              <Send className="mr-1.5 h-4 w-4" />
+              {bulkSending ? 'Đang gửi…' : `Gửi ${selected.size || ''} hồ sơ lên SXD`.trim()}
+            </Button>
+          </div>
+        )}
+        {bulkMsg && (
+          <Alert variant={bulkMsg.type === 'error' ? 'error' : 'success'} className="mb-4">
+            {bulkMsg.text}
+          </Alert>
+        )}
+
         {loading && <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>}
         {error && <Alert variant="error">{error}</Alert>}
         {!loading && !error && apps.length === 0 && (
           <p className="text-sm text-slate-500 dark:text-slate-400">{isApplicant ? 'Bạn chưa có hồ sơ nào.' : 'Không có hồ sơ phù hợp.'}</p>
         )}
         <div className="grid gap-3">
-          {apps.map((app) => (
-            <button
-              key={app.applicationId}
-              type="button"
-              className="glass-card w-full p-4 text-left transition hover:ring-2 hover:ring-primary/20"
-              onClick={() => {
-                sessionStorage.setItem('applicationId', app.applicationId)
-                navigate('application-detail')
-              }}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <h3 className="font-semibold">{app.projectName || 'Dự án'}</h3>
-                <StatusBadge status={app.applicationStatus} />
+          {apps.map((app) => {
+            const canSelect = isDeveloper && app.applicationStatus === 'REVIEWING'
+            return (
+              <div
+                key={app.applicationId}
+                className="glass-card flex w-full items-stretch gap-0 p-0 transition hover:ring-2 hover:ring-primary/20"
+              >
+                {canSelect && (
+                  <label className="flex w-12 shrink-0 cursor-pointer items-center justify-center border-r border-slate-200 dark:border-slate-700">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-blue-600"
+                      checked={selected.has(app.applicationId)}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        toggleSelect(app.applicationId)
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </label>
+                )}
+                <button
+                  type="button"
+                  className="flex-1 p-4 text-left"
+                  onClick={() => {
+                    sessionStorage.setItem('applicationId', app.applicationId)
+                    navigate('application-detail')
+                  }}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <h3 className="font-semibold">{app.projectName || 'Dự án'}</h3>
+                    <StatusBadge status={app.applicationStatus} />
+                  </div>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{app.applicantFullName} · CCCD: {app.citizenId}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Thu nhập: {Number(app.estimatedMonthlyIncome).toLocaleString('vi-VN')} VNĐ/tháng</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500">{app.documentCount} tài liệu · {new Date(app.createdAt).toLocaleDateString('vi-VN')}</p>
+                </button>
               </div>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{app.applicantFullName} · CCCD: {app.citizenId}</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Thu nhập: {Number(app.estimatedMonthlyIncome).toLocaleString('vi-VN')} VNĐ/tháng</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500">{app.documentCount} tài liệu · {new Date(app.createdAt).toLocaleDateString('vi-VN')}</p>
-            </button>
-          ))}
+            )
+          })}
         </div>
       </PageCard>
     </div>

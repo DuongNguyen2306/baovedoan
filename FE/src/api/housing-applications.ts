@@ -60,6 +60,12 @@ export const housingApplicationsApi = {
       { auth: true },
     ),
 
+  getDeveloperDashboard: (filter?: ApplicationFilterDto) =>
+    request<PagedResultDto<ApplicationSummaryDto>>(
+      `/api/housing-applications/dashboard/developer${buildQuery(filter)}`,
+      { auth: true },
+    ),
+
   submitToDepartment: (applicationIds: string[]) =>
     request<ApiResult>('/api/housing-developer/submit-to-department', {
       method: 'POST',

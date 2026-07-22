@@ -1,69 +1,97 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  AlertCircle,
   ArrowRight,
   CheckCircle2,
-  ChevronRight,
   FileCheck2,
-  IdCard,
-  Info,
+  Home as HomeIcon,
   Loader2,
-  ScanFace,
+  Plus,
+  Trash2,
   Upload,
   UserCheck,
+  Users,
   X,
 } from 'lucide-react'
 import { housingApplicationsApi } from '@/api/housing-applications'
 import { housingProjectsApi } from '@/api/housing-projects'
-import { ekycApi, parseFaceMatch, parseLiveness, parseOcr } from '@/api/ekyc'
-import { CameraCapture } from '@/components/ekyc/camera-capture'
+import { usersApi } from '@/api/users'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FormField } from '@/components/ui/label'
 import { Input, Select } from '@/components/ui/input'
 import { navigate } from '@/hooks/useHashRoute'
-import { DOC_TYPE_LABELS, HOUSING_STATUS_LABELS } from '@/lib/constants'
+import { DOC_TYPE_LABELS, HOUSING_STATUS_LABELS, getRequiredDocsForPriorityGroup } from '@/lib/constants'
 import {
-  formatCooldown,
-  formatEkycError,
-  getOcrCooldownRemainingMs,
-  isValidCitizenId,
-  setOcrCooldown,
   validateDocumentFile,
-  validateIdImage,
-  validateLivenessVideo,
-  validateSelfieImage,
-  DOC_TYPE_KEYS,
-  type DocTypeKey,
 } from '@/lib/ekyc-helpers'
 import { extractApplicationId, extractProjects } from '@/lib/parsers'
 import { formatError } from '@/lib/format-error'
-import type { OcrResultDto } from '@/types'
+import { useUserProfile } from '@/providers/user-profile-provider'
 
-type Step = 1 | 2 | 3 | 4
+// Luồng chính theo yêu cầu: 5 bước. Step 2 (Hộ gia đình) lưu cùng create-application qua `householdMembers[]`.
+// Step 3 (Nhóm đối tượng) chọn priorityGroup + khai báo lịch sử hợp đồng nhà ở xã hội.
 
-interface EkycState {
-  ocr: boolean
-  citizenOk: boolean
-  face: boolean
-  liveness: boolean
-}
+type Step = 1 | 2 | 3 | 4 | 5
 
 interface DocUpload {
-  type: DocTypeKey
+  type: string
   file: File
   documentId?: string
   state: 'pending' | 'uploading' | 'uploaded' | 'error'
   error?: string
 }
 
-function formatSimilarity(value?: number): string {
-  if (value == null || Number.isNaN(value)) return '—'
-  const pct = value <= 1 ? value * 100 : value
-  return `${Math.round(pct)}%`
+interface HouseholdMember {
+  id: string
+  fullName: string
+  relationship: string
+  dateOfBirth: string
+  citizenId: string
+  note: string
 }
+
+// maritals: BE dùng string, FE giữ cùng label/value cho đồng nhất.
+const MARITAL_STATUSES = [
+  { value: 'Chưa kết hôn', label: 'Chưa kết hôn' },
+  { value: 'Đã kết hôn', label: 'Đã kết hôn' },
+  { value: 'Ly hôn', label: 'Ly hôn' },
+  { value: 'Góa', label: 'Góa' },
+]
+
+/** Nhóm đối tượng ưu tiên — đồng bộ với BE (PriorityGroupConstants.cs Đ76 Luật Nhà ở 2023). */
+const PRIORITY_GROUPS = [
+  { value: 'MERIT_PERSON', label: 'Người có công với cách mạng', description: 'Được hỗ trợ cải thiện nhà ở theo Pháp lệnh Ưu đãi người có công (khoản 1 Đ76).' },
+  { value: 'RURAL_POOR', label: 'Hộ nghèo nông thôn', description: 'Hộ gia đình thuộc diện nghèo theo chuẩn quốc gia (khoản 2 Đ76).' },
+  { value: 'RURAL_NEAR_POOR', label: 'Hộ cận nghèo nông thôn', description: 'Hộ gia đình thuộc diện cận nghèo theo chuẩn quốc gia (khoản 3 Đ76).' },
+  { value: 'URBAN_POOR', label: 'Hộ nghèo đô thị', description: 'Hộ gia đình thuộc diện nghèo theo chuẩn quốc gia (khoản 4 Đ76).' },
+  { value: 'URBAN_NEAR_POOR', label: 'Hộ cận nghèo đô thị', description: 'Hộ gia đình thuộc diện cận nghèo theo chuẩn quốc gia (khoản 4 Đ76).' },
+  { value: 'LOW_INCOME_URBAN', label: 'Người thu nhập thấp tại đô thị', description: 'Cá nhân/hộ gia đình có thu nhập thấp, áp dụng trần thu nhập Đ30 (khoản 5 Đ76).' },
+  { value: 'WORKER', label: 'Công nhân, người lao động tại DN/HTX/KCN', description: 'Đang làm việc tại doanh nghiệp/HTX/liên hiệp HTX/KCN (khoản 6 Đ76).' },
+  { value: 'MILITARY_PERSONNEL', label: 'Lực lượng vũ trang, cơ yếu', description: 'Đang phục vụ trong lực lượng vũ trang/cơ yếu (khoản 7 Đ76).' },
+  { value: 'CIVIL_SERVANT', label: 'Cán bộ, công chức, viên chức', description: 'Cán bộ/công chức/viên chức do cơ quan công tác cấp (khoản 8 Đ76).' },
+  { value: 'PUBLIC_HOUSING_RETURN', label: 'Đối tượng trả lại nhà công vụ', description: 'Đang trả lại nhà ở công vụ (khoản 9 Đ76).' },
+  { value: 'LAND_RECOVERY_AFFECTED', label: 'Bị thu hồi đất / giải tỏa nhà ở', description: 'Bị thu hồi đất ở/giải tỏa nhà ở thuộc sở hữu Nhà nước (khoản 10 Đ76).' },
+]
+
+/** Quan hệ trong hộ (placeholder — BE sẽ chuẩn hóa). */
+const HOUSEHOLD_RELATIONS = [
+  'Vợ/Chồng',
+  'Con',
+  'Bố/Mẹ',
+  'Ông/Bà',
+  'Anh/Chị/Em',
+  'Khác',
+]
+
+const STEPS: { id: Step; label: string; icon: typeof UserCheck }[] = [
+  { id: 1, label: 'Cá nhân', icon: UserCheck },
+  { id: 2, label: 'Hộ gia đình', icon: Users },
+  { id: 3, label: 'Đối tượng', icon: HomeIcon },
+  { id: 4, label: 'Tài liệu', icon: FileCheck2 },
+  { id: 5, label: 'Rà soát', icon: CheckCircle2 },
+]
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -71,50 +99,57 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-const STEPS: { id: Step; label: string; icon: typeof IdCard }[] = [
-  { id: 1, label: 'CCCD', icon: IdCard },
-  { id: 2, label: 'Khuôn mặt', icon: ScanFace },
-  { id: 3, label: 'Thông tin', icon: UserCheck },
-  { id: 4, label: 'Tài liệu & nộp', icon: FileCheck2 },
-]
+function extractCitizenId(data: unknown): string {
+  if (!data || typeof data !== 'object') return ''
+  const root = data as Record<string, unknown>
+  const u = (root.user ?? root.User ?? root) as Record<string, unknown>
+  if (!u || typeof u !== 'object') return ''
+  return String(u.citizenId ?? u.CitizenId ?? '')
+}
 
-function Stepper({ step, ekyc, hasDraft, submitted }: { step: Step; ekyc: EkycState; hasDraft: boolean; submitted: boolean }) {
-  const done: Record<Step, boolean> = {
-    1: ekyc.citizenOk,
-    2: ekyc.face,
-    3: hasDraft,
-    4: submitted,
-  }
+function extractAddress(data: unknown): string {
+  if (!data || typeof data !== 'object') return ''
+  const root = data as Record<string, unknown>
+  const u = (root.user ?? root.User ?? root) as Record<string, unknown>
+  if (!u || typeof u !== 'object') return ''
+  const addr = u.address ?? u.Address ?? u.currentAddress ?? u.CurrentAddress ?? u.permanentAddress ?? u.PermanentAddress ?? ''
+  return typeof addr === 'string' ? addr : ''
+}
+
+function uid(): string {
+  return Math.random().toString(36).slice(2, 10)
+}
+
+function Stepper({ progress }: { progress: Record<Step, 'todo' | 'doing' | 'done'> }) {
   return (
-    <ol className="mb-6 grid grid-cols-4 gap-2">
+    <ol className="mb-6 grid grid-cols-5 gap-1.5">
       {STEPS.map((s) => {
-        const isActive = s.id === step
-        const isDone = done[s.id] && s.id !== step
+        const state = progress[s.id]
         const Icon = s.icon
         return (
           <li
             key={s.id}
-            className={`flex flex-col items-center gap-1 rounded-2xl border px-3 py-3 text-center text-xs font-semibold transition ${
-              isActive
+            className={`flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 text-center text-xs font-semibold transition ${
+              state === 'doing'
                 ? 'border-primary bg-primary/10 text-primary dark:bg-accent/10'
-                : isDone
+                : state === 'done'
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300'
                   : 'border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400'
             }`}
           >
             <span
-              className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                isActive
+              className={`flex h-7 w-7 items-center justify-center rounded-full ${
+                state === 'doing'
                   ? 'bg-primary text-white'
-                  : isDone
+                  : state === 'done'
                     ? 'bg-emerald-500 text-white'
                     : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
               }`}
             >
-              {isDone ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+              {state === 'done' ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
             </span>
-            <span className="leading-tight">Bước {s.id}</span>
-            <span className="text-[10px] font-medium opacity-80">{s.label}</span>
+            <span className="text-[10px] leading-tight">Bước {s.id}</span>
+            <span className="text-[9px] font-medium opacity-80">{s.label}</span>
           </li>
         )
       })}
@@ -123,28 +158,12 @@ function Stepper({ step, ekyc, hasDraft, submitted }: { step: Step; ekyc: EkycSt
 }
 
 export function CreateApplicationWizard() {
-  const idInputRef = useRef<HTMLInputElement>(null)
-  const selfieInputRef = useRef<HTMLInputElement>(null)
+  const { fullName: profileFullName } = useUserProfile()
 
   const [step, setStep] = useState<Step>(1)
   const [msg, setMsg] = useState<{ type: 'success' | 'error' | 'warning' | 'info'; text: string } | null>(null)
   const [busy, setBusy] = useState('')
   const [projects, setProjects] = useState<{ id: string; name: string; minPrice?: number; maxPrice?: number; availableUnits?: number }[]>([])
-  const [cooldownMs, setCooldownMs] = useState(0)
-  const [manualEntry, setManualEntry] = useState(false)
-
-  const [idCardFile, setIdCardFile] = useState<File | null>(null)
-  const [idCardPreview, setIdCardPreview] = useState<string | null>(null)
-  const [ocrResult, setOcrResult] = useState<OcrResultDto | null>(null)
-
-  const [selfieFile, setSelfieFile] = useState<File | null>(null)
-  const [selfiePreview, setSelfiePreview] = useState<string | null>(null)
-  const [faceSimilarity, setFaceSimilarity] = useState<number | null>(null)
-  const [pendingSelfie, setPendingSelfie] = useState<File | null>(null)
-
-  const [livenessVideo, setLivenessVideo] = useState<File | null>(null)
-
-  const [ekyc, setEkyc] = useState<EkycState>({ ocr: false, citizenOk: false, face: false, liveness: false })
 
   const [form, setForm] = useState({
     projectId: '',
@@ -155,17 +174,57 @@ export function CreateApplicationWizard() {
     currentResidence: '',
     permanentAddress: '',
     housingStatus: 'NO_HOUSE' as 'NO_HOUSE' | 'SMALL_HOUSE',
-    estimatedMonthlyIncome: '',
+    maritalStatus: 'Chưa kết hôn' as typeof MARITAL_STATUSES[number]['value'],
+    monthlyIncome: '',
+    spouseMonthlyIncome: '',
+    averageHousingAreaPerPerson: '',
+    priorityGroup: '',
   })
+
+  /** Bước 3 — Hộ gia đình (chờ BE: gửi kèm create-application). */
+  const [householdSize, setHouseholdSize] = useState('')
+  const [household, setHousehold] = useState<HouseholdMember[]>([])
+
+  /** Bước 3 — Nhóm đối tượng theo Nghị định 100/2024. */
+  const [hasPriorContract, setHasPriorContract] = useState(false)
+  const [priorContractNote, setPriorContractNote] = useState('')
 
   const [draftId, setDraftId] = useState<string | null>(null)
   const [draftStatus, setDraftStatus] = useState<string>('DRAFT')
-  const [docs, setDocs] = useState<Record<DocTypeKey, DocUpload | null>>({
-    HOUSING_CONDITION_PROOF: null,
-    POVERTY_HOUSEHOLD_CERTIFICATE: null,
-  })
+  const [docs, setDocs] = useState<Record<string, DocUpload | null>>({})
+
+  // Khi đổi nhóm đối tượng, danh sách giấy tờ bắt buộc thay đổi → reset các ô tương ứng.
+  const requiredDocs = useMemo(
+    () => getRequiredDocsForPriorityGroup(form.priorityGroup),
+    [form.priorityGroup],
+  )
+  useEffect(() => {
+    setDocs((prev) => {
+      const next: Record<string, DocUpload | null> = {}
+      for (const t of requiredDocs) next[t] = prev[t] ?? null
+      return next
+    })
+  }, [requiredDocs])
 
   const isBusy = busy.length > 0
+
+  useEffect(() => {
+    void usersApi.getProfile()
+      .then((data) => {
+        const cid = extractCitizenId(data)
+        const addr = extractAddress(data)
+        setForm((f) => ({
+          ...f,
+          fullName: f.fullName || profileFullName || '',
+          citizenId: f.citizenId || cid,
+          currentResidence: f.currentResidence || addr,
+          permanentAddress: f.permanentAddress || addr,
+        }))
+      })
+      .catch(() => {
+        setForm((f) => ({ ...f, fullName: f.fullName || profileFullName || '' }))
+      })
+  }, [profileFullName])
 
   useEffect(() => {
     void housingProjectsApi.list().then((data) => {
@@ -189,238 +248,20 @@ export function CreateApplicationWizard() {
     }).catch(() => setProjects([]))
   }, [])
 
-  useEffect(() => {
-    const tick = () => setCooldownMs(getOcrCooldownRemainingMs())
-    tick()
-    const id = window.setInterval(tick, 1000)
-    return () => window.clearInterval(id)
-  }, [])
-
-  useEffect(() => () => {
-    if (idCardPreview) URL.revokeObjectURL(idCardPreview)
-    if (selfiePreview) URL.revokeObjectURL(selfiePreview)
-  }, [idCardPreview, selfiePreview])
-
-  const applyOcrToForm = (ocr: OcrResultDto) => {
-    const addr = ocr.address || ocr.home || ''
-    setForm((f) => ({
-      ...f,
-      fullName: ocr.name || f.fullName,
-      citizenId: ocr.id || f.citizenId,
-      currentResidence: addr || f.currentResidence,
-      permanentAddress: addr || f.permanentAddress,
-    }))
-  }
-
-  const selectIdCard = (file: File) => {
-    const err = validateIdImage(file)
-    if (err) {
-      setMsg({ type: 'error', text: err })
-      return
-    }
-    setMsg(null)
-    setManualEntry(false)
-    setIdCardFile(file)
-    const preview = URL.createObjectURL(file)
-    setIdCardPreview((old) => { if (old) URL.revokeObjectURL(old); return preview })
-    setOcrResult(null)
-    setEkyc((s) => ({ ...s, ocr: false, citizenOk: false, face: false, liveness: false }))
-    setFaceSimilarity(null)
-    setSelfieFile(null)
-    setPendingSelfie(null)
-    if (selfiePreview) {
-      URL.revokeObjectURL(selfiePreview)
-      setSelfiePreview(null)
-    }
-  }
-
-  const checkCitizenId = async (citizenId: string): Promise<boolean> => {
-    const value = citizenId.trim()
-    if (!isValidCitizenId(value)) {
-      setMsg({ type: 'error', text: 'Số CCCD phải có 9 hoặc 12 chữ số.' })
-      setEkyc((s) => ({ ...s, citizenOk: false }))
-      return false
-    }
-    try {
-      await ekycApi.checkCitizenId(value)
-      setEkyc((s) => ({ ...s, citizenOk: true }))
-      return true
-    } catch (err) {
-      setEkyc((s) => ({ ...s, citizenOk: false }))
-      setMsg({ type: 'error', text: formatEkycError(err) })
-      return false
-    }
-  }
-
-  const runOcr = async () => {
-    if (!idCardFile) {
-      setMsg({ type: 'error', text: 'Chọn ảnh CCCD trước.' })
-      return
-    }
-    if (cooldownMs > 0) {
-      setMsg({ type: 'warning', text: `OCR tạm khóa. Thử lại sau ${formatCooldown(cooldownMs)} hoặc dùng nhập tay.` })
-      return
-    }
-
-    setBusy('ocr')
-    setMsg(null)
-    setOcrResult(null)
-    setEkyc((s) => ({ ...s, ocr: false, citizenOk: false, face: false }))
-    setFaceSimilarity(null)
-
-    try {
-      const data = await ekycApi.ocr(idCardFile)
-      const ocr = parseOcr(data)
-      if (!ocr?.id && !ocr?.name) {
-        setMsg({ type: 'error', text: 'Không trích xuất được thông tin. Dùng ảnh mặt trước CCCD rõ nét, không bị lóa hoặc mờ.' })
-        return
-      }
-      setOcrResult(ocr)
-      applyOcrToForm(ocr)
-      setEkyc((s) => ({ ...s, ocr: true }))
-      setManualEntry(false)
-
-      if (ocr.id) {
-        const ok = await checkCitizenId(ocr.id)
-        if (!ok) return
-      }
-
-      setMsg({ type: 'success', text: 'Đọc CCCD thành công. Sang bước xác thực khuôn mặt.' })
-    } catch (err) {
-      setMsg({ type: 'error', text: formatEkycError(err) })
-      if (String(formatEkycError(err)).includes('429')) {
-        setOcrCooldown(30)
-        setCooldownMs(getOcrCooldownRemainingMs())
-      }
-    } finally {
-      setBusy('')
-    }
-  }
-
-  const enableManualEntry = () => {
-    if (!idCardFile) {
-      setMsg({ type: 'error', text: 'Vẫn cần upload ảnh CCCD (để so khớp khuôn mặt ở bước 2).' })
-      return
-    }
-    setManualEntry(true)
-    setEkyc((s) => ({ ...s, ocr: false, citizenOk: false }))
-    setOcrResult(null)
-    setMsg({ type: 'info', text: 'Nhập thông tin CCCD bên dưới, sau đó bấm "Kiểm tra số CCCD".' })
-  }
-
-  const verifyManualCitizen = async () => {
-    if (!form.fullName.trim()) {
-      setMsg({ type: 'error', text: 'Nhập họ và tên trước.' })
-      return
-    }
-    if (!form.currentResidence.trim()) {
-      setMsg({ type: 'error', text: 'Nhập nơi ở / thường trú trước.' })
-      return
-    }
-    const ok = await checkCitizenId(form.citizenId)
-    if (ok) {
-      setForm((f) => ({
-        ...f,
-        permanentAddress: f.permanentAddress || f.currentResidence,
-      }))
-      setEkyc((s) => ({ ...s, ocr: true }))
-      setMsg({ type: 'success', text: 'CCCD hợp lệ. Sang bước xác thực khuôn mặt.' })
-    }
-  }
-
-  const queueSelfie = (file: File) => {
-    const err = validateSelfieImage(file)
-    if (err) {
-      setMsg({ type: 'error', text: err })
-      return
-    }
-    setPendingSelfie(file)
-    if (selfiePreview) URL.revokeObjectURL(selfiePreview)
-    setSelfiePreview(URL.createObjectURL(file))
-    setMsg({ type: 'info', text: 'Đã chọn ảnh selfie. Bấm "Xác thực khuôn mặt" để gửi lên hệ thống.' })
-  }
-
-  const runFaceMatch = async () => {
-    const faceFile = pendingSelfie
-    if (!idCardFile) {
-      setMsg({ type: 'error', text: 'Cần ảnh CCCD từ bước 1.' })
-      return
-    }
-    if (!faceFile) {
-      setMsg({ type: 'error', text: 'Chụp hoặc chọn ảnh selfie trước.' })
-      return
-    }
-
-    setBusy('face')
-    setMsg(null)
-
-    try {
-      const data = await ekycApi.faceMatch(faceFile, idCardFile)
-      const result = parseFaceMatch(data)
-      setFaceSimilarity(result?.similarity ?? null)
-      if (!result?.isMatch) {
-        setEkyc((s) => ({ ...s, face: false }))
-        setMsg({
-          type: 'error',
-          text: `Khuôn mặt chưa khớp (${formatSimilarity(result?.similarity)}). Chụp lại selfie cùng người trên CCCD, ánh sáng đủ, không đeo khẩu trang.`,
-        })
-        return
-      }
-      setSelfieFile(faceFile)
-      setEkyc((s) => ({ ...s, face: true }))
-      setMsg({ type: 'success', text: `Xác thực khuôn mặt thành công — độ khớp ${formatSimilarity(result?.similarity)}.` })
-    } catch (err) {
-      setEkyc((s) => ({ ...s, face: false }))
-      setMsg({ type: 'error', text: formatEkycError(err) })
-    } finally {
-      setBusy('')
-    }
-  }
-
-  const runLiveness = async (videoFile: File) => {
-    const selfie = selfieFile ?? pendingSelfie
-    if (!selfie) {
-      setMsg({ type: 'error', text: 'Hoàn thành xác thực khuôn mặt trước khi kiểm tra liveness.' })
-      return
-    }
-    const err = validateLivenessVideo(videoFile)
-    if (err) {
-      setMsg({ type: 'error', text: err })
-      return
-    }
-
-    setBusy('liveness')
-    setMsg(null)
-    setLivenessVideo(videoFile)
-
-    try {
-      const data = await ekycApi.liveness(videoFile, selfie)
-      const result = parseLiveness(data)
-      if (!result?.isLive) {
-        setEkyc((s) => ({ ...s, liveness: false }))
-        setMsg({ type: 'error', text: result?.livenessMessage || result?.warning || 'Liveness thất bại. Quay lại video 3–5 giây, nhìn thẳng camera.' })
-        return
-      }
-      setEkyc((s) => ({ ...s, liveness: true }))
-      setMsg({ type: 'success', text: 'Xác minh liveness thành công.' })
-    } catch (err) {
-      setEkyc((s) => ({ ...s, liveness: false }))
-      setMsg({ type: 'error', text: formatEkycError(err) })
-    } finally {
-      setBusy('')
-    }
-  }
-
-  const step1Ready = !!idCardFile && ekyc.citizenOk && (ekyc.ocr || manualEntry) && form.fullName.trim() && isValidCitizenId(form.citizenId)
-  const step2Ready = ekyc.face
-  const step3Ready =
+  const step1Ready =
     !!form.projectId &&
     form.fullName.trim().length > 0 &&
-    isValidCitizenId(form.citizenId) &&
+    form.citizenId.trim().length > 0 &&
     form.currentResidence.trim().length > 0 &&
     form.permanentAddress.trim().length > 0 &&
-    Number(form.estimatedMonthlyIncome) >= 0
-  const allDocsUploaded = DOC_TYPE_KEYS.every((k) => docs[k]?.state === 'uploaded')
+    form.maritalStatus.trim().length > 0 &&
+    Number(form.monthlyIncome) >= 0
+
+  const step2Ready = householdSize !== '' && Number(householdSize) >= 1 && household.every((m) => m.fullName.trim().length > 0 && m.relationship !== '')
+
+  const step3Ready = form.priorityGroup !== '' && (!hasPriorContract || priorContractNote.trim().length > 0)
+
+  const allDocsUploaded = requiredDocs.every((k) => docs[k]?.state === 'uploaded')
 
   const createDraft = async (): Promise<string | null> => {
     setBusy('create')
@@ -435,7 +276,18 @@ export function CreateApplicationWizard() {
         currentResidence: form.currentResidence.trim(),
         permanentAddress: form.permanentAddress.trim(),
         housingStatus: form.housingStatus,
-        estimatedMonthlyIncome: parseFloat(form.estimatedMonthlyIncome) || 0,
+        maritalStatus: form.maritalStatus,
+        monthlyIncome: parseFloat(form.monthlyIncome) || null,
+        spouseMonthlyIncome: form.spouseMonthlyIncome ? parseFloat(form.spouseMonthlyIncome) : null,
+        averageHousingAreaPerPerson: form.averageHousingAreaPerPerson ? parseFloat(form.averageHousingAreaPerPerson) : null,
+        priorityGroup: form.priorityGroup,
+        householdMembers: household.length > 0 ? household.map((m) => ({
+          fullName: m.fullName,
+          relationship: m.relationship,
+          dateOfBirth: m.dateOfBirth ? `${m.dateOfBirth}-01-01` : null,
+          citizenId: m.citizenId || null,
+          note: m.note || null,
+        })) : null,
       })
       const appId = extractApplicationId(data)
       if (!appId) {
@@ -460,7 +312,7 @@ export function CreateApplicationWizard() {
     }
   }
 
-  const uploadOneDoc = async (key: DocTypeKey, file: File): Promise<boolean> => {
+  const uploadOneDoc = async (key: string, file: File): Promise<boolean> => {
     if (!draftId) {
       setMsg({ type: 'error', text: 'Bạn cần lưu nháp hồ sơ trước khi upload tài liệu.' })
       return false
@@ -478,14 +330,14 @@ export function CreateApplicationWizard() {
     }
   }
 
-  const handleFilePick = (key: DocTypeKey, file: File | null) => {
+  const handleFilePick = (key: string, file: File | null) => {
     if (!file) return
     const err = validateDocumentFile(file)
     if (err) {
       setMsg({ type: 'error', text: err })
       return
     }
-    setDocs((d) => ({ ...d, [key]: { type: key, file, state: draftId ? 'pending' : 'pending' } }))
+    setDocs((d) => ({ ...d, [key]: { type: key, file, state: 'pending' } }))
     setMsg({ type: 'info', text: `Đã chọn ${DOC_TYPE_LABELS[key]}. Bấm "Upload" để gửi lên máy chủ.` })
   }
 
@@ -496,7 +348,7 @@ export function CreateApplicationWizard() {
     }
     setBusy('upload-all')
     let ok = true
-    for (const key of DOC_TYPE_KEYS) {
+    for (const key of requiredDocs) {
       const entry = docs[key]
       if (!entry) continue
       if (entry.state === 'uploaded') continue
@@ -520,29 +372,80 @@ export function CreateApplicationWizard() {
       setMsg({ type: 'error', text: 'Vui lòng upload đủ 2 tài liệu PDF trước khi nộp hồ sơ.' })
       return
     }
+    if (draftStatus !== 'DRAFT' && draftStatus !== 'PENDING_REVIEW') {
+      setMsg({ type: 'warning', text: `Hồ sơ đang ở trạng thái "${draftStatus}", không thể nộp lại.` })
+      return
+    }
     setBusy('submit')
     setMsg(null)
     try {
-      await housingApplicationsApi.submit(draftId)
-      setDraftStatus('SUBMITTED')
-      setMsg({ type: 'success', text: 'Nộp hồ sơ thành công. Hệ thống sẽ chuyển sang trang chi tiết.' })
+      const result = await housingApplicationsApi.submit(draftId) as { newStatus?: string }
+      const newStatus = result?.newStatus ?? 'SUBMITTED'
+      setDraftStatus(newStatus)
+      setMsg({ type: 'success', text: `Nộp hồ sơ thành công (trạng thái: ${newStatus}). Hệ thống sẽ chuyển sang trang chi tiết.` })
       setTimeout(() => {
         sessionStorage.setItem('applicationId', draftId)
         navigate('application-detail')
       }, 900)
     } catch (err) {
-      setMsg({ type: 'error', text: formatError(err) })
+      const errMsg = formatError(err)
+      setMsg({ type: 'error', text: errMsg })
+      console.error('[submit] lỗi nộp hồ sơ:', err)
     } finally {
       setBusy('')
     }
   }
 
-  const goToStep4 = async () => {
+  const goNextFromStep1 = async () => {
     if (!draftId) {
       const id = await createDraft()
       if (!id) return
     }
-    setStep(4)
+    setStep(2)
+  }
+
+  const addHouseholdMember = () => {
+    setHousehold((h) => [
+      ...h,
+      { id: uid(), fullName: '', relationship: '', dateOfBirth: '', citizenId: '', note: '' },
+    ])
+  }
+
+  const updateMember = (id: string, patch: Partial<HouseholdMember>) => {
+    setHousehold((h) => h.map((m) => (m.id === id ? { ...m, ...patch } : m)))
+  }
+
+  const removeMember = (id: string) => {
+    setHousehold((h) => h.filter((m) => m.id !== id))
+  }
+
+  /** Khi user đổi số thành viên, tự cắt/bù để khớp. */
+  useEffect(() => {
+    const target = Math.max(0, Number(householdSize) || 0)
+    setHousehold((current) => {
+      if (current.length === target) return current
+      if (current.length < target) {
+        const need = target - current.length
+        const newMembers = Array.from({ length: need }, () => ({
+          id: uid(),
+          fullName: '',
+          relationship: '',
+          dateOfBirth: '',
+          citizenId: '',
+          note: '',
+        }))
+        return [...current, ...newMembers]
+      }
+      return current.slice(0, target)
+    })
+  }, [householdSize])
+
+  const progress: Record<Step, 'todo' | 'doing' | 'done'> = {
+    1: step === 1 ? 'doing' : step1Ready ? 'done' : 'todo',
+    2: step === 2 ? 'doing' : step2Ready ? 'done' : 'todo',
+    3: step === 3 ? 'doing' : step3Ready ? 'done' : 'todo',
+    4: step === 4 ? 'doing' : allDocsUploaded ? 'done' : 'todo',
+    5: step === 5 ? 'doing' : 'todo',
   }
 
   const summary = useMemo(
@@ -552,242 +455,25 @@ export function CreateApplicationWizard() {
         <div className="mt-2 grid gap-1 text-sm dark:text-slate-200">
           <p><span className="text-slate-500 dark:text-slate-400">Họ tên:</span> {form.fullName || '—'}</p>
           <p><span className="text-slate-500 dark:text-slate-400">CCCD:</span> {form.citizenId || '—'}</p>
-          <p><span className="text-slate-500 dark:text-slate-400">Khuôn mặt:</span> {ekyc.face ? '✓ Khớp' : '—'}{faceSimilarity != null ? ` (${formatSimilarity(faceSimilarity)})` : ''}</p>
+          <p><span className="text-slate-500 dark:text-slate-400">Khuôn mặt:</span> ✓ Đã xác thực khi tạo tài khoản</p>
         </div>
       </div>
     ),
-    [form.fullName, form.citizenId, ekyc.face, faceSimilarity],
+    [form.fullName, form.citizenId],
   )
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <div className="rounded-2xl border border-blue-200 bg-blue-50/80 p-4 text-sm text-slate-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-slate-300">
-        <p className="flex items-start gap-2 font-semibold text-[#003D7A] dark:text-white">
-          <Info className="mt-0.5 h-4 w-4 shrink-0" />
-          Quy trình 4 bước
-        </p>
-        <ul className="mt-2 list-inside list-disc space-y-1 text-xs leading-relaxed">
-          <li>Bước 1: Xác thực CCCD (bắt buộc).</li>
-          <li>Bước 2: So khớp khuôn mặt với CCCD.</li>
-          <li>Bước 3: Điền thông tin đăng ký và chọn dự án.</li>
-          <li>Bước 4: Upload 2 tài liệu PDF rồi nộp hồ sơ.</li>
-        </ul>
-      </div>
-
-      <Stepper step={step} ekyc={ekyc} hasDraft={!!draftId} submitted={draftStatus === 'SUBMITTED'} />
+      <Stepper progress={progress} />
 
       <AnimatePresence mode="wait">
         {step === 1 && (
-          <motion.section
-            key="s1"
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18 }}
-            className="space-y-4"
-          >
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <IdCard className="h-5 w-5 text-primary" />
-                  Bước 1 — Xác thực CCCD
-                </CardTitle>
-                <CardDescription>Upload ảnh CCCD mặt trước rõ nét (≤ 5 MB).</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField label="Chọn ảnh CCCD" htmlFor="cccd-file">
-                  <input
-                    ref={idInputRef}
-                    id="cccd-file"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20 dark:file:bg-accent/20 dark:file:text-accent"
-                    disabled={isBusy}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0]
-                      if (f) selectIdCard(f)
-                      e.target.value = ''
-                    }}
-                  />
-                </FormField>
-
-                {idCardPreview && (
-                  <img src={idCardPreview} alt="Ảnh CCCD" className="max-h-56 w-full rounded-xl border border-slate-200 bg-white object-contain dark:border-slate-700" />
-                )}
-
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="accent" disabled={!idCardFile || isBusy || cooldownMs > 0} onClick={() => void runOcr()}>
-                    {busy === 'ocr' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang đọc CCCD…</> : 'Đọc thông tin CCCD (OCR)'}
-                  </Button>
-                  <Button type="button" variant="outline" disabled={!idCardFile || isBusy} onClick={enableManualEntry}>
-                    Nhập tay thông tin
-                  </Button>
-                </div>
-
-                {cooldownMs > 0 && (
-                  <p className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
-                    <AlertCircle className="h-4 w-4" />
-                    OCR tạm khóa — thử lại sau {formatCooldown(cooldownMs)} hoặc nhập tay.
-                  </p>
-                )}
-
-                {ocrResult && (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm dark:border-emerald-900/50 dark:bg-emerald-950/30">
-                    <p className="font-semibold text-emerald-800 dark:text-emerald-300">Kết quả OCR</p>
-                    <ul className="mt-2 grid gap-1 text-slate-700 dark:text-slate-300 sm:grid-cols-2">
-                      <li><span className="text-slate-500 dark:text-slate-400">Họ tên:</span> {ocrResult.name || '—'}</li>
-                      <li><span className="text-slate-500 dark:text-slate-400">Số CCCD:</span> {ocrResult.id || '—'}</li>
-                      <li><span className="text-slate-500 dark:text-slate-400">Ngày sinh:</span> {ocrResult.dob || '—'}</li>
-                      <li className="sm:col-span-2"><span className="text-slate-500 dark:text-slate-400">Địa chỉ:</span> {ocrResult.address || ocrResult.home || '—'}</li>
-                    </ul>
-                  </div>
-                )}
-
-                {(manualEntry || ocrResult) && (
-                  <div className="space-y-3 rounded-xl border-t border-slate-200 pt-4 dark:border-slate-700">
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Thông tin từ CCCD {manualEntry && !ocrResult ? '(nhập tay — vui lòng kiểm tra)' : ''}
-                    </p>
-                    <FormField label="Họ và tên" htmlFor="s1-fullName">
-                      <Input
-                        id="s1-fullName"
-                        value={form.fullName}
-                        onChange={(e) => {
-                          setForm((f) => ({ ...f, fullName: e.target.value }))
-                          if (ekyc.citizenOk) setEkyc((s) => ({ ...s, citizenOk: false }))
-                        }}
-                      />
-                    </FormField>
-                    <FormField label="Số CCCD (9 hoặc 12 số)" htmlFor="s1-citizenId">
-                      <Input
-                        id="s1-citizenId"
-                        value={form.citizenId}
-                        maxLength={12}
-                        inputMode="numeric"
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/\D/g, '')
-                          setForm((f) => ({ ...f, citizenId: v }))
-                          if (ekyc.citizenOk) setEkyc((s) => ({ ...s, citizenOk: false }))
-                        }}
-                      />
-                    </FormField>
-                    <FormField label="Nơi ở / thường trú" htmlFor="s1-address">
-                      <Input
-                        id="s1-address"
-                        value={form.currentResidence}
-                        onChange={(e) => setForm((f) => ({
-                          ...f,
-                          currentResidence: e.target.value,
-                          permanentAddress: f.permanentAddress || e.target.value,
-                        }))}
-                      />
-                    </FormField>
-                    {manualEntry && (
-                      <Button type="button" variant="outline" size="sm" disabled={isBusy} onClick={() => void verifyManualCitizen()}>
-                        Kiểm tra số CCCD
-                      </Button>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex justify-end pt-2">
-                  <Button type="button" variant="accent" disabled={!step1Ready || isBusy} onClick={() => { setMsg(null); setStep(2) }}>
-                    Tiếp tục xác thực khuôn mặt <ChevronRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.section>
-        )}
-
-        {step === 2 && (
-          <motion.section
-            key="s2"
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18 }}
-            className="space-y-4"
-          >
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <ScanFace className="h-5 w-5 text-primary" />
-                  Bước 2 — Xác thực khuôn mặt
-                </CardTitle>
-                <CardDescription>Chụp selfie hoặc upload ảnh. Hệ thống sẽ so khớp với ảnh CCCD ở bước 1.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <CameraCapture mode="photo" onPhoto={(file) => queueSelfie(file)} />
-
-                <div className="text-center text-xs text-slate-400">hoặc upload ảnh selfie</div>
-                <input
-                  ref={selfieInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20 dark:file:bg-accent/20 dark:file:text-accent"
-                  disabled={isBusy}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (f) queueSelfie(f)
-                    e.target.value = ''
-                  }}
-                />
-
-                {selfiePreview && (
-                  <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/40">
-                    <img src={selfiePreview} alt="Selfie" className="h-20 w-20 rounded-full border-2 border-white object-cover shadow dark:border-slate-800" />
-                    <div className="text-sm">
-                      <p className={`font-semibold ${ekyc.face ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-700 dark:text-slate-300'}`}>
-                        {ekyc.face ? '✓ Đã xác thực' : 'Chưa xác thực'}
-                      </p>
-                      {faceSimilarity != null && <p className="text-slate-500 dark:text-slate-400">Độ khớp: {formatSimilarity(faceSimilarity)}</p>}
-                    </div>
-                  </div>
-                )}
-
-                <Button type="button" variant="accent" disabled={!pendingSelfie || isBusy} onClick={() => void runFaceMatch()}>
-                  {busy === 'face' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang xác thực…</> : 'Xác thực khuôn mặt'}
-                </Button>
-
-                <details className="rounded-xl border border-dashed border-slate-300 p-4 dark:border-slate-700">
-                  <summary className="cursor-pointer text-sm font-medium dark:text-slate-300">Liveness (tùy chọn)</summary>
-                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Quay video selfie 4 giây sau khi face match thành công.</p>
-                  <div className="mt-3">
-                    <CameraCapture mode="video" maxVideoSeconds={4} onVideo={(video) => void runLiveness(video)} />
-                  </div>
-                  {livenessVideo && (
-                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                      {livenessVideo.name} · {ekyc.liveness ? '✓ Đạt' : 'Chưa đạt'}
-                    </p>
-                  )}
-                </details>
-
-                <div className="flex flex-wrap justify-between gap-2 pt-2">
-                  <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep(1)}>← Quay lại</Button>
-                  <Button type="button" variant="accent" disabled={!step2Ready || isBusy} onClick={() => { setMsg(null); setStep(3) }}>
-                    Điền thông tin hồ sơ <ChevronRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.section>
-        )}
-
-        {step === 3 && (
-          <motion.section
-            key="s3"
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18 }}
-            className="space-y-4"
-          >
+          <motion.section key="s1" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <UserCheck className="h-5 w-5 text-primary" />
-                  Bước 3 — Thông tin đăng ký
+                  Bước 1 — Thông tin cá nhân
                 </CardTitle>
                 <CardDescription>Chọn dự án và bổ sung thông tin còn thiếu. Họ tên & CCCD đã xác thực.</CardDescription>
               </CardHeader>
@@ -808,21 +494,10 @@ export function CreateApplicationWizard() {
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <FormField label="Họ và tên *" htmlFor="fullName">
-                    <Input
-                      id="fullName"
-                      value={form.fullName}
-                      onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
-                      maxLength={100}
-                      required
-                    />
+                    <Input id="fullName" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} maxLength={100} required />
                   </FormField>
                   <FormField label="Số CCCD *" htmlFor="citizenId">
-                    <Input
-                      id="citizenId"
-                      value={form.citizenId}
-                      readOnly
-                      className="bg-slate-50 font-mono dark:bg-slate-800/50"
-                    />
+                    <Input id="citizenId" value={form.citizenId} readOnly className="bg-slate-50 font-mono dark:bg-slate-800/50" />
                   </FormField>
                 </div>
 
@@ -836,65 +511,53 @@ export function CreateApplicationWizard() {
                 </div>
 
                 <FormField label="Nơi ở hiện tại *" htmlFor="currentResidence">
-                  <Input
-                    id="currentResidence"
-                    value={form.currentResidence}
-                    onChange={(e) => setForm((f) => ({ ...f, currentResidence: e.target.value }))}
-                    maxLength={500}
-                    required
-                  />
+                  <Input id="currentResidence" value={form.currentResidence} onChange={(e) => setForm((f) => ({ ...f, currentResidence: e.target.value }))} maxLength={500} required />
                 </FormField>
 
                 <FormField label="Địa chỉ thường trú / tạm trú *" htmlFor="permanentAddress">
-                  <Input
-                    id="permanentAddress"
-                    value={form.permanentAddress}
-                    onChange={(e) => setForm((f) => ({ ...f, permanentAddress: e.target.value }))}
-                    maxLength={500}
-                    required
-                  />
+                  <Input id="permanentAddress" value={form.permanentAddress} onChange={(e) => setForm((f) => ({ ...f, permanentAddress: e.target.value }))} maxLength={500} required />
                 </FormField>
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <FormField label="Thực trạng nhà ở *" htmlFor="housingStatus">
-                    <Select
-                      id="housingStatus"
-                      value={form.housingStatus}
-                      onChange={(e) => setForm((f) => ({ ...f, housingStatus: e.target.value as typeof form.housingStatus }))}
-                      required
-                    >
+                    <Select id="housingStatus" value={form.housingStatus} onChange={(e) => setForm((f) => ({ ...f, housingStatus: e.target.value as typeof form.housingStatus }))} required>
                       {Object.entries(HOUSING_STATUS_LABELS).map(([v, l]) => (
                         <option key={v} value={v}>{l}</option>
                       ))}
                     </Select>
                   </FormField>
-                  <FormField label="Thu nhập hàng tháng (VNĐ) *" htmlFor="estimatedMonthlyIncome">
-                    <Input
-                      id="estimatedMonthlyIncome"
-                      type="number"
-                      min={0}
-                      step={1000}
-                      value={form.estimatedMonthlyIncome}
-                      onChange={(e) => setForm((f) => ({ ...f, estimatedMonthlyIncome: e.target.value }))}
-                      placeholder="Ví dụ: 12000000"
-                      required
-                    />
+                  <FormField label="Tình trạng hôn nhân *" htmlFor="maritalStatus">
+                    <Select id="maritalStatus" value={form.maritalStatus} onChange={(e) => setForm((f) => ({ ...f, maritalStatus: e.target.value as typeof form.maritalStatus }))} required>
+                      {MARITAL_STATUSES.map((s) => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                      ))}
+                    </Select>
+                  </FormField>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <FormField label="Thu nhập hàng tháng (VNĐ) *" htmlFor="monthlyIncome">
+                    <Input id="monthlyIncome" type="number" min={0} step={1000} value={form.monthlyIncome} onChange={(e) => setForm((f) => ({ ...f, monthlyIncome: e.target.value }))} placeholder="Ví dụ: 12000000" required />
+                  </FormField>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <FormField label="Thu nhập vợ/chồng (VNĐ)" htmlFor="spouseMonthlyIncome">
+                    <Input id="spouseMonthlyIncome" type="number" min={0} step={1000} value={form.spouseMonthlyIncome} onChange={(e) => setForm((f) => ({ ...f, spouseMonthlyIncome: e.target.value }))} placeholder="Ví dụ: 8000000" />
+                  </FormField>
+                  <FormField label="Diện tích TB / người (m²)" htmlFor="averageHousingAreaPerPerson">
+                    <Input id="averageHousingAreaPerPerson" type="number" min={0} step={0.1} value={form.averageHousingAreaPerPerson} onChange={(e) => setForm((f) => ({ ...f, averageHousingAreaPerPerson: e.target.value }))} placeholder="Ví dụ: 15.5" />
                   </FormField>
                 </div>
 
                 <div className="flex flex-wrap justify-between gap-2 pt-2">
-                  <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep(2)}>← Quay lại</Button>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Mã hồ sơ: <span className="font-mono">{draftId ?? '—'}</span></span>
                   <div className="flex flex-wrap gap-2">
                     <Button type="button" variant="outline" disabled={isBusy} onClick={() => void handleSaveDraft()}>
                       {busy === 'create' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu…</> : 'Lưu nháp'}
                     </Button>
-                    <Button
-                      type="button"
-                      variant="accent"
-                      disabled={!step3Ready || isBusy}
-                      onClick={() => void goToStep4()}
-                    >
-                      Tiếp tục upload tài liệu <ArrowRight className="ml-1 h-4 w-4" />
+                    <Button type="button" variant="accent" disabled={!step1Ready || isBusy} onClick={() => void goNextFromStep1()}>
+                      Tiếp tục <ArrowRight className="ml-1 h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -903,15 +566,113 @@ export function CreateApplicationWizard() {
           </motion.section>
         )}
 
+        {step === 2 && (
+          <motion.section key="s2" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Users className="h-5 w-5 text-primary" />
+                  Bước 2 — Hộ gia đình
+                </CardTitle>
+                <CardDescription>
+                  Khai số thành viên và quan hệ trong hộ. Dữ liệu được gửi kèm khi tạo hồ sơ qua trường <code>householdMembers[]</code>.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField label="Số thành viên hộ (bao gồm người nộp) *" htmlFor="householdSize">
+                  <Input id="householdSize" type="number" min={1} max={20} value={householdSize} onChange={(e) => setHouseholdSize(e.target.value)} placeholder="Ví dụ: 4" required />
+                </FormField>
+
+                <div className="space-y-3">
+                  {household.map((m, idx) => (
+                    <div key={m.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/40">
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Thành viên #{idx + 1}</p>
+                        <button type="button" onClick={() => removeMember(m.id)} className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200 hover:text-red-500 dark:hover:bg-slate-700" aria-label="Xóa thành viên">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <FormField label="Họ tên *" htmlFor={`m-name-${m.id}`}>
+                          <Input id={`m-name-${m.id}`} value={m.fullName} onChange={(e) => updateMember(m.id, { fullName: e.target.value })} maxLength={100} required />
+                        </FormField>
+                        <FormField label="Quan hệ *" htmlFor={`m-rel-${m.id}`}>
+                          <Select id={`m-rel-${m.id}`} value={m.relationship} onChange={(e) => updateMember(m.id, { relationship: e.target.value })} required>
+                            <option value="">— Chọn —</option>
+                            {HOUSEHOLD_RELATIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                          </Select>
+                        </FormField>
+                        <FormField label="Năm sinh" htmlFor={`m-year-${m.id}`}>
+                          <Input id={`m-year-${m.id}`} type="date" value={m.dateOfBirth} onChange={(e) => updateMember(m.id, { dateOfBirth: e.target.value })} />
+                        </FormField>
+                        <FormField label="CCCD thành viên" htmlFor={`m-cid-${m.id}`}>
+                          <Input id={`m-cid-${m.id}`} value={m.citizenId} onChange={(e) => updateMember(m.id, { citizenId: e.target.value })} maxLength={15} placeholder="Nếu có" />
+                        </FormField>
+                      </div>
+                    </div>
+                  ))}
+
+                  <Button type="button" variant="outline" onClick={addHouseholdMember}>
+                    <Plus className="mr-2 h-4 w-4" /> Thêm thành viên
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep(1)}>← Quay lại</Button>
+                  <Button type="button" variant="accent" disabled={!step2Ready || isBusy} onClick={() => setStep(3)}>
+                    Tiếp tục <ArrowRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.section>
+        )}
+
+        {step === 3 && (
+          <motion.section key="s3" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <HomeIcon className="h-5 w-5 text-primary" />
+                  Bước 3 — Xác nhận thông tin
+                </CardTitle>
+                <CardDescription>
+                  Kiểm tra lại nhóm đối tượng và lịch sử hợp đồng nhà ở xã hội.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField label="Nhóm đối tượng ưu tiên *" htmlFor="priorityGroup">
+                  <Select id="priorityGroup" value={form.priorityGroup} onChange={(e) => setForm((f) => ({ ...f, priorityGroup: e.target.value }))} required>
+                    <option value="">— Chọn nhóm đối tượng —</option>
+                    {PRIORITY_GROUPS.map((g) => (
+                      <option key={g.value} value={g.value}>{g.label}</option>
+                    ))}
+                  </Select>
+                </FormField>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="flex items-start gap-2 text-sm">
+                    <input type="checkbox" className="mt-1 h-4 w-4 accent-primary" checked={hasPriorContract} onChange={(e) => setHasPriorContract(e.target.checked)} />
+                    <span>Đã từng ký hợp đồng mua nhà ở xã hội trước đây?</span>
+                  </label>
+                  <FormField label={hasPriorContract ? 'Ghi chú lịch sử *' : 'Ghi chú lịch sử'} htmlFor="priorNote">
+                    <Input id="priorNote" value={priorContractNote} onChange={(e) => setPriorContractNote(e.target.value)} placeholder="Ví dụ: chưa từng" maxLength={500} disabled={!hasPriorContract} required={hasPriorContract} />
+                  </FormField>
+                </div>
+
+                <div className="flex flex-wrap justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep(2)}>← Quay lại</Button>
+                  <Button type="button" variant="accent" disabled={!step3Ready || isBusy} onClick={() => setStep(4)}>
+                    Tiếp tục <ArrowRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.section>
+        )}
+
         {step === 4 && (
-          <motion.section
-            key="s4"
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18 }}
-            className="space-y-4"
-          >
+          <motion.section key="s4" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -923,22 +684,15 @@ export function CreateApplicationWizard() {
               <CardContent className="space-y-4">
                 {summary}
                 {!draftId && (
-                  <Alert variant="warning">
-                    Bạn cần lưu nháp hồ sơ trước khi upload tài liệu.
-                  </Alert>
+                  <Alert variant="warning">Bạn cần lưu nháp hồ sơ trước khi upload tài liệu.</Alert>
                 )}
 
                 <div className="space-y-3">
-                  {DOC_TYPE_KEYS.map((key) => {
+                  {requiredDocs.map((key) => {
                     const doc = docs[key]
                     return (
-                      <div
-                        key={key}
-                        className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/40"
-                      >
-                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                          {DOC_TYPE_LABELS[key]}
-                        </p>
+                      <div key={key} className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{DOC_TYPE_LABELS[key]}</p>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <input
                             id={`doc-${key}`}
@@ -953,12 +707,7 @@ export function CreateApplicationWizard() {
                             disabled={isBusy || !draftId}
                           />
                           {doc && (
-                            <button
-                              type="button"
-                              onClick={() => setDocs((d) => ({ ...d, [key]: null }))}
-                              className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200 hover:text-red-500 dark:hover:bg-slate-700"
-                              aria-label="Xóa file"
-                            >
+                            <button type="button" onClick={() => setDocs((d) => ({ ...d, [key]: null }))} className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200 hover:text-red-500 dark:hover:bg-slate-700" aria-label="Xóa file">
                               <X className="h-4 w-4" />
                             </button>
                           )}
@@ -967,19 +716,9 @@ export function CreateApplicationWizard() {
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                             <span className="font-medium text-slate-700 dark:text-slate-200">{doc.file.name}</span>
                             <span className="text-slate-500 dark:text-slate-400">({formatBytes(doc.file.size)})</span>
-                            {doc.state === 'uploading' && (
-                              <span className="inline-flex items-center gap-1 text-primary dark:text-accent">
-                                <Loader2 className="h-3 w-3 animate-spin" /> Đang tải lên…
-                              </span>
-                            )}
-                            {doc.state === 'uploaded' && (
-                              <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                                <CheckCircle2 className="h-3 w-3" /> Đã tải lên
-                              </span>
-                            )}
-                            {doc.state === 'error' && (
-                              <span className="text-red-600 dark:text-red-400">{doc.error || 'Lỗi upload'}</span>
-                            )}
+                            {doc.state === 'uploading' && <span className="inline-flex items-center gap-1 text-primary dark:text-accent"><Loader2 className="h-3 w-3 animate-spin" /> Đang tải lên…</span>}
+                            {doc.state === 'uploaded' && <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="h-3 w-3" /> Đã tải lên</span>}
+                            {doc.state === 'error' && <span className="text-red-600 dark:text-red-400">{doc.error || 'Lỗi upload'}</span>}
                           </div>
                         )}
                       </div>
@@ -989,22 +728,104 @@ export function CreateApplicationWizard() {
 
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" variant="outline" disabled={isBusy} onClick={() => void handleUploadAll()}>
-                    {busy === 'upload-all' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang tải lên…</> : (
-                      <>
-                        <Upload className="mr-2 h-4 w-4" /> Tải lên tất cả
-                      </>
-                    )}
+                    {busy === 'upload-all' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang tải lên…</> : <><Upload className="mr-2 h-4 w-4" /> Tải lên tất cả</>}
                   </Button>
                 </div>
 
                 <div className="flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
                   <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep(3)}>← Quay lại</Button>
-                  <Button
-                    type="button"
-                    variant="accent"
-                    disabled={!allDocsUploaded || draftStatus === 'SUBMITTED' || isBusy}
-                    onClick={() => void handleSubmit()}
-                  >
+                  <Button type="button" variant="accent" disabled={!allDocsUploaded || (draftStatus !== 'DRAFT' && draftStatus !== 'PENDING_REVIEW') || isBusy} onClick={() => setStep(5)}>
+                    Tiếp tục rà soát <ArrowRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.section>
+        )}
+
+        {step === 5 && (
+          <motion.section key="s5" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                  Bước 5 — Rà soát trước khi nộp
+                </CardTitle>
+                <CardDescription>Kiểm tra toàn bộ thông tin. Sau khi nộp, hồ sơ sẽ chuyển sang trạng thái <strong>SUBMITTED</strong>.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Alert variant="info">
+                  <strong>Quy trình tiếp theo:</strong> Sau khi nộp, CĐT tiếp nhận & thẩm định → có thể yêu cầu bổ sung hoặc chuyển Sở Xây dựng → Sở phê duyệt → chờ bốc thăm/ký hợp đồng (nếu trúng).
+                </Alert>
+
+                <div className="grid gap-3 text-sm">
+                  <section>
+                    <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Cá nhân</p>
+                    <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                      <p><strong>Dự án:</strong> {projects.find((p) => p.id === form.projectId)?.name ?? '—'}</p>
+                      <p><strong>Họ tên:</strong> {form.fullName || '—'} · <strong>CCCD:</strong> {form.citizenId || '—'}</p>
+                      <p><strong>Nghề:</strong> {form.occupation || '—'} · <strong>Nơi làm việc:</strong> {form.workPlace || '—'}</p>
+                      <p><strong>Nơi ở hiện tại:</strong> {form.currentResidence || '—'}</p>
+                      <p><strong>Thường trú:</strong> {form.permanentAddress || '—'}</p>
+                      <p><strong>Thực trạng nhà:</strong> {HOUSING_STATUS_LABELS[form.housingStatus] ?? '—'}</p>
+                      <p><strong>Tình trạng hôn nhân:</strong> {form.maritalStatus || '—'}</p>
+                      <p><strong>Nhóm đối tượng:</strong> {PRIORITY_GROUPS.find((g) => g.value === form.priorityGroup)?.label ?? '—'}</p>
+                      <p><strong>Thu nhập:</strong> {form.monthlyIncome ? `${Number(form.monthlyIncome).toLocaleString('vi-VN')} đ` : '—'}{form.spouseMonthlyIncome ? ` · Vợ/chồng: ${Number(form.spouseMonthlyIncome).toLocaleString('vi-VN')} đ` : ''}</p>
+                      {form.averageHousingAreaPerPerson && <p><strong>Diện tích TB/người:</strong> {form.averageHousingAreaPerPerson} m²</p>}
+                    </div>
+                  </section>
+
+                  <section>
+                    <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Hộ gia đình</p>
+                    <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                      {household.length === 0 ? (
+                        <p className="text-slate-500">Chưa khai thành viên.</p>
+                      ) : (
+                        <ul className="space-y-1">
+                          {household.map((m, idx) => (
+                            <li key={m.id}>
+                              <strong>#{idx + 1}</strong> {m.fullName} — {m.relationship}{m.dateOfBirth ? ` (${m.dateOfBirth})` : ''}{m.citizenId ? `, CCCD: ${m.citizenId}` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <p className="mt-2 text-xs text-slate-500">Tổng: {householdSize || '0'} thành viên.</p>
+                    </div>
+                  </section>
+
+                  <section>
+                    <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Nhóm đối tượng</p>
+                    <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                      <p>{PRIORITY_GROUPS.find((g) => g.value === form.priorityGroup)?.label ?? '—'}</p>
+                      {hasPriorContract && (
+                        <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">Đã từng ký HĐ trước đây: {priorContractNote}</p>
+                      )}
+                    </div>
+                  </section>
+
+                  <section>
+                    <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Tài liệu</p>
+                    <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                      <ul className="space-y-1">
+                        {requiredDocs.map((key) => {
+                          const d = docs[key]
+                          return (
+                            <li key={key} className="flex items-center justify-between">
+                              <span>{DOC_TYPE_LABELS[key]}</span>
+                              <span className="text-xs">
+                                {d?.state === 'uploaded' ? <span className="text-emerald-600 dark:text-emerald-400">✓ Đã tải</span> : <span className="text-amber-600 dark:text-amber-400">Chưa tải</span>}
+                              </span>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  </section>
+                </div>
+
+                <div className="flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
+                  <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep(4)}>← Quay lại</Button>
+                  <Button type="button" variant="accent" disabled={!allDocsUploaded || (draftStatus !== 'DRAFT' && draftStatus !== 'PENDING_REVIEW') || isBusy} onClick={() => void handleSubmit()}>
                     {busy === 'submit' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang nộp…</> : 'Nộp hồ sơ'}
                   </Button>
                 </div>
