@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Heart, MapPin, X } from 'lucide-react'
+import { CheckCircle2, Heart, MapPin, Plus, X } from 'lucide-react'
 import { housingProjectsApi } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
+import { CreateProjectModal } from '@/components/developer/create-project-modal'
+import { DeveloperDecisionPanel } from '@/components/developer-decision-panel'
 import { LocationFields } from '@/components/forms/location-fields'
 import { RichEditor } from '@/components/forms/rich-editor'
 import { HousingSearchForm } from '@/components/housing/housing-search-form'
@@ -35,6 +37,8 @@ export function ProjectsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [flashSuccess, setFlashSuccess] = useState<string | null>(null)
+  const [showCreateProject, setShowCreateProject] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
   const isApplicant = getRole() === 'Applicant'
 
   const load = async (nextFilter: HousingSearchFilter) => {
@@ -52,7 +56,9 @@ export function ProjectsPage() {
     }
   }
 
-  useEffect(() => { void load(EMPTY_HOUSING_SEARCH) }, [])
+  const refreshProjects = () => setReloadKey((k) => k + 1)
+
+  useEffect(() => { void load(EMPTY_HOUSING_SEARCH) }, [reloadKey])
 
   useEffect(() => {
     const name = sessionStorage.getItem(FLASH_CREATE_PROJECT_KEY)
@@ -94,7 +100,9 @@ export function ProjectsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-500 dark:text-slate-400">{loading ? 'Đang tải...' : `${cards.length} dự án`}</p>
           {!isApplicant && (
-            <Button variant="accent" onClick={() => navigate('create-project')}>Tạo dự án mới</Button>
+            <Button variant="accent" onClick={() => setShowCreateProject(true)}>
+              <Plus className="mr-1.5 h-4 w-4" /> Tạo dự án mới
+            </Button>
           )}
         </div>
 
@@ -125,7 +133,7 @@ export function ProjectsPage() {
               title="Không tìm thấy dự án"
               description="Thử điều chỉnh bộ lọc hoặc tạo dự án mới."
               actionLabel="Tạo dự án mới"
-              onAction={() => navigate('create-project')}
+              onAction={() => setShowCreateProject(true)}
             />
           )
         )}
@@ -138,6 +146,11 @@ export function ProjectsPage() {
           </div>
         )}
       </PageCard>
+      <CreateProjectModal
+        open={showCreateProject}
+        onClose={() => setShowCreateProject(false)}
+        onCreated={refreshProjects}
+      />
     </div>
   )
 }
@@ -186,6 +199,24 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
       set('maxArea', p.maxArea ?? 0)
       set('availableUnits', p.availableUnits ?? 0)
       if (p.housingProjectStatusId) set('housingProjectStatusId', p.housingProjectStatusId)
+      // load thêm các field mới
+      const formEl = form as HTMLFormElement & Record<string, HTMLInputElement>
+      if (formEl.decisionNumber && (p as Record<string, unknown>).decisionNumber)
+        formEl.decisionNumber.value = String((p as Record<string, unknown>).decisionNumber)
+      if (formEl.approvalDate && (p as Record<string, unknown>).approvalDate)
+        formEl.approvalDate.value = String((p as Record<string, unknown>).approvalDate).split('T')[0]
+      if (formEl.isConfirmed)
+        formEl.isConfirmed.checked = Boolean((p as Record<string, unknown>).isConfirmed)
+      if (formEl.depositAmount && (p as Record<string, unknown>).depositAmount)
+        formEl.depositAmount.value = String((p as Record<string, unknown>).depositAmount)
+      if (formEl.lotteryDate && (p as Record<string, unknown>).lotteryDate)
+        formEl.lotteryDate.value = String((p as Record<string, unknown>).lotteryDate).replace('Z', '')
+      if (formEl.lotteryLocation && (p as Record<string, unknown>).lotteryLocation)
+        formEl.lotteryLocation.value = String((p as Record<string, unknown>).lotteryLocation)
+      if (formEl.applicationOpenDate && (p as Record<string, unknown>).applicationOpenDate)
+        formEl.applicationOpenDate.value = String((p as Record<string, unknown>).applicationOpenDate).replace('Z', '')
+      if (formEl.applicationCloseDate && (p as Record<string, unknown>).applicationCloseDate)
+        formEl.applicationCloseDate.value = String((p as Record<string, unknown>).applicationCloseDate).replace('Z', '')
     }).catch((err) => setMsg({ type: 'error', text: formatError(err) })).finally(() => setLoading(false))
   }, [projectId])
 
@@ -196,12 +227,22 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
       description,
       province: String(fd.get('province')),
       district: String(fd.get('district')),
+      street: String(fd.get('street')) || undefined,
+      ward: String(fd.get('ward')) || undefined,
       address: String(fd.get('address')),
       minPrice: parseFloat(String(fd.get('minPrice'))) || 0,
       maxPrice: parseFloat(String(fd.get('maxPrice'))) || 0,
       minArea: parseFloat(String(fd.get('minArea'))) || 0,
       maxArea: parseFloat(String(fd.get('maxArea'))) || 0,
       availableUnits: parseInt(String(fd.get('availableUnits')), 10) || 0,
+      decisionNumber: String(fd.get('decisionNumber')) || undefined,
+      approvalDate: String(fd.get('approvalDate')) || undefined,
+      isConfirmed: fd.get('isConfirmed') === 'on',
+      depositAmount: parseFloat(String(fd.get('depositAmount'))) || undefined,
+      lotteryDate: String(fd.get('lotteryDate')) || undefined,
+      lotteryLocation: String(fd.get('lotteryLocation')) || undefined,
+      applicationOpenDate: String(fd.get('applicationOpenDate')) || undefined,
+      applicationCloseDate: String(fd.get('applicationCloseDate')) || undefined,
       housingProjectStatusId: String(fd.get('housingProjectStatusId')),
       thumbnailFile: thumb instanceof File && thumb.size > 0 ? thumb : undefined,
       imagesFiles: imagesFiles.length > 0 ? imagesFiles : undefined,
@@ -252,18 +293,59 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
         addressKey={addressKey}
       />
       <div className="grid gap-3 sm:grid-cols-2">
+        <FormField label="Phường/Xã" htmlFor="ward">
+          <Input id="ward" name="ward" placeholder="VD: Phường Phú Hòa" />
+        </FormField>
+        <FormField label="Đường/Số nhà" htmlFor="street">
+          <Input id="street" name="street" placeholder="VD: 123 Nguyễn Trãi" />
+        </FormField>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
         <FormField label="Giá tối thiểu (VNĐ)" htmlFor="minPrice"><Input id="minPrice" name="minPrice" type="number" required /></FormField>
         <FormField label="Giá tối đa (VNĐ)" htmlFor="maxPrice"><Input id="maxPrice" name="maxPrice" type="number" required /></FormField>
         <FormField label="Diện tích min (m²)" htmlFor="minArea"><Input id="minArea" name="minArea" type="number" required /></FormField>
         <FormField label="Diện tích max (m²)" htmlFor="maxArea"><Input id="maxArea" name="maxArea" type="number" required /></FormField>
       </div>
-      <FormField label="Số căn còn trống" htmlFor="availableUnits"><Input id="availableUnits" name="availableUnits" type="number" required /></FormField>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <FormField label="Số căn còn trống" htmlFor="availableUnits"><Input id="availableUnits" name="availableUnits" type="number" required /></FormField>
+        <FormField label="Tiền đặt cọc (VNĐ)" htmlFor="depositAmount"><Input id="depositAmount" name="depositAmount" type="number" /></FormField>
+      </div>
       <FormField label="Trạng thái dự án" htmlFor="housingProjectStatusId">
         <Select id="housingProjectStatusId" name="housingProjectStatusId" required>
           <option value="">{statuses.length ? 'Chọn trạng thái' : 'Đang tải...'}</option>
           {statuses.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </Select>
       </FormField>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <FormField label="Số quyết định" htmlFor="decisionNumber">
+          <Input id="decisionNumber" name="decisionNumber" placeholder="VD: 1234/QĐ-UBND" />
+        </FormField>
+        <FormField label="Ngày phê duyệt" htmlFor="approvalDate">
+          <Input id="approvalDate" name="approvalDate" type="date" />
+        </FormField>
+        <FormField label="Đã phê duyệt?" htmlFor="isConfirmed">
+          <div className="flex items-center h-full">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+              <input id="isConfirmed" name="isConfirmed" type="checkbox" className="accent-blue-600" />
+              Đã phê duyệt
+            </label>
+          </div>
+        </FormField>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <FormField label="Ngày mở đăng ký" htmlFor="applicationOpenDate">
+          <Input id="applicationOpenDate" name="applicationOpenDate" type="datetime-local" />
+        </FormField>
+        <FormField label="Ngày đóng đăng ký" htmlFor="applicationCloseDate">
+          <Input id="applicationCloseDate" name="applicationCloseDate" type="datetime-local" />
+        </FormField>
+        <FormField label="Ngày bốc thăm" htmlFor="lotteryDate">
+          <Input id="lotteryDate" name="lotteryDate" type="datetime-local" />
+        </FormField>
+        <FormField label="Địa điểm bốc thăm" htmlFor="lotteryLocation">
+          <Input id="lotteryLocation" name="lotteryLocation" placeholder="VD: Hội trường TTTM Bình Dương" />
+        </FormField>
+      </div>
       <FormField label="Ảnh thumbnail (tùy chọn)" htmlFor="thumbnailFile">
         <Input id="thumbnailFile" name="thumbnailFile" type="file" accept="image/jpeg,image/png,image/webp" />
       </FormField>
@@ -317,7 +399,10 @@ export function CreateProjectPage() {
 
 export function ProjectDetailPage() {
   const projectId = sessionStorage.getItem('projectId')
-  const isApplicant = getRole() === 'Applicant'
+  const role = getRole()
+  const isApplicant = role === 'Applicant'
+  const isDeveloper = role === 'Housing Developer'
+  const isAdmin = role === 'System Administrator'
   return (
     <div>
       <PageHeader routeId="project-detail" />
@@ -328,7 +413,14 @@ export function ProjectDetailPage() {
         ) : isApplicant ? (
           <ProjectDetailView projectId={projectId} />
         ) : (
-          <ProjectForm projectId={projectId} />
+          <>
+            <ProjectForm projectId={projectId} />
+            {(isDeveloper || isAdmin) && (
+              <div className="mt-6 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                <DeveloperDecisionPanel projectId={projectId} />
+              </div>
+            )}
+          </>
         )}
       </PageCard>
     </div>

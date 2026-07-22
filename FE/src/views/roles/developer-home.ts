@@ -1,6 +1,7 @@
 import { housingApplicationsApi, parsePagedApplications } from '../../api/housing-applications'
 import { housingProjectsApi } from '../../api/housing-projects'
 import { usersApi } from '../../api/users'
+import { notificationApi, parsePagedNotifications } from '../../api/notification'
 import { navigate } from '../../router'
 import { el } from '../../ui/helpers'
 import {
@@ -53,25 +54,29 @@ export function developerHomeView(): HTMLElement {
   const queueRows = el('div', { class: 'role-activity-list' })
   const queueSection = activityPanel('Hàng đợi thẩm định', 'Không có hồ sơ chờ nhận.', queueRows)
 
+  const notifRows = el('div', { class: 'role-activity-list' })
+  const notifSection = activityPanel('Thông báo gần đây', 'Không có thông báo nào.', notifRows)
+
   const page = buildRolePage(
     'home-developer',
     'Tiếp nhận và thẩm định hồ sơ đăng ký nhà ở, gửi danh sách lên Sở Xây dựng.',
     statsHost,
     ACTIONS,
-    [queueSection],
+    [queueSection, notifSection],
     workflowPanel(STEPS),
   )
 
   const welcome = page.querySelector('.role-welcome') as HTMLElement
 
   void (async () => {
-    const [profile, submitted, reviewing, needMore, projects, queue] = await Promise.allSettled([
+    const [profile, submitted, reviewing, needMore, projects, queue, notifRes] = await Promise.allSettled([
       usersApi.getProfile(),
       housingApplicationsApi.getAll({ pageSize: 1, status: 'SUBMITTED' }),
       housingApplicationsApi.getAll({ pageSize: 1, status: 'REVIEWING' }),
       housingApplicationsApi.getAll({ pageSize: 1, status: 'NEED_MORE_DOCUMENTS' }),
       housingProjectsApi.list({ pageSize: 1 }),
       housingApplicationsApi.getAll({ pageSize: 6, status: 'SUBMITTED' }),
+      notificationApi.getMy(1, 5),
     ])
 
     if (profile.status === 'fulfilled') {
@@ -105,6 +110,32 @@ export function developerHomeView(): HTMLElement {
               },
             ),
           ),
+        )
+      }
+    }
+
+    if (notifRes.status === 'fulfilled') {
+      const notifs = parsePagedNotifications(notifRes.value)
+      if (notifs.items.length === 0) {
+        notifRows.replaceChildren(el('p', { class: 'role-empty' }, 'Không có thông báo nào.'))
+      } else {
+        notifRows.replaceChildren(
+          ...notifs.items.map((n) => {
+            const badge = el('span', {
+              class: `role-tag ${n.isRead ? 'is-muted' : 'is-warning'}`,
+            }, n.isRead ? 'Đã đọc' : 'Mới')
+            return activityRow(
+              n.title,
+              n.content,
+              badge,
+              () => {
+                if (!n.isRead) {
+                  void notificationApi.markAsRead(n.notificationId)
+                }
+                navigate('notifications')
+              },
+            )
+          }),
         )
       }
     }
