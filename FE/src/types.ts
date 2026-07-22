@@ -16,11 +16,6 @@ export interface GoogleLoginDto {
   role?: string | null
 }
 
-export interface VerifyOtpDto {
-  email: string
-  otpCode: string
-}
-
 export interface RefreshTokenDto {
   refreshToken: string
 }
@@ -75,6 +70,25 @@ export interface ProblemDetails {
   errors?: Record<string, string[]>
 }
 
+export interface HousingProjectSummaryDto {
+  id: string
+  projectName: string
+  province?: string
+  district?: string
+  street?: string
+  address?: string
+  availableUnits?: number
+  thumbnailUrl?: string
+  status?: string
+  minPrice?: number
+  maxPrice?: number
+  minArea?: number
+  maxArea?: number
+  lotteryDate?: string
+  applicationOpenDate?: string
+  applicationCloseDate?: string
+}
+
 export interface HousingProjectDto {
   id?: string
   projectName?: string
@@ -103,16 +117,26 @@ export interface CreateHousingProjectRequestDto {
   description: string
   province: string
   district: string
-  address: string
+  street?: string
+  ward?: string
+  address?: string
   minPrice: number
   maxPrice: number
   minArea: number
   maxArea: number
   availableUnits: number
-  housingProjectStatusId: string
   thumbnailUrl?: string
   thumbnailFile?: File
   imagesFiles?: File[]
+  decisionNumber?: string
+  approvalDate?: string
+  isConfirmed?: boolean
+  depositAmount?: number
+  lotteryDate?: string
+  lotteryLocation?: string
+  applicationOpenDate?: string
+  applicationCloseDate?: string
+  housingProjectStatusId: string
 }
 
 export interface ProjectFilterDto {
@@ -171,6 +195,14 @@ export interface ApplicationFilterDto {
   submittedTo?: string
 }
 
+export interface HouseholdMemberDto {
+  fullName: string
+  citizenId?: string | null
+  dateOfBirth?: string | null
+  relationship: string
+  note?: string | null
+}
+
 export interface CreateApplicationDto {
   projectId: string
   fullName: string
@@ -180,7 +212,12 @@ export interface CreateApplicationDto {
   currentResidence: string
   permanentAddress: string
   housingStatus: string
-  estimatedMonthlyIncome: number
+  maritalStatus: string
+  monthlyIncome?: number | null
+  spouseMonthlyIncome?: number | null
+  averageHousingAreaPerPerson?: number | null
+  priorityGroup: string
+  householdMembers?: HouseholdMemberDto[] | null
 }
 
 export interface ApplicationSummaryDto {

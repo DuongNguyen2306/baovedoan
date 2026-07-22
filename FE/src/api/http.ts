@@ -9,13 +9,18 @@ export class ApiError extends Error {
   body: ProblemDetails | unknown
 
   constructor(status: number, body: unknown) {
-    const title =
-      body && typeof body === 'object' && 'title' in body
-        ? String((body as ProblemDetails).title)
-        : body && typeof body === 'object' && 'message' in body
-          ? String((body as { message: string }).message)
-          : `HTTP ${status}`
-    super(title)
+    // Ưu tiên `message` cho status 4xx/5xx vì nhiều controller .NET trả raw object
+    // `{ message: "..." }` thay vì ProblemDetails. Với 4xx validation, fallback về `title`.
+    const obj = body && typeof body === 'object' ? (body as Record<string, unknown>) : null
+    const rawMessage = obj && typeof obj.message === 'string' ? (obj.message as string) : null
+    const rawTitle = obj && typeof obj.title === 'string' ? (obj.title as string) : null
+    const text =
+      rawMessage ??
+      (rawTitle && rawTitle !== 'Unauthorized' && rawTitle !== 'One or more validation errors occurred.'
+        ? rawTitle
+        : null) ??
+      `HTTP ${status}`
+    super(text)
     this.status = status
     this.body = body
   }
@@ -94,6 +99,8 @@ export async function request<T = unknown>(
     const refreshed = await refreshAccessToken()
     if (refreshed) res = await doFetch(path, init)
   }
+
+  if (res.status === 204 || res.status === 205) return null as T
 
   const text = await res.text()
   const data = text ? (JSON.parse(text) as unknown) : null
