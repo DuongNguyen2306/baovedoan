@@ -1,8 +1,7 @@
-import { Building2, FileText, Heart, Home, User } from 'lucide-react'
+import { Building2, FileText, FileSignature, Heart, Home, User } from 'lucide-react'
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
 import { type RouteId } from '@/router'
 import { ROLE_THEMES } from '@/lib/role-theme'
-import { NotificationBell } from '@/components/layout/notification-bell'
 
 const THEME = ROLE_THEMES.applicant
 
@@ -16,11 +15,13 @@ interface NavItem {
 const ITEMS: NavItem[] = [
   { route: 'home-user', label: 'Trang chủ', icon: Home },
   { route: 'applications', label: 'Hồ sơ', icon: FileText, aliases: ['application-detail', 'create-application'] },
-  { route: 'quan-tam', label: 'Dự án quan tâm', icon: Heart },
-  { route: 'projects', label: 'Dự án nhà ở', icon: Building2, aliases: ['project-detail', 'create-project'] },
+  { route: 'contracts', label: 'Hợp đồng', icon: FileSignature, aliases: ['contract-detail'] },
+  { route: 'quan-tam', label: 'Quan tâm', icon: Heart },
+  { route: 'projects', label: 'Dự án', icon: Building2, aliases: ['project-detail', 'create-project'] },
   { route: 'profile', label: 'Tài khoản', icon: User, aliases: ['change-password'] },
 ]
 
+// Tất cả route của Applicant đều dùng sub-nav này, KHÔNG fall-back về header nav cũ.
 export const APPLICANT_SUB_NAV_ROUTES: RouteId[] = [
   'home-user',
   'quan-tam',
@@ -29,9 +30,15 @@ export const APPLICANT_SUB_NAV_ROUTES: RouteId[] = [
   'create-application',
   'projects',
   'project-detail',
+  'create-project',
+  'contracts',
+  'contract-detail',
   'profile',
   'change-password',
   'notifications',
+  'lottery-lobby',
+  'lottery-live',
+  'report-issue',
 ]
 
 function isActive(current: RouteId, item: NavItem): boolean {
@@ -39,12 +46,12 @@ function isActive(current: RouteId, item: NavItem): boolean {
   return item.aliases?.includes(current) ?? false
 }
 
-/** Menu ngang xanh dương — kiểu cổng dịch vụ công */
+/** Menu ngang dành riêng cho Applicant — thay thế hoàn toàn header nav cũ. */
 export function ApplicantSubNav() {
   const route = useHashRoute()
 
   return (
-    <nav className={`${THEME.navBg} text-white`} aria-label="Điều hướng người dùng">
+    <nav className={`${THEME.navBg}`} aria-label="Điều hướng người dùng">
       <div className="mx-auto flex max-w-7xl items-center overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {ITEMS.map((item) => {
           const active = isActive(route, item)
@@ -55,10 +62,10 @@ export function ApplicantSubNav() {
               type="button"
               onClick={() => navigate(item.route)}
               data-active={active}
-              className={`relative inline-flex shrink-0 items-center gap-2 px-4 py-3 text-sm font-semibold transition-colors ${
+              className={`relative inline-flex shrink-0 items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
                 active
                   ? `${THEME.navActiveBg} ${THEME.navActiveTextColor}`
-                  : `${THEME.navTextColor} ${THEME.navBgHover} hover:text-white`
+                  : `${THEME.navTextColor} ${THEME.navBgHover}`
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -69,19 +76,6 @@ export function ApplicantSubNav() {
             </button>
           )
         })}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => navigate('notifications')}
-          onKeyDown={(e) => e.key === 'Enter' && navigate('notifications')}
-          className={`relative ml-auto shrink-0 rounded-md px-3 py-1.5 transition-colors ${
-            route === 'notifications'
-              ? `${THEME.navActiveBg} ${THEME.navActiveTextColor}`
-              : `${THEME.navTextColor} ${THEME.navBgHover} hover:text-white`
-          }`}
-        >
-          <NotificationBell />
-        </div>
       </div>
     </nav>
   )
