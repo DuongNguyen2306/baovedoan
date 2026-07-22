@@ -8,7 +8,6 @@ import type {
   RefreshTokenDto,
   RegisterDto,
   ResetPasswordDto,
-  VerifyOtpDto,
 } from '../types'
 
 export const authApi = {
@@ -24,10 +23,10 @@ export const authApi = {
       body: JSON.stringify(body),
     }),
 
-  verifyOtp: (body: VerifyOtpDto) =>
+  verifyOtp: (email: string, otpCode: string) =>
     request<ApiResult>('/api/Auth/verify-otp', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify({ email, otpCode }),
     }),
 
   resendOtp: (email: string) =>

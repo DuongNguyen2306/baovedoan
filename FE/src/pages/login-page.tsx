@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { navigate } from '@/hooks/useHashRoute'
 import { extractRole, setPendingOtpEmail } from '@/lib/auth-helpers'
 import { formatError } from '@/lib/format-error'
+import { readVerifiedStatus, setCachedVerified } from '@/lib/verification'
 import { isLoggedIn, roleHome, setRole } from '@/router'
 import { useUserProfile } from '@/providers/user-profile-provider'
 
@@ -48,17 +49,17 @@ export function LoginPage() {
         void refreshProfile()
         if (role === 'Applicant') {
           try {
-            const profile = (await usersApi.getProfile()) as { user?: Record<string, unknown> } | null
-            const u = profile?.user ?? {}
-            const verified = Boolean(
-              u.isCitizenIdVerified ??
-                u.IsCitizenIdVerified ??
-                (typeof u.citizenId === 'string' && (u.citizenId as string).length > 0) ??
-                (typeof u.CitizenId === 'string' && (u.CitizenId as string).length > 0),
-            )
-            if (!verified) {
+            const profile = await usersApi.getProfile()
+            const verified = readVerifiedStatus(profile)
+            // null = không xác định được từ response → bỏ qua, cho user vào home
+            if (verified === true) {
+              setCachedVerified(true)
+            } else if (verified === false) {
+              setCachedVerified(false)
               navigate('verify-identity')
               return
+            } else {
+              setCachedVerified(null)
             }
           } catch {
             /* ignore — fallback dưới */

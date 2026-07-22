@@ -1,14 +1,14 @@
 import { saveTokensFromResponse } from '@/api/http'
 import { isLoggedIn, navigate, roleHome, setRole } from '@/router'
 
-let pendingOtpEmail = ''
+const PENDING_EMAIL_KEY = 'pendingOtpEmail'
 
-export function getPendingOtpEmail() {
-  return pendingOtpEmail
+export function getPendingOtpEmail(): string {
+  return sessionStorage.getItem(PENDING_EMAIL_KEY) ?? ''
 }
 
-export function setPendingOtpEmail(email: string) {
-  pendingOtpEmail = email
+export function setPendingOtpEmail(email: string): void {
+  sessionStorage.setItem(PENDING_EMAIL_KEY, email)
 }
 
 export function extractRole(data: unknown): string {

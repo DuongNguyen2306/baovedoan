@@ -30,4 +30,11 @@ export const usersApi = {
   adminOnly: () => request<ApiResult>('/api/Users/admin-only', { auth: true }),
 
   officerOnly: () => request<ApiResult>('/api/Users/officer-only', { auth: true }),
+
+  deleteAccount: (body: { password: string; reason?: string }) =>
+    request<ApiResult>('/api/Users/delete-account', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      auth: true,
+    }),
 }
