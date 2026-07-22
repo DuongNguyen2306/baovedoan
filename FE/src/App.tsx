@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AppShell } from '@/components/layout/app-shell'
 import { PaymentNotice } from '@/components/layout/payment-notice'
 import { useHashRoute } from '@/hooks/useHashRoute'
 import { usersApi } from '@/api/users'
+import { getCachedVerified, readVerifiedStatus, setCachedVerified } from '@/lib/verification'
 import {
   ChangePasswordPage,
   ForgotPasswordPage,
@@ -28,6 +29,23 @@ import { CreatePaymentPage, PaymentsPage } from '@/pages/payments-pages'
 import { ProfilePage } from '@/pages/profile-page'
 import { CreateProjectPage, ProjectDetailPage, ProjectsPage } from '@/pages/projects-pages'
 import { ReportIssuePage } from '@/pages/report-issue-page'
+import {
+  LotteryCreatePage,
+  LotteryDetailPage,
+  LotteryLivePage,
+  LotteryLobbyPage,
+  LotterySessionsPage,
+} from '@/pages/lottery-pages'
+import {
+  ContractCreatePage,
+  ContractDetailPage,
+  ContractsPage,
+} from '@/pages/contract-pages'
+import { AuditDetailPage, AuditListPage, AuditCreatePage } from '@/pages/audit-pages'
+import {
+  CategoriesPage,
+  SystemLogsPage,
+} from '@/pages/admin-extras-pages'
 import { AdminHomePage } from '@/pages/admin-home-page'
 import {
   ApplicantHomePage,
@@ -79,6 +97,19 @@ function RouteView({ route }: { route: RouteId }) {
     case 'staff-detail': return <StaffDetailPage />
     case 'notifications': return <NotificationsPage />
     case 'report-issue': return <ReportIssuePage />
+    case 'lottery-sessions': return <LotterySessionsPage />
+    case 'lottery-create': return <LotteryCreatePage />
+    case 'lottery-detail': return <LotteryDetailPage />
+    case 'lottery-lobby': return <LotteryLobbyPage />
+    case 'lottery-live': return <LotteryLivePage />
+    case 'contracts': return <ContractsPage />
+    case 'contract-create': return <ContractCreatePage />
+    case 'contract-detail': return <ContractDetailPage />
+    case 'audit-list': return <AuditListPage />
+    case 'audit-create': return <AuditCreatePage />
+    case 'audit-detail': return <AuditDetailPage />
+    case 'admin-logs': return <SystemLogsPage />
+    case 'admin-categories': return <CategoriesPage />
     default: return null
   }
 }
@@ -88,6 +119,11 @@ export function App() {
   const config = getRouteConfig(route)
   const role = getRole()
   const logged = isLoggedIn()
+  // Cache kết quả verified để không gọi getProfile mỗi lần route đổi.
+  // Dùng cả ref cục bộ (re-render nhanh) lẫn module cache (chia sẻ với verify-identity-page).
+  const verifiedRef = useRef<boolean | null>(getCachedVerified())
+  // Tránh gọi getProfile trùng nhau khi nhiều route đổi liên tiếp.
+  const inFlightRef = useRef(false)
 
   useEffect(() => {
     if (config.auth && !logged) {
@@ -98,31 +134,44 @@ export function App() {
       navigate(roleHome(role))
       return
     }
-    // Middleware: Applicant đã login mà chưa xác minh CCCD → ép sang verify-identity
+    // Middleware: Applicant đã login mà chưa xác minh CCCD → ép sang verify-identity.
+    // - Cache `null` nghĩa là chưa biết → cần check.
+    // - Cache `true`  → đã xác minh, không làm gì.
+    // - Cache `false` → đã biết là chưa xác minh, KHÔNG redirect lại
+    //   (tránh vòng lặp nhảy home-user ↔ verify-identity).
     if (
       logged &&
       role === 'Applicant' &&
       route !== 'verify-identity' &&
       route !== 'login' &&
       route !== 'register' &&
-      route !== 'verify-otp'
+      route !== 'verify-otp' &&
+      route !== 'resend-otp' &&
+      route !== 'forgot-password'
     ) {
+      if (verifiedRef.current !== null) return
+      if (inFlightRef.current) return
+      inFlightRef.current = true
       void usersApi
         .getProfile()
         .then((data) => {
-          const u = (data as { user?: Record<string, unknown> } | null)?.user ?? null
-          const verified = Boolean(
-            u?.isCitizenIdVerified ??
-              u?.IsCitizenIdVerified ??
-              (typeof u?.citizenId === 'string' && u.citizenId.length > 0) ??
-              (typeof u?.CitizenId === 'string' && (u.CitizenId as string).length > 0),
-          )
-          if (!verified) navigate('verify-identity')
+          const verified = readVerifiedStatus(data)
+          // null = không xác định được từ response → không cache, không redirect,
+          // để user dùng app bình thường thay vì kẹt ở verify-identity.
+          if (verified === null) return
+          verifiedRef.current = verified
+          setCachedVerified(verified)
+          if (verified === false) navigate('verify-identity')
         })
         .catch(() => {
           /* ignore — nếu lỗi mạng, không block người dùng */
         })
+        .finally(() => {
+          inFlightRef.current = false
+        })
     }
+    // Không reset verifiedRef khi vào verify-identity nữa — sẽ do
+    // verify-identity-page.tsx chủ động set true sau khi lưu thành công.
   }, [route, config.auth, logged, role])
 
   if (config.auth && !logged) return null

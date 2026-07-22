@@ -30,6 +30,23 @@ export type RouteId =
   | 'application-detail'
   | 'notifications'
   | 'report-issue'
+  // Lottery (mock)
+  | 'lottery-sessions'
+  | 'lottery-create'
+  | 'lottery-detail'
+  | 'lottery-lobby'
+  | 'lottery-live'
+  // Contracts (mock)
+  | 'contracts'
+  | 'contract-create'
+  | 'contract-detail'
+  // Audit (mock)
+  | 'audit-list'
+  | 'audit-detail'
+  | 'audit-create'
+  // Admin extras (mock)
+  | 'admin-logs'
+  | 'admin-categories'
 
 export type NavGroup = 'access' | 'security' | 'workspace'
 
@@ -194,7 +211,7 @@ export const routes: RouteConfig[] = [
   },
   {
     id: 'profile',
-    label: 'Hồ sơ',
+    label: 'Tài khoản',
     group: 'workspace',
     auth: true,
     title: 'Hồ sơ cá nhân',
@@ -329,6 +346,136 @@ export const routes: RouteConfig[] = [
     subtitle: 'Gửi phản ánh về lỗi kỹ thuật, dữ liệu hoặc tài khoản tới quản trị viên.',
     cta: 'Gửi báo cáo',
   },
+  // ====== Lottery (mock cho BE chưa có) ======
+  {
+    id: 'lottery-sessions',
+    label: 'Bốc thăm',
+    group: 'workspace',
+    auth: true,
+    roles: ['Housing Developer', 'Department Of Construction'],
+    title: 'Phiên bốc thăm',
+    subtitle: 'Quản lý các phiên bốc thăm khi hồ sơ hợp lệ vượt số căn.',
+    cta: 'Tạo phiên mới',
+  },
+  {
+    id: 'lottery-create',
+    label: 'Tạo phiên bốc thăm',
+    group: 'workspace',
+    auth: true,
+    roles: ['Housing Developer'],
+    title: 'Tạo phiên bốc thăm',
+    subtitle: 'Chọn dự án, danh sách đủ điều kiện và lịch bốc thăm.',
+    cta: 'Tạo phiên',
+  },
+  {
+    id: 'lottery-detail',
+    label: 'Chi tiết phiên',
+    group: 'workspace',
+    auth: true,
+    roles: ['Housing Developer', 'Department Of Construction'],
+    title: 'Chi tiết phiên bốc thăm',
+    subtitle: 'Theo dõi trạng thái, danh sách tham gia và log sự kiện.',
+    cta: '',
+  },
+  {
+    id: 'lottery-lobby',
+    label: 'Sảnh chờ',
+    group: 'workspace',
+    auth: true,
+    roles: ['Applicant'],
+    title: 'Sảnh chờ bốc thăm',
+    subtitle: 'Bạn đang ở trong sảnh chờ bốc thăm trực tiếp. Vui lòng không rời trang.',
+    cta: '',
+  },
+  {
+    id: 'lottery-live',
+    label: 'Bốc thăm trực tiếp',
+    group: 'workspace',
+    auth: true,
+    roles: ['Applicant'],
+    title: 'Bốc thăm trực tiếp',
+    subtitle: 'Theo dõi kết quả trực tiếp từ chủ đầu tư.',
+    cta: '',
+  },
+  // ====== Contracts (mock cho BE chưa có) ======
+  {
+    id: 'contracts',
+    label: 'Hợp đồng',
+    group: 'workspace',
+    auth: true,
+    title: 'Hợp đồng mua bán',
+    subtitle: 'Quản lý hợp đồng và lịch thanh toán các đợt.',
+    cta: 'Tạo hợp đồng mới',
+  },
+  {
+    id: 'contract-create',
+    label: 'Tạo hợp đồng',
+    group: 'workspace',
+    auth: true,
+    roles: ['Housing Developer'],
+    title: 'Tạo hợp đồng mua bán',
+    subtitle: 'Tạo hợp đồng mới cho hồ sơ trúng thầu / được chọn.',
+    cta: 'Tạo hợp đồng',
+  },
+  {
+    id: 'contract-detail',
+    label: 'Chi tiết hợp đồng',
+    group: 'workspace',
+    auth: true,
+    title: 'Chi tiết hợp đồng',
+    subtitle: 'Xem thông tin, ký hợp đồng và theo dõi lịch thanh toán.',
+    cta: '',
+  },
+  // ====== Audit / Hậu kiểm (mock cho BE chưa có) ======
+  {
+    id: 'audit-list',
+    label: 'Hậu kiểm',
+    group: 'workspace',
+    auth: true,
+    title: 'Hậu kiểm danh sách chính thức',
+    subtitle: 'Sở Xây dựng hậu kiểm các hồ sơ đã được CĐT gửi lên.',
+    cta: 'Tạo hồ sơ hậu kiểm',
+  },
+  {
+    id: 'audit-detail',
+    label: 'Chi tiết hậu kiểm',
+    group: 'workspace',
+    auth: true,
+    title: 'Chi tiết hồ sơ hậu kiểm',
+    subtitle: 'Thực hiện checklist hậu kiểm và công bố kết quả.',
+    cta: '',
+  },
+  {
+    id: 'audit-create',
+    label: 'Tạo hậu kiểm',
+    group: 'workspace',
+    auth: true,
+    roles: ['Department Of Construction'],
+    title: 'Tạo hồ sơ hậu kiểm',
+    subtitle: 'Tạo hồ sơ hậu kiểm mới cho dự án.',
+    cta: 'Tạo hồ sơ',
+  },
+  // ====== Admin extras (mock cho BE chưa có) ======
+  {
+    id: 'admin-logs',
+    label: 'Log hệ thống',
+    group: 'workspace',
+    auth: true,
+    roles: ['System Administrator'],
+    title: 'Log hệ thống',
+    subtitle: 'Theo dõi tất cả hoạt động của hệ thống và người dùng.',
+    cta: '',
+  },
+  {
+    id: 'admin-categories',
+    label: 'Quản lý danh mục',
+    group: 'workspace',
+    auth: true,
+    roles: ['System Administrator'],
+    title: 'Quản lý danh mục',
+    subtitle: 'Danh mục trạng thái dự án, loại giấy tờ và nhóm thu nhập.',
+    cta: 'Thêm danh mục',
+  },
 ] as const
 
 export function getRouteConfig(id: RouteId): RouteConfig {
@@ -433,6 +580,14 @@ export function roleHome(role: string): RouteId {
 // Admin có toàn bộ quyền (canAccess luôn true). Các role khác chỉ
 // truy cập được những route trong danh sách của mình.
 const ROLE_ACCESS: Record<string, RouteId[]> = {
+  'System Administrator': [
+    'admin-staff',
+    'admin-logs',
+    'admin-categories',
+    'notifications',
+    'profile',
+    'change-password',
+  ],
   'Housing Developer': [
     'home-developer',
     'applications',
@@ -442,6 +597,14 @@ const ROLE_ACCESS: Record<string, RouteId[]> = {
     'application-detail',
     'profile',
     'change-password',
+    'lottery-sessions',
+    'lottery-create',
+    'lottery-detail',
+    'contracts',
+    'contract-create',
+    'contract-detail',
+    'audit-list',
+    'audit-detail',
   ],
   'Department Of Construction': [
     'home-sxd',
@@ -451,9 +614,16 @@ const ROLE_ACCESS: Record<string, RouteId[]> = {
     'application-detail',
     'profile',
     'change-password',
+    'lottery-sessions',
+    'lottery-detail',
+    'contracts',
+    'contract-detail',
+    'audit-list',
+    'audit-detail',
   ],
   Applicant: [
     'home-user',
+    'verify-identity',
     'quan-tam',
     'applications',
     'application-detail',
@@ -463,6 +633,11 @@ const ROLE_ACCESS: Record<string, RouteId[]> = {
     'notifications',
     'profile',
     'change-password',
+    'lottery-lobby',
+    'lottery-live',
+    'contracts',
+    'contract-detail',
+    'report-issue',
   ],
 }
 
@@ -491,10 +666,10 @@ export function publicNavRoutes(): RouteId[] {
 }
 
 const NAV_BY_ROLE: Record<string, RouteId[]> = {
-  'System Administrator': ['admin-staff', 'notifications', 'profile'],
-  'Housing Developer': ['home-developer', 'applications', 'projects', 'notifications', 'profile'],
-  'Department Of Construction': ['home-sxd', 'applications', 'projects', 'notifications', 'profile'],
-  Applicant: ['home-user', 'quan-tam', 'applications', 'projects', 'notifications', 'profile'],
+  'System Administrator': ['admin-staff', 'admin-logs', 'admin-categories', 'notifications', 'profile'],
+  'Housing Developer': ['home-developer', 'applications', 'projects', 'lottery-sessions', 'contracts', 'audit-list', 'notifications', 'profile'],
+  'Department Of Construction': ['home-sxd', 'applications', 'projects', 'lottery-sessions', 'contracts', 'audit-list', 'notifications', 'profile'],
+  Applicant: ['home-user', 'quan-tam', 'applications', 'projects', 'contracts', 'notifications', 'profile'],
 }
 
 export function navRoutes(role: string): RouteId[] {
