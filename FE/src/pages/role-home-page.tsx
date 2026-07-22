@@ -468,7 +468,9 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
             { icon: <Activity className="h-5 w-5" />, title: 'Thẩm định', desc: 'Đang xử lý', route: 'applications' as RouteId, gradient: 'from-cyan-500/20 to-cyan-600/20 hover:from-cyan-500/30 hover:to-cyan-600/30 border-cyan-200/50 dark:border-cyan-700/50', iconColor: 'text-cyan-600 dark:text-cyan-400' },
             { icon: <Gavel className="h-5 w-5" />, title: 'Bốc thăm', desc: 'Phiên bốc thăm', route: 'lottery-sessions' as RouteId, gradient: 'from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 border-blue-200/50 dark:border-blue-700/50', iconColor: 'text-blue-600 dark:text-blue-400' },
             { icon: <FileSignature className="h-5 w-5" />, title: 'Hợp đồng', desc: 'Quản lý', route: 'contracts' as RouteId, gradient: 'from-emerald-500/20 to-emerald-600/20 hover:from-emerald-500/30 hover:to-emerald-600/30 border-emerald-200/50 dark:border-emerald-700/50', iconColor: 'text-emerald-600 dark:text-emerald-400' },
-            { icon: <FileSearch className="h-5 w-5" />, title: 'Hậu kiểm', desc: 'Theo dõi', route: 'audit-list' as RouteId, gradient: 'from-amber-500/20 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 border-amber-200/50 dark:border-amber-700/50', iconColor: 'text-amber-600 dark:text-amber-400' },
+            ...(isSxd
+              ? [{ icon: <FileSearch className="h-5 w-5" />, title: 'Hậu kiểm', desc: 'Công bố', route: 'audit-list' as RouteId, gradient: 'from-amber-500/20 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 border-amber-200/50 dark:border-amber-700/50', iconColor: 'text-amber-600 dark:text-amber-400' }]
+              : []),
             { icon: <Building2 className="h-5 w-5" />, title: 'Dự án', desc: 'Quản lý', route: 'projects' as RouteId, gradient: 'from-slate-500/20 to-slate-600/20 hover:from-slate-500/30 hover:to-slate-600/30 border-slate-200/50 dark:border-slate-700/50', iconColor: 'text-slate-600 dark:text-slate-400' },
           ].map((q) => (
             <button

@@ -398,18 +398,21 @@ export function CreateProjectPage() {
 }
 
 export function ProjectDetailPage() {
-  const projectId = sessionStorage.getItem('projectId')
+  const [projectId] = useState(() => sessionStorage.getItem('projectId') ?? '')
   const role = getRole()
   const isApplicant = role === 'Applicant'
   const isDeveloper = role === 'Housing Developer'
   const isAdmin = role === 'System Administrator'
+
   return (
     <div>
       <PageHeader routeId="project-detail" />
       <PageCard className="p-6">
         <Button variant="ghost" className="mb-4" onClick={() => navigate('projects')}>← Danh sách dự án</Button>
         {!projectId ? (
-          <Alert variant="error">Không tìm thấy dự án</Alert>
+          <Alert variant="error">
+            Không tìm thấy dự án. Quay lại danh sách và chọn lại dự án.
+          </Alert>
         ) : isApplicant ? (
           <ProjectDetailView projectId={projectId} />
         ) : (

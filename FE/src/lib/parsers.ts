@@ -60,6 +60,9 @@ function readProjectRow(p: Record<string, unknown>): HousingProjectDto {
     minArea: Number(p.minArea ?? p.MinArea ?? 0),
     maxArea: Number(p.maxArea ?? p.MaxArea ?? 0),
     availableUnits: Number(p.availableUnits ?? p.AvailableUnits ?? 0),
+    housingProjectStatusId: String(
+      p.housingProjectStatusId ?? p.HousingProjectStatusId ?? '',
+    ) || undefined,
     thumbnailUrl: thumbnail ? String(thumbnail) : undefined,
     status: (() => {
       const raw =

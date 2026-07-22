@@ -667,7 +667,7 @@ export function publicNavRoutes(): RouteId[] {
 
 const NAV_BY_ROLE: Record<string, RouteId[]> = {
   'System Administrator': ['admin-staff', 'admin-logs', 'admin-categories', 'notifications', 'profile'],
-  'Housing Developer': ['home-developer', 'applications', 'projects', 'lottery-sessions', 'contracts', 'audit-list', 'notifications', 'profile'],
+  'Housing Developer': ['home-developer', 'applications', 'projects', 'lottery-sessions', 'contracts', 'notifications', 'profile'],
   'Department Of Construction': ['home-sxd', 'applications', 'projects', 'lottery-sessions', 'contracts', 'audit-list', 'notifications', 'profile'],
   Applicant: ['home-user', 'quan-tam', 'applications', 'projects', 'contracts', 'notifications', 'profile'],
 }

@@ -60,9 +60,8 @@ export function projectsView(): HTMLElement {
       const btn = item.querySelector('button')
       if (btn) {
         btn.addEventListener('click', () => {
-          const projectId = filtered[index].id
+          sessionStorage.setItem('projectId', filtered[index].id)
           navigate('project-detail')
-          sessionStorage.setItem('projectId', projectId)
         })
       }
     })

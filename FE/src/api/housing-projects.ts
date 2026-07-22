@@ -14,6 +14,40 @@ export interface HousingProjectFilter {
   statusId?: string
 }
 
+export type DeveloperDecisionType =
+  | 'CLOSE_AND_SIGN'
+  | 'KEEP_OPEN'
+  | 'PROCESS_PRIORITY_AND_LOTTERY'
+
+export interface DeveloperWorkflowDecisionRequestDto {
+  decisionType: DeveloperDecisionType
+  selectedPriorityApplicationIds?: string[]
+  closeProject?: boolean
+}
+
+export interface ApplicationSummaryItemDto {
+  applicationId: string
+  fullName: string
+  citizenId: string
+  priorityGroup?: string | null
+  priorityScore: number
+  submittedAt: string
+  applicationStatus: string
+}
+
+export interface ProjectApplicationEvaluationDto {
+  projectId: string
+  projectName: string
+  availableUnits: number
+  totalQualifiedApplications: number
+  priorityCount: number
+  nonPriorityCount: number
+  /** LESS_OR_EQUAL_AVAILABLE | GREATER_THAN_AVAILABLE */
+  recommendedScenario: string
+  priorityApplications: ApplicationSummaryItemDto[]
+  nonPriorityApplications: ApplicationSummaryItemDto[]
+}
+
 function buildQuery(params?: HousingProjectFilter): string {
   const qs = new URLSearchParams()
   qs.set('pageIndex', String(params?.pageIndex ?? 1))
@@ -60,6 +94,50 @@ function toFormData(body: CreateHousingProjectRequestDto): FormData {
   return fd
 }
 
+function asRecord(data: unknown): Record<string, unknown> | null {
+  if (!data || typeof data !== 'object') return null
+  const o = data as Record<string, unknown>
+  const nested = o.data ?? o.Data
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+    return nested as Record<string, unknown>
+  }
+  return o
+}
+
+function mapAppItem(x: Record<string, unknown>): ApplicationSummaryItemDto {
+  return {
+    applicationId: String(x.applicationId ?? x.ApplicationId ?? ''),
+    fullName: String(x.fullName ?? x.FullName ?? ''),
+    citizenId: String(x.citizenId ?? x.CitizenId ?? ''),
+    priorityGroup: (x.priorityGroup ?? x.PriorityGroup) as string | null | undefined,
+    priorityScore: Number(x.priorityScore ?? x.PriorityScore ?? 0),
+    submittedAt: String(x.submittedAt ?? x.SubmittedAt ?? ''),
+    applicationStatus: String(x.applicationStatus ?? x.ApplicationStatus ?? ''),
+  }
+}
+
+export function parseProjectEvaluation(data: unknown): ProjectApplicationEvaluationDto | null {
+  const o = asRecord(data)
+  if (!o) return null
+  const priorityRaw = (o.priorityApplications ?? o.PriorityApplications) as unknown
+  const nonPriorityRaw = (o.nonPriorityApplications ?? o.NonPriorityApplications) as unknown
+  return {
+    projectId: String(o.projectId ?? o.ProjectId ?? ''),
+    projectName: String(o.projectName ?? o.ProjectName ?? ''),
+    availableUnits: Number(o.availableUnits ?? o.AvailableUnits ?? 0),
+    totalQualifiedApplications: Number(o.totalQualifiedApplications ?? o.TotalQualifiedApplications ?? 0),
+    priorityCount: Number(o.priorityCount ?? o.PriorityCount ?? 0),
+    nonPriorityCount: Number(o.nonPriorityCount ?? o.NonPriorityCount ?? 0),
+    recommendedScenario: String(o.recommendedScenario ?? o.RecommendedScenario ?? ''),
+    priorityApplications: Array.isArray(priorityRaw)
+      ? priorityRaw.map((it) => mapAppItem((it ?? {}) as Record<string, unknown>))
+      : [],
+    nonPriorityApplications: Array.isArray(nonPriorityRaw)
+      ? nonPriorityRaw.map((it) => mapAppItem((it ?? {}) as Record<string, unknown>))
+      : [],
+  }
+}
+
 export const housingProjectsApi = {
   list: (params?: HousingProjectFilter) =>
     request<ApiResult>(`/api/HousingProjects?${buildQuery(params)}`),
@@ -96,14 +174,4 @@ export const housingProjectsApi = {
       body: JSON.stringify(body),
       auth: true,
     }),
-}
-
-export interface DeveloperWorkflowDecisionRequestDto {
-  /** e.g. APPROVE_ALL, RUN_LOTTERY, REJECT, COMPLETE */
-  decision: string
-  /** Danh sách applicationId (cho REJECT/COMPLETE) */
-  applicationIds?: string[]
-  /** Override tổng số căn (cho RUN_LOTTERY) */
-  totalUnits?: number
-  notes?: string
 }

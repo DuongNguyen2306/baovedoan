@@ -34,12 +34,20 @@ function AuditStatusBadge({ status }: { status: string }) {
 }
 
 export function AuditListPage() {
+  const role = getRole()
   const [records, setRecords] = useState<AuditRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
+  const canManage = role === 'Department Of Construction' || role === 'System Administrator'
+
   const load = async () => {
+    if (!canManage) {
+      setLoading(false)
+      setError('Chỉ Sở Xây dựng / Admin mới xem được mục công bố hậu kiểm. Để duyệt hồ sơ, đăng nhập SXD → Hồ sơ → Phê duyệt.')
+      return
+    }
     setLoading(true)
     setError('')
     try {
@@ -56,7 +64,7 @@ export function AuditListPage() {
     }
   }
 
-  useEffect(() => { void load() }, [])
+  useEffect(() => { void load() }, [canManage])
 
   const visible = statusFilter
     ? records.filter((r) => r.status === statusFilter)
