@@ -95,8 +95,22 @@ export function isValidCitizenId(value: string): boolean {
 }
 
 export const MAX_DOC_BYTES = 10 * 1024 * 1024
+/** Tất cả doc types mà Applicant có thể upload — đồng bộ với BE DocumentTypeConstants.AllowedApplicantDocumentTypes */
+export const ALL_DOCUMENT_TYPES = [
+  'HOUSING_CONDITION_PROOF',
+  'POVERTY_HOUSEHOLD_CERTIFICATE',
+  'MERIT_PERSON_CERTIFICATE',
+  'LOW_INCOME_CERTIFICATE',
+  'EMPLOYMENT_CERTIFICATE',
+  'MILITARY_SERVICE_CERTIFICATE',
+  'CIVIL_SERVANT_CERTIFICATE',
+  'PUBLIC_HOUSING_RETURN_CERTIFICATE',
+  'LAND_RECOVERY_DECISION',
+  'INCOME_CERTIFICATE',
+] as const
+
 export const DOC_TYPE_KEYS = ['HOUSING_CONDITION_PROOF', 'POVERTY_HOUSEHOLD_CERTIFICATE'] as const
-export type DocTypeKey = (typeof DOC_TYPE_KEYS)[number]
+export type DocTypeKey = (typeof ALL_DOCUMENT_TYPES)[number]
 
 export function validateDocumentFile(file: File): string | null {
   const ok = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  AlertCircle,
   CheckCircle2,
   ChevronRight,
   IdCard,
@@ -14,6 +13,7 @@ import {
 import { ekycApi, parseFaceMatch, parseOcr } from '@/api/ekyc'
 import { usersApi } from '@/api/users'
 import { CameraCapture } from '@/components/ekyc/camera-capture'
+import { CooldownBanner } from '@/components/ekyc/cooldown-banner'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,15 +21,14 @@ import { FormField } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { navigate } from '@/hooks/useHashRoute'
 import {
-  formatCooldown,
   formatEkycError,
-  getOcrCooldownRemainingMs,
   isValidCitizenId,
   setOcrCooldown,
   validateIdImage,
   validateSelfieImage,
 } from '@/lib/ekyc-helpers'
 import { formatError } from '@/lib/format-error'
+import { setCachedVerified } from '@/lib/verification'
 import { isLoggedIn, roleHome } from '@/router'
 import { useUserProfile } from '@/providers/user-profile-provider'
 import type { OcrResultDto } from '@/types'
@@ -55,18 +54,20 @@ export function VerifyIdentityPage() {
   const idInputRef = useRef<HTMLInputElement>(null)
   const selfieInputRef = useRef<HTMLInputElement>(null)
   const { roleLabel, refreshProfile } = useUserProfile()
+  // Track cooldown lock để disable nút OCR mà không ép cả page re-render mỗi giây
+  const cooldownLockedRef = useRef(false)
+  const [cooldownLocked, setCooldownLocked] = useState(false)
 
   const [step, setStep] = useState<Step>(1)
   const [msg, setMsg] = useState<{ type: 'success' | 'error' | 'warning' | 'info'; text: string } | null>(null)
   const [busy, setBusy] = useState('')
-  const [cooldownMs, setCooldownMs] = useState(0)
   const [manualEntry, setManualEntry] = useState(false)
 
   const [idCardFile, setIdCardFile] = useState<File | null>(null)
   const [idCardPreview, setIdCardPreview] = useState<string | null>(null)
   const [ocrResult, setOcrResult] = useState<OcrResultDto | null>(null)
 
-  const [selfieFile, setSelfieFile] = useState<File | null>(null)
+  const [_selfieFile, setSelfieFile] = useState<File | null>(null)
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null)
   const [faceSimilarity, setFaceSimilarity] = useState<number | null>(null)
   const [pendingSelfie, setPendingSelfie] = useState<File | null>(null)
@@ -87,11 +88,19 @@ export function VerifyIdentityPage() {
     }
   }, [])
 
+  // Lắng nghe tick cooldown từ CooldownBanner thông qua custom event
+  // → Tránh re-render toàn trang mỗi giây
   useEffect(() => {
-    const tick = () => setCooldownMs(getOcrCooldownRemainingMs())
-    tick()
-    const id = window.setInterval(tick, 1000)
-    return () => window.clearInterval(id)
+    const onTick = (e: Event) => {
+      const remaining = (e as CustomEvent<number>).detail
+      const locked = remaining > 0
+      if (cooldownLockedRef.current !== locked) {
+        cooldownLockedRef.current = locked
+        setCooldownLocked(locked)
+      }
+    }
+    window.addEventListener('ocr-cooldown-tick', onTick as EventListener)
+    return () => window.removeEventListener('ocr-cooldown-tick', onTick as EventListener)
   }, [])
 
   useEffect(() => () => {
@@ -155,8 +164,8 @@ export function VerifyIdentityPage() {
       setMsg({ type: 'error', text: 'Chọn ảnh CCCD trước.' })
       return
     }
-    if (cooldownMs > 0) {
-      setMsg({ type: 'warning', text: `OCR tạm khóa. Thử lại sau ${formatCooldown(cooldownMs)} hoặc dùng nhập tay.` })
+    if (cooldownLockedRef.current) {
+      setMsg({ type: 'warning', text: 'OCR tạm khóa. Hãy chờ một chút hoặc dùng nhập tay.' })
       return
     }
 
@@ -187,7 +196,9 @@ export function VerifyIdentityPage() {
       setMsg({ type: 'error', text: formatEkycError(err) })
       if (String(formatEkycError(err)).includes('429')) {
         setOcrCooldown(30)
-        setCooldownMs(getOcrCooldownRemainingMs())
+        cooldownLockedRef.current = true
+        setCooldownLocked(true)
+        window.dispatchEvent(new CustomEvent<number>('ocr-cooldown-tick', { detail: 30_000 }))
       }
     } finally {
       setBusy('')
@@ -196,13 +207,15 @@ export function VerifyIdentityPage() {
 
   const enableManualEntry = () => {
     if (!idCardFile) {
-      setMsg({ type: 'error', text: 'Vẫn cần upload ảnh CCCD (để so khớp khuôn mặt ở bước 2).' })
-      return
+      // Cho phép nhập tay hoàn toàn không cần ảnh CCCD (OCR đang lỗi).
+      // Bước xác thực khuôn mặt (step 2) vẫn dùng selfie nên vẫn có thể tiếp tục.
+      setMsg({ type: 'info', text: 'Nhập thông tin CCCD bên dưới. Bước xác thực khuôn mặt sẽ yêu cầu ảnh selfie.' })
+    } else {
+      setMsg({ type: 'info', text: 'Nhập thông tin CCCD bên dưới, sau đó bấm "Kiểm tra số CCCD".' })
     }
     setManualEntry(true)
     setEkyc((s) => ({ ...s, ocr: false, citizenOk: false }))
     setOcrResult(null)
-    setMsg({ type: 'info', text: 'Nhập thông tin CCCD bên dưới, sau đó bấm "Kiểm tra số CCCD".' })
   }
 
   const verifyManualCitizen = async () => {
@@ -271,7 +284,6 @@ export function VerifyIdentityPage() {
   }
 
   const step1Ready =
-    !!idCardFile &&
     ekyc.citizenOk &&
     (ekyc.ocr || manualEntry) &&
     form.fullName.trim().length > 0 &&
@@ -291,6 +303,8 @@ export function VerifyIdentityPage() {
         address: form.address.trim(),
       })
       await refreshProfile()
+      // Đánh dấu đã xác minh để middleware ở App.tsx không redirect lại
+      setCachedVerified(true)
       setMsg({ type: 'success', text: 'Xác minh danh tính thành công. Đang chuyển hướng...' })
       window.setTimeout(() => {
         navigate(roleHome(localStorage.getItem('userRole') ?? 'Applicant'))
@@ -437,7 +451,7 @@ export function VerifyIdentityPage() {
                   <Button
                     type="button"
                     variant="accent"
-                    disabled={!idCardFile || isBusy || cooldownMs > 0}
+                    disabled={!idCardFile || isBusy || cooldownLocked}
                     onClick={() => void runOcr()}
                   >
                     {busy === 'ocr' ? (
@@ -449,17 +463,12 @@ export function VerifyIdentityPage() {
                       'Đọc thông tin CCCD (OCR)'
                     )}
                   </Button>
-                  <Button type="button" variant="outline" disabled={!idCardFile || isBusy} onClick={enableManualEntry}>
-                    Nhập tay thông tin
+                  <Button type="button" variant="outline" disabled={isBusy} onClick={enableManualEntry}>
+                    Nhập tay (bỏ qua OCR)
                   </Button>
                 </div>
 
-                {cooldownMs > 0 && (
-                  <p className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
-                    <AlertCircle className="h-4 w-4" />
-                    OCR tạm khóa — thử lại sau {formatCooldown(cooldownMs)} hoặc nhập tay.
-                  </p>
-                )}
+                <CooldownBanner />
 
                 {ocrResult && (
                   <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm dark:border-emerald-900/50 dark:bg-emerald-950/30">

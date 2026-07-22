@@ -1,0 +1,48 @@
+/**
+ * Helper đọc trạng thái xác minh CCCD từ response của `usersApi.getProfile()`.
+ *
+ * Backend có thể trả về nhiều shape khác nhau:
+ *   - { user: { ... } }        (bọc trong `user`)
+ *   - { User: { ... } }        (bọc trong `User`, PascalCase)
+ *   - { fullName, ... }        (dữ liệu user ở root)
+ *
+ * Trả về:
+ *   - true  : user chắc chắn đã xác minh (có cờ hoặc đã có CCCD)
+ *   - false : user chắc chắn chưa xác minh
+ *   - null  : không xác định được (response lạ / không đọc được) → caller tự quyết
+ */
+export function readVerifiedStatus(data: unknown): boolean | null {
+  if (!data || typeof data !== 'object') return null
+  const root = data as Record<string, unknown>
+  const u = (root.user ?? root.User ?? root) as Record<string, unknown> | null
+  if (!u || typeof u !== 'object') return null
+
+  // 1) Ưu tiên cờ xác minh rõ ràng (boolean)
+  const flag = u.isCitizenIdVerified ?? u.IsCitizenIdVerified
+  if (typeof flag === 'boolean') return flag
+
+  // 2) Suy ra từ số CCCD đã có
+  const citizenId = u.citizenId ?? u.CitizenId
+  if (typeof citizenId === 'string') return citizenId.trim().length > 0
+
+  return null
+}
+
+/**
+ * Cache trạng thái xác minh ở phạm vi module để mọi component truy cập được.
+ * Tránh tình trạng mỗi component tự giữ ref riêng → redirect lặp vô tận.
+ */
+type VerifiedCache = { value: boolean | null }
+const verifiedCache: VerifiedCache = { value: null }
+
+export function getCachedVerified(): boolean | null {
+  return verifiedCache.value
+}
+
+export function setCachedVerified(value: boolean | null): void {
+  verifiedCache.value = value
+  // Also clear localStorage cache to ensure fresh check
+  try {
+    localStorage.removeItem('ekyc_verified_cache')
+  } catch {}
+}

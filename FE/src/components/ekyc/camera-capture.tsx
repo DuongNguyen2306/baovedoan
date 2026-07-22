@@ -24,6 +24,23 @@ export function CameraCapture({
   const [recording, setRecording] = useState(false)
   const [error, setError] = useState('')
   const [countdown, setCountdown] = useState(0)
+  const [videoReady, setVideoReady] = useState(false)
+
+  // Gắn stream vào video element khi stream sẵn sàng và video element đã mount.
+  // Dọn srcObject khi active=false để tránh frame cũ hiển thị.
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    if (!active || !videoReady) {
+      video.srcObject = null
+      return
+    }
+    if (!streamRef.current) return
+    video.srcObject = streamRef.current
+    video.setAttribute('playsinline', 'true')
+    video.muted = true
+    video.play().catch((err) => console.warn('video.play() rejected:', err))
+  }, [active, videoReady])
 
   const stopStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -31,6 +48,7 @@ export function CameraCapture({
     setActive(false)
     setRecording(false)
     setCountdown(0)
+    setVideoReady(false)
   }, [])
 
   useEffect(() => () => stopStream(), [stopStream])
@@ -38,18 +56,32 @@ export function CameraCapture({
   const startCamera = async () => {
     setError('')
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError('Trình duyệt không hỗ trợ camera. Vui lòng dùng upload file.')
+        return
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: mode === 'video',
       })
       streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
-      }
+      // useEffect sẽ tự gắn stream vào video và play.
       setActive(true)
-    } catch {
-      setError('Không mở được camera. Hãy cho phép quyền camera hoặc dùng upload file.')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : ''
+      let detail = 'Không mở được camera. Hãy cho phép quyền camera hoặc dùng upload file.'
+      if (/Permission|NotAllowed|denied/i.test(msg)) {
+        detail = 'Bạn đã chặn quyền truy cập camera. Nhấp vào biểu tượng camera/khóa trong thanh URL để cho phép, hoặc dùng upload file.'
+      } else if (/NotFound|DevicesNotFound|NotFoundError/i.test(msg)) {
+        detail = 'Không tìm thấy thiết bị camera. Vui lòng kiểm tra kết nối hoặc dùng upload file.'
+      } else if (/NotReadable|InUse|GenericError/i.test(msg)) {
+        detail = 'Camera đang được ứng dụng khác sử dụng. Hãy đóng các ứng dụng đó rồi thử lại, hoặc dùng upload file.'
+      } else if (/Secure|HTTPS|localhost/i.test(msg)) {
+        detail = 'Camera yêu cầu HTTPS. Hãy chạy app trên localhost (http://localhost:xxxx) hoặc dùng upload file.'
+      } else if (/Overconstrained|Constraint/i.test(msg)) {
+        detail = 'Camera không hỗ trợ độ phân giải yêu cầu. Thử dùng upload file.'
+      }
+      setError(detail)
     }
   }
 
@@ -106,7 +138,20 @@ export function CameraCapture({
     <div className={className}>
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-900 dark:border-slate-700">
         {active ? (
-          <video ref={videoRef} className="aspect-video w-full object-cover" playsInline muted />
+          <video
+            ref={(el) => {
+              videoRef.current = el
+              if (el) setVideoReady(true)
+            }}
+            className="aspect-video w-full bg-black object-cover"
+            autoPlay
+            playsInline
+            muted
+            onLoadedMetadata={(e) => {
+              const v = e.currentTarget
+              v.play().catch((err) => console.warn('autoplay play() rejected:', err))
+            }}
+          />
         ) : (
           <div className="flex aspect-video w-full items-center justify-center bg-slate-100 text-sm text-slate-500 dark:bg-slate-800">
             Camera chưa bật
