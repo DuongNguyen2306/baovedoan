@@ -7,7 +7,8 @@ import { navigate } from '@/hooks/useHashRoute'
 import { useHousingProjects } from '@/hooks/useHousingProjects'
 import { Skeleton } from '@/components/ui/skeleton'
 
-const AUTOPLAY_MS = 5000
+// Auto-rotate chậm hơn (12s) để giảm repaint & đỡ giật
+const AUTOPLAY_MS = 12_000
 const MAX_SLIDES = 6
 
 const FALLBACK_PALETTE = ['#e63946', '#0077c8', '#0E8F6E', '#fb8500', '#7B1FA2', '#C2185B']
