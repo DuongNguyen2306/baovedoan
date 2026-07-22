@@ -201,11 +201,118 @@ export function ProfilePage() {
               <Alert variant={pwMsg.type === 'error' ? 'error' : 'success'}>{pwMsg.text}</Alert>
             </div>
           )}
+
+          {/* Xóa tài khoản */}
+          <div className="rounded-xl border border-red-200 bg-red-50/50 p-4 dark:border-red-900 dark:bg-red-950/20">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-red-700 dark:text-red-400">Xóa tài khoản</p>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Tài khoản và toàn bộ dữ liệu liên quan sẽ bị xóa vĩnh viễn. Hành động này không thể hoàn tác.
+                </span>
+              </div>
+              <DeleteAccountButton />
+            </div>
+          </div>
         </div>
       </div>
       <div className="border-t border-slate-200/80 p-6 dark:border-slate-800">
         <Button variant="ghost" className="text-red-600" onClick={() => void logout()}>Đăng xuất</Button>
       </div>
     </div>
+  )
+}
+
+function DeleteAccountButton() {
+  const [open, setOpen] = useState(false)
+  const [password, setPassword] = useState('')
+  const [reason, setReason] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const handleDelete = async () => {
+    if (!password) {
+      setMsg({ type: 'error', text: 'Vui lòng nhập mật khẩu để xác nhận.' })
+      return
+    }
+    setLoading(true)
+    setMsg(null)
+    try {
+      await usersApi.deleteAccount({
+        password,
+        reason: reason.trim() || undefined,
+      })
+      // Xóa local storage và chuyển về trang login
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
+      clearRole()
+      navigate('login')
+    } catch (err) {
+      setMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
+        onClick={() => setOpen(true)}
+      >
+        Xóa tài khoản
+      </Button>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
+            <h3 className="text-lg font-bold text-red-600 dark:text-red-400">Xóa tài khoản</h3>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              Bạn có chắc chắn muốn xóa tài khoản này? Tất cả dữ liệu sẽ bị mất vĩnh viễn.
+            </p>
+            <div className="mt-4 space-y-3">
+              <FormField label="Nhập mật khẩu để xác nhận" htmlFor="delete-password">
+                <Input
+                  id="delete-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Mật khẩu của bạn"
+                />
+              </FormField>
+              <FormField label="Lý do (tùy chọn)" htmlFor="delete-reason">
+                <Input
+                  id="delete-reason"
+                  type="text"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Cho chúng tôi biết lý do..."
+                />
+              </FormField>
+            </div>
+            {msg && (
+              <Alert variant={msg.type === 'error' ? 'error' : 'success'} className="mt-3">
+                {msg.text}
+              </Alert>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setOpen(false); setPassword(''); setReason(''); setMsg(null) }}>
+                Hủy
+              </Button>
+              <Button
+                variant="accent"
+                className="bg-red-600 hover:bg-red-700"
+                disabled={loading}
+                onClick={() => void handleDelete()}
+              >
+                {loading ? 'Đang xóa...' : 'Xác nhận xóa'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

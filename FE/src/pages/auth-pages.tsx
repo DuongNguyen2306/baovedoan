@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { FormField } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { navigate } from '@/hooks/useHashRoute'
-import { clearRole } from '@/router'
 import { setPendingOtpEmail, getPendingOtpEmail } from '@/lib/auth-helpers'
 import { formatError, formatSuccess } from '@/lib/format-error'
 
@@ -64,13 +63,13 @@ export function RegisterPage() {
             <FormField label="Địa chỉ email" htmlFor="email">
               <Input id="email" name="email" type="email" required />
             </FormField>
-            <FormField label="Mật khẩu (tối thiểu 6 ký tự)" htmlFor="password">
-              <Input id="password" name="password" type="password" minLength={6} required />
+            <FormField label="Mật khẩu (tối thiểu 8 ký tự)" htmlFor="password">
+              <Input id="password" name="password" type="password" minLength={8} required />
             </FormField>
-            <FormField label="Họ và tên tạm thời" htmlFor="fullName">
+            <FormField label="Họ và tên" htmlFor="fullName">
               <Input id="fullName" name="fullName" required />
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Sẽ được cập nhật từ CCCD ở bước xác minh danh tính.
+                Có thể được cập nhật từ CCCD ở bước xác minh danh tính.
               </p>
             </FormField>
             <FormField label="Số điện thoại" htmlFor="phoneNumber">
@@ -97,8 +96,10 @@ export function VerifyOtpPage() {
     e.preventDefault()
     setLoading(true)
     const fd = new FormData(e.currentTarget)
+    const email = String(fd.get('email') || defaultEmail)
+    const otpCode = String(fd.get('otpCode') || '')
     try {
-      const data = await authApi.verifyOtp({ email: String(fd.get('email')), otpCode: String(fd.get('otpCode')) })
+      const data = await authApi.verifyOtp(email, otpCode)
       saveTokensFromResponse(data)
       const role: string = (() => {
         const u = (data as { user?: { role?: string } } | null)?.user
@@ -181,26 +182,159 @@ export function ResendOtpPage() {
 }
 
 export function ForgotPasswordPage() {
-  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  type Step = 'email' | 'otp' | 'reset'
+  const [step, setStep] = useState<Step>('email')
+  const [email, setEmail] = useState('')
+  const [otpCode, setOtpCode] = useState('')
+  const [msg, setMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const sendOtp = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    const value = String(fd.get('email')).trim()
+    if (!value) {
+      setMsg({ type: 'error', text: 'Vui lòng nhập email.' })
+      return
+    }
+    setLoading(true)
+    setMsg(null)
+    try {
+      const data = await authApi.forgotPassword({ email: value })
+      setEmail(value)
+      setOtpCode('')
+      setMsg({ type: 'info', text: formatSuccess(data) || 'Đã gửi mã OTP về email.' })
+      setStep('otp')
+    } catch (err) {
+      setMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const goToReset = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    const code = String(fd.get('otpCode')).trim()
+    if (!/^\d{6}$/.test(code)) {
+      setMsg({ type: 'error', text: 'Mã OTP gồm 6 chữ số.' })
+      return
+    }
+    setOtpCode(code)
+    setMsg({ type: 'info', text: 'Đã nhận mã OTP. Hãy đặt mật khẩu mới.' })
+    setStep('reset')
+  }
+
+  const submitNewPassword = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    const newPassword = String(fd.get('newPassword'))
+    const confirmPassword = String(fd.get('confirmPassword'))
+    if (newPassword.length < 8) {
+      setMsg({ type: 'error', text: 'Mật khẩu mới phải có ít nhất 8 ký tự.' })
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setMsg({ type: 'error', text: 'Xác nhận mật khẩu không khớp.' })
+      return
+    }
+    setLoading(true)
+    setMsg(null)
+    try {
+      await authApi.resetPassword({ email, otpCode, newPassword, confirmPassword })
+      setMsg({ type: 'success', text: 'Đặt lại mật khẩu thành công. Đang chuyển về trang đăng nhập...' })
+      setTimeout(() => navigate('login'), 900)
+    } catch (err) {
+      setMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const resendOtp = async () => {
+    try {
+      await authApi.resendOtp(email)
+      setMsg({ type: 'success', text: 'Đã gửi lại mã OTP.' })
+    } catch (err) {
+      setMsg({ type: 'error', text: formatError(err) })
+    }
+  }
+
+  const stepIndex = step === 'email' ? 1 : step === 'otp' ? 2 : 3
+
   return (
     <div className="mx-auto max-w-md py-8">
       <Card>
-        <CardHeader><CardTitle>Quên mật khẩu</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Quên mật khẩu</CardTitle>
+          <CardDescription>
+            Khôi phục mật khẩu qua email — bước {stepIndex}/3:{' '}
+            {step === 'email' ? 'nhập email' : step === 'otp' ? 'nhập mã OTP' : 'đặt mật khẩu mới'}.
+          </CardDescription>
+        </CardHeader>
         <CardContent>
-          <form className="space-y-4" onSubmit={async (e) => {
-            e.preventDefault()
-            try {
-              const data = await authApi.forgotPassword({ email: String(new FormData(e.currentTarget).get('email')) })
-              setMsg({ type: 'success', text: formatSuccess(data) })
-            } catch (err) {
-              setMsg({ type: 'error', text: formatError(err) })
-            }
-          }}>
-            <FormField label="Địa chỉ email" htmlFor="email"><Input id="email" name="email" type="email" required /></FormField>
-            {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
-            <Button type="submit" className="w-full">Gửi yêu cầu</Button>
-          </form>
-          <AuthLinks prompt="" link="Đăng nhập" route="login" />
+          {step === 'email' && (
+            <form onSubmit={sendOtp} className="space-y-4">
+              <FormField label="Địa chỉ email" htmlFor="email">
+                <Input id="email" name="email" type="email" defaultValue={email} required autoFocus />
+              </FormField>
+              {msg && <Alert variant={msg.type === 'error' ? 'error' : msg.type === 'success' ? 'success' : 'info'}>{msg.text}</Alert>}
+              <Button type="submit" className="w-full" variant="accent" disabled={loading}>
+                {loading ? 'Đang gửi...' : 'Gửi mã OTP'}
+              </Button>
+              <AuthLinks prompt="" link="Quay lại đăng nhập" route="login" />
+            </form>
+          )}
+
+          {step === 'otp' && (
+            <form onSubmit={goToReset} className="space-y-4">
+              <FormField label="Địa chỉ email" htmlFor="email-otp">
+                <Input id="email-otp" name="email" type="email" value={email} readOnly className="bg-slate-50 dark:bg-slate-800/50" />
+              </FormField>
+              <FormField label="Mã OTP (6 số)" htmlFor="otpCode">
+                <Input id="otpCode" name="otpCode" inputMode="numeric" maxLength={6} required autoFocus />
+              </FormField>
+              {msg && <Alert variant={msg.type === 'error' ? 'error' : msg.type === 'success' ? 'success' : 'info'}>{msg.text}</Alert>}
+              <Button type="submit" className="w-full" variant="accent">
+                Tiếp tục
+              </Button>
+              <Button type="button" variant="ghost" className="w-full" onClick={resendOtp}>
+                Gửi lại mã OTP
+              </Button>
+              <button
+                type="button"
+                className="block w-full text-center text-xs text-slate-500 hover:underline dark:text-slate-400"
+                onClick={() => { setStep('email'); setMsg(null); setOtpCode('') }}
+              >
+                ← Đổi email khác
+              </button>
+            </form>
+          )}
+
+          {step === 'reset' && (
+            <form onSubmit={submitNewPassword} className="space-y-4">
+              <FormField label="Địa chỉ email" htmlFor="email-reset">
+                <Input id="email-reset" name="email" type="email" value={email} readOnly className="bg-slate-50 dark:bg-slate-800/50" />
+              </FormField>
+              <FormField label="Mật khẩu mới (tối thiểu 8 ký tự)" htmlFor="newPassword">
+                <Input id="newPassword" name="newPassword" type="password" minLength={8} required autoFocus />
+              </FormField>
+              <FormField label="Xác nhận mật khẩu" htmlFor="confirmPassword">
+                <Input id="confirmPassword" name="confirmPassword" type="password" minLength={8} required />
+              </FormField>
+              {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
+              <Button type="submit" className="w-full" variant="accent" disabled={loading}>
+                {loading ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
+              </Button>
+              <button
+                type="button"
+                className="block w-full text-center text-xs text-slate-500 hover:underline dark:text-slate-400"
+                onClick={() => { setStep('otp'); setMsg(null) }}
+              >
+                ← Nhập lại OTP
+              </button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -245,27 +379,36 @@ export function ResetPasswordPage() {
 
 export function ChangePasswordPage() {
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    const currentPassword = String(fd.get('currentPassword'))
+    const newPassword = String(fd.get('newPassword'))
+    const confirmPassword = String(fd.get('confirmPassword'))
+    if (newPassword.length < 8) {
+      setMsg({ type: 'error', text: 'Mật khẩu mới phải có ít nhất 8 ký tự.' })
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setMsg({ type: 'error', text: 'Xác nhận mật khẩu không khớp.' })
+      return
+    }
+    try {
+      await authApi.changePassword({ currentPassword, newPassword, confirmPassword })
+      setMsg({ type: 'success', text: 'Đổi mật khẩu thành công.' })
+      e.currentTarget.reset()
+    } catch (err) {
+      setMsg({ type: 'error', text: formatError(err) })
+    }
+  }
   return (
     <div>
       <PageHeader routeId="change-password" />
       <PageCard className="max-w-md">
-        <form className="space-y-4" onSubmit={async (e) => {
-          e.preventDefault()
-          const fd = new FormData(e.currentTarget)
-          try {
-            await authApi.changePassword({
-              currentPassword: String(fd.get('currentPassword')),
-              newPassword: String(fd.get('newPassword')),
-              confirmPassword: String(fd.get('confirmPassword')),
-            })
-            setMsg({ type: 'success', text: 'Đổi mật khẩu thành công.' })
-          } catch (err) {
-            setMsg({ type: 'error', text: formatError(err) })
-          }
-        }}>
+        <form className="space-y-4" onSubmit={submit}>
           <FormField label="Mật khẩu hiện tại" htmlFor="currentPassword"><Input id="currentPassword" name="currentPassword" type="password" required /></FormField>
-          <FormField label="Mật khẩu mới" htmlFor="newPassword"><Input id="newPassword" name="newPassword" type="password" required /></FormField>
-          <FormField label="Xác nhận" htmlFor="confirmPassword"><Input id="confirmPassword" name="confirmPassword" type="password" required /></FormField>
+          <FormField label="Mật khẩu mới (tối thiểu 8 ký tự)" htmlFor="newPassword"><Input id="newPassword" name="newPassword" type="password" minLength={8} required /></FormField>
+          <FormField label="Xác nhận" htmlFor="confirmPassword"><Input id="confirmPassword" name="confirmPassword" type="password" minLength={8} required /></FormField>
           {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
           <Button type="submit">Cập nhật mật khẩu</Button>
         </form>
