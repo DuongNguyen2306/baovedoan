@@ -19,7 +19,6 @@ import {
 } from 'lucide-react'
 import { adminApi } from '@/api/admin'
 import { GovHeroBanner } from '@/components/layout/gov-hero-banner'
-import { ROLE_THEMES } from '@/lib/role-theme'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -405,18 +404,6 @@ export function AdminStaffPage() {
 
   return (
     <div className="space-y-6">
-      <section className={`overflow-hidden rounded-xl ${ROLE_THEMES.admin.navBg} text-white shadow-md`}>
-        <div className="flex flex-wrap items-center gap-3 px-5 py-3">
-          {(() => { const I = ROLE_THEMES.admin.Icon; return <I className="h-5 w-5" /> })()}
-          <p className="text-xs font-bold uppercase tracking-wider text-white/85">
-            {ROLE_THEMES.admin.badgeFull}
-          </p>
-          <span className={`ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${ROLE_THEMES.admin.activeBar} text-slate-900`}>
-            {ROLE_THEMES.admin.badge}
-          </span>
-        </div>
-      </section>
-
       <GovHeroBanner
         badge="FE-24 · Quản trị nhân sự"
         title="Quản lý cán bộ"
