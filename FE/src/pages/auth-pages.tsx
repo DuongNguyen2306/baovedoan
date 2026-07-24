@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { authApi } from '@/api/auth'
 import { saveTokensFromResponse } from '@/api/http'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FormField } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { useOtpCountdown } from '@/hooks/use-otp-countdown'
 import { navigate } from '@/hooks/useHashRoute'
 import { setPendingOtpEmail, getPendingOtpEmail } from '@/lib/auth-helpers'
 import { formatError, formatSuccess } from '@/lib/format-error'
+import { setCachedVerified } from '@/lib/verification'
 
 function AuthLinks({ prompt, link, route }: { prompt: string; link: string; route: Parameters<typeof navigate>[0] }) {
   return (
@@ -91,6 +93,11 @@ export function VerifyOtpPage() {
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const defaultEmail = getPendingOtpEmail()
+  const { secondsLeft, isActive, start } = useOtpCountdown(60)
+
+  useEffect(() => {
+    start(60)
+  }, [start])
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -105,10 +112,14 @@ export function VerifyOtpPage() {
         const u = (data as { user?: { role?: string } } | null)?.user
         return u?.role ?? ''
       })()
-      const requireEkyc = role === 'Applicant'
-      if (requireEkyc) {
-        setMsg({ type: 'success', text: 'Xác thực email thành công. Tiếp tục xác minh danh tính CCCD.' })
-        setTimeout(() => navigate('verify-identity'), 800)
+      const requireEkycHint = role === 'Applicant'
+      if (requireEkycHint) {
+        setCachedVerified(false)
+        setMsg({
+          type: 'success',
+          text: 'Xác thực email thành công. Bạn có thể duyệt dự án ngay — xác minh CCCD khi đăng ký hồ sơ.',
+        })
+        setTimeout(() => navigate('home-user'), 800)
       } else {
         // Cán bộ do admin tạo trực tiếp — không cần eKYC, đăng nhập thẳng
         setMsg({ type: 'success', text: 'Xác thực thành công.' })
@@ -122,8 +133,10 @@ export function VerifyOtpPage() {
   }
 
   const resend = async (email: string) => {
+    if (isActive) return
     try {
       await authApi.resendOtp(email)
+      start(60)
       setMsg({ type: 'success', text: 'Đã gửi lại mã OTP.' })
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
@@ -141,10 +154,17 @@ export function VerifyOtpPage() {
             {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
             <Button type="submit" className="w-full" disabled={loading}>Xác nhận mã</Button>
           </form>
-          <Button variant="ghost" className="mt-2 w-full" onClick={() => {
-            const email = (document.getElementById('email') as HTMLInputElement)?.value
-            if (email) void resend(email)
-          }}>Gửi lại mã</Button>
+          <Button
+            variant="ghost"
+            className="mt-2 w-full"
+            disabled={isActive}
+            onClick={() => {
+              const email = (document.getElementById('email') as HTMLInputElement)?.value
+              if (email) void resend(email)
+            }}
+          >
+            {isActive ? `Gửi lại sau ${secondsLeft}s` : 'Gửi lại mã'}
+          </Button>
           <AuthLinks prompt="" link="Quay lại đăng nhập" route="login" />
         </CardContent>
       </Card>
@@ -188,6 +208,7 @@ export function ForgotPasswordPage() {
   const [otpCode, setOtpCode] = useState('')
   const [msg, setMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
   const [loading, setLoading] = useState(false)
+  const { secondsLeft, isActive, start } = useOtpCountdown(60)
 
   const sendOtp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -205,6 +226,7 @@ export function ForgotPasswordPage() {
       setOtpCode('')
       setMsg({ type: 'info', text: formatSuccess(data) || 'Đã gửi mã OTP về email.' })
       setStep('otp')
+      start(60)
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
     } finally {
@@ -252,8 +274,10 @@ export function ForgotPasswordPage() {
   }
 
   const resendOtp = async () => {
+    if (isActive) return
     try {
       await authApi.resendOtp(email)
+      start(60)
       setMsg({ type: 'success', text: 'Đã gửi lại mã OTP.' })
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
@@ -298,8 +322,8 @@ export function ForgotPasswordPage() {
               <Button type="submit" className="w-full" variant="accent">
                 Tiếp tục
               </Button>
-              <Button type="button" variant="ghost" className="w-full" onClick={resendOtp}>
-                Gửi lại mã OTP
+              <Button type="button" variant="ghost" className="w-full" disabled={isActive} onClick={resendOtp}>
+                {isActive ? `Gửi lại sau ${secondsLeft}s` : 'Gửi lại mã OTP'}
               </Button>
               <button
                 type="button"

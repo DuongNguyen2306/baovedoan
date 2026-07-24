@@ -1,25 +1,31 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Send } from 'lucide-react'
+import { FileText, Printer, Send } from 'lucide-react'
 import { housingApplicationsApi, parseApplicationDetail, parsePagedApplications } from '@/api/housing-applications'
+import { reportsApi } from '@/api/reports'
 import { CreateApplicationWizard } from '@/components/ekyc/create-application-wizard'
+import { ApplicationTimeline } from '@/components/shared/application-timeline'
+import { FileDropzone } from '@/components/shared/file-dropzone'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/label'
-import { Input, Select } from '@/components/ui/input'
+import { Input, Select, Textarea } from '@/components/ui/input'
+import { Modal } from '@/components/ui/modal'
 import { navigate } from '@/hooks/useHashRoute'
 import { labelApplicationStatus } from '@/lib/labels'
 import { APPLICATION_STATUS, DOC_TYPE_LABELS, HOUSING_STATUS_LABELS } from '@/lib/constants'
 import { formatError } from '@/lib/format-error'
+import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
+import { formatSxdCountdown } from '@/lib/sxd-deadline'
 import { getRole } from '@/router'
 import type { ApplicationDetailDto, ApplicationSummaryDto } from '@/types'
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({ label, value, danger }: { label: string; value: string; danger?: boolean }) {
   return (
-    <div className="flex flex-col gap-1 border-b border-slate-100 py-3 last:border-0 dark:border-slate-800 sm:flex-row sm:justify-between">
+    <div className={`flex flex-col gap-1 border-b border-slate-100 py-3 last:border-0 dark:border-slate-800 sm:flex-row sm:justify-between ${danger ? 'bg-rose-50/80 px-2 dark:bg-rose-950/30' : ''}`}>
       <span className="text-sm text-slate-500 dark:text-slate-400">{label}</span>
-      <span className="text-sm font-medium">{value}</span>
+      <span className={`text-sm font-medium ${danger ? 'text-rose-700 dark:text-rose-300' : ''}`}>{value}</span>
     </div>
   )
 }
@@ -28,26 +34,35 @@ export function ApplicationsPage() {
   const role = getRole()
   const isApplicant = role === 'Applicant'
   const isDeveloper = role === 'Housing Developer'
+  const isSxd = role === 'Department Of Construction'
   const [apps, setApps] = useState<ApplicationSummaryDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('')
+  const [status, setStatus] = useState(isDeveloper ? 'SUBMITTED' : '')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkSending, setBulkSending] = useState(false)
   const [bulkMsg, setBulkMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [, setTick] = useState(0)
+
+  useEffect(() => {
+    if (!isSxd) return
+    const id = window.setInterval(() => setTick((t) => t + 1), 60_000)
+    return () => window.clearInterval(id)
+  }, [isSxd])
 
   const load = async (filter?: { search?: string; status?: string }) => {
     setLoading(true)
     setError('')
     try {
       const data = isApplicant
-        ? await housingApplicationsApi.getMy({ pageIndex: 1, pageSize: 20, ...filter })
+        ? await housingApplicationsApi.getMy({ pageIndex: 1, pageSize: 50, ...filter })
         : role === 'Housing Developer'
-        ? await housingApplicationsApi.getDeveloperDashboard({ pageIndex: 1, pageSize: 20, ...filter })
+        ? await housingApplicationsApi.getDeveloperDashboard({ pageIndex: 1, pageSize: 50, ...filter })
         : role === 'Department Of Construction'
-        ? await housingApplicationsApi.getSxdDashboard({ pageIndex: 1, pageSize: 20, ...filter })
-        : await housingApplicationsApi.getAll({ pageIndex: 1, pageSize: 20, ...filter })
+        ? await housingApplicationsApi.getSxdDashboard({ pageIndex: 1, pageSize: 50, ...filter })
+        : await housingApplicationsApi.getAll({ pageIndex: 1, pageSize: 50, ...filter })
       setApps(parsePagedApplications(data))
     } catch (err) {
       setError(formatError(err))
@@ -56,9 +71,8 @@ export function ApplicationsPage() {
     }
   }
 
-  useEffect(() => { void load() }, [isApplicant, role])
+  useEffect(() => { void load({ status: status || undefined }) }, [isApplicant, role])
 
-  // Bước 10: CĐT chọn các hồ sơ hợp lệ (REVIEWING) để gom vào danh sách dự kiến → gửi SXD
   const submittable = useMemo(
     () => apps.filter((a) => a.applicationStatus === 'REVIEWING'),
     [apps],
@@ -99,6 +113,22 @@ export function ApplicationsPage() {
     }
   }
 
+  const exportDraft = async () => {
+    setExporting(true)
+    setBulkMsg(null)
+    try {
+      await reportsApi.exportApplicationsExcel({
+        status: status || (isDeveloper ? 'REVIEWING' : undefined),
+        search: search || undefined,
+      })
+      setBulkMsg({ type: 'success', text: 'Đã xuất file Excel danh sách dự kiến.' })
+    } catch (err) {
+      setBulkMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader routeId="applications" />
@@ -107,11 +137,25 @@ export function ApplicationsPage() {
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {loading ? 'Đang tải...' : `Tổng cộng ${apps.length} hồ sơ`}
           </p>
-          {isApplicant && (
-            <Button variant="accent" onClick={() => navigate('create-application')}>
-              + Tạo hồ sơ mới
-            </Button>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {(isDeveloper || isSxd) && (
+              <Button variant="outline" size="sm" disabled={exporting} onClick={() => void exportDraft()}>
+                {exporting ? 'Đang xuất…' : 'Xuất danh sách (Excel)'}
+              </Button>
+            )}
+            {isApplicant && (
+              <Button
+                variant="accent"
+                onClick={() => {
+                  void ensureVerifiedForApplication().then((ok) => {
+                    if (ok) navigate('create-application')
+                  })
+                }}
+              >
+                + Tạo hồ sơ mới
+              </Button>
+            )}
+          </div>
         </div>
         <form className="mb-6 grid gap-3 sm:grid-cols-3" onSubmit={(e) => {
           e.preventDefault()
@@ -127,7 +171,6 @@ export function ApplicationsPage() {
           <div className="flex items-end"><Button type="submit" variant="outline">Lọc</Button></div>
         </form>
 
-        {/* Bước 10-11: Thanh chọn + gửi hàng loạt */}
         {isDeveloper && submittable.length > 0 && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-800 dark:bg-blue-950/30">
             <label className="flex items-center gap-2 text-sm font-semibold text-blue-900 dark:text-blue-200">
@@ -137,7 +180,7 @@ export function ApplicationsPage() {
                 checked={submittable.length > 0 && selected.size === submittable.length}
                 onChange={toggleSelectAll}
               />
-              Đã chọn <strong>{selected.size}</strong> / {submittable.length} hồ sơ đang thẩm định
+              Gom danh sách dự kiến: đã chọn <strong>{selected.size}</strong> / {submittable.length} hồ sơ đang thẩm định
             </label>
             <Button
               variant="accent"
@@ -146,7 +189,7 @@ export function ApplicationsPage() {
               onClick={() => void submitSelectedToSxd()}
             >
               <Send className="mr-1.5 h-4 w-4" />
-              {bulkSending ? 'Đang gửi…' : `Gửi ${selected.size || ''} hồ sơ lên SXD`.trim()}
+              {bulkSending ? 'Đang gửi…' : `Gửi thẩm định sang Sở (${selected.size || 0})`}
             </Button>
           </div>
         )}
@@ -161,59 +204,141 @@ export function ApplicationsPage() {
         {!loading && !error && apps.length === 0 && (
           <p className="text-sm text-slate-500 dark:text-slate-400">{isApplicant ? 'Bạn chưa có hồ sơ nào.' : 'Không có hồ sơ phù hợp.'}</p>
         )}
-        <div className="grid gap-3">
-          {apps.map((app) => {
-            const canSelect = isDeveloper && app.applicationStatus === 'REVIEWING'
-            return (
-              <div
+
+        {(isDeveloper || isSxd) ? (
+          <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
+                <tr>
+                  {isDeveloper && <th className="px-3 py-2">Chọn</th>}
+                  <th className="px-3 py-2">Họ tên</th>
+                  <th className="px-3 py-2">CCCD</th>
+                  <th className="px-3 py-2">Dự án</th>
+                  <th className="px-3 py-2">Trạng thái</th>
+                  {isSxd && <th className="px-3 py-2">Hạn 20 ngày</th>}
+                  <th className="px-3 py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {apps.map((app) => {
+                  const canSelect = isDeveloper && app.applicationStatus === 'REVIEWING'
+                  const countdown =
+                    isSxd && app.applicationStatus === 'PENDING_SXD_REVIEW'
+                      ? formatSxdCountdown(app.submittedAt || app.createdAt)
+                      : null
+                  return (
+                    <tr
+                      key={app.applicationId}
+                      className={`border-t border-slate-100 dark:border-slate-800 ${app.isViolation ? 'bg-rose-50 dark:bg-rose-950/30' : ''}`}
+                    >
+                      {isDeveloper && (
+                        <td className="px-3 py-2">
+                          {canSelect && (
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 accent-blue-600"
+                              checked={selected.has(app.applicationId)}
+                              onChange={() => toggleSelect(app.applicationId)}
+                            />
+                          )}
+                        </td>
+                      )}
+                      <td className="px-3 py-2 font-medium">{app.applicantFullName}</td>
+                      <td className="px-3 py-2 font-mono text-xs">{app.citizenId}</td>
+                      <td className="px-3 py-2">{app.projectName}</td>
+                      <td className="px-3 py-2"><StatusBadge status={app.applicationStatus} /></td>
+                      {isSxd && (
+                        <td className="px-3 py-2">
+                          {countdown ? (
+                            <span className={`text-xs font-semibold ${countdown.isOverdue ? 'text-rose-600' : countdown.days <= 3 ? 'text-amber-600' : 'text-slate-600'}`}>
+                              {countdown.label}
+                            </span>
+                          ) : '—'}
+                        </td>
+                      )}
+                      <td className="px-3 py-2 text-right">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            sessionStorage.setItem('applicationId', app.applicationId)
+                            navigate('application-detail')
+                          }}
+                        >
+                          Chi tiết
+                        </Button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {apps.map((app) => (
+              <button
                 key={app.applicationId}
-                className="glass-card flex w-full items-stretch gap-0 p-0 transition hover:ring-2 hover:ring-primary/20"
+                type="button"
+                className="glass-card w-full p-4 text-left transition hover:ring-2 hover:ring-primary/20"
+                onClick={() => {
+                  sessionStorage.setItem('applicationId', app.applicationId)
+                  navigate('application-detail')
+                }}
               >
-                {canSelect && (
-                  <label className="flex w-12 shrink-0 cursor-pointer items-center justify-center border-r border-slate-200 dark:border-slate-700">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 accent-blue-600"
-                      checked={selected.has(app.applicationId)}
-                      onChange={(e) => {
-                        e.stopPropagation()
-                        toggleSelect(app.applicationId)
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </label>
-                )}
-                <button
-                  type="button"
-                  className="flex-1 p-4 text-left"
-                  onClick={() => {
-                    sessionStorage.setItem('applicationId', app.applicationId)
-                    navigate('application-detail')
-                  }}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <h3 className="font-semibold">{app.projectName || 'Dự án'}</h3>
-                    <StatusBadge status={app.applicationStatus} />
-                  </div>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{app.applicantFullName} · CCCD: {app.citizenId}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Thu nhập: {Number(app.estimatedMonthlyIncome).toLocaleString('vi-VN')} VNĐ/tháng</p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500">{app.documentCount} tài liệu · {new Date(app.createdAt).toLocaleDateString('vi-VN')}</p>
-                </button>
-              </div>
-            )
-          })}
-        </div>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <h3 className="font-semibold">{app.projectName || 'Dự án'}</h3>
+                  <StatusBadge status={app.applicationStatus} />
+                </div>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{app.applicantFullName} · CCCD: {app.citizenId}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">{app.documentCount} tài liệu · {new Date(app.createdAt).toLocaleDateString('vi-VN')}</p>
+              </button>
+            ))}
+          </div>
+        )}
       </PageCard>
     </div>
   )
 }
 
 export function CreateApplicationPage() {
+  const [ready, setReady] = useState(false)
+  const [checking, setChecking] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    void ensureVerifiedForApplication({ silent: true }).then((ok) => {
+      if (cancelled) return
+      setReady(ok)
+      setChecking(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <div>
       <PageHeader routeId="create-application" />
       <PageCard className="p-6">
-        <CreateApplicationWizard />
+        {checking ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">Đang kiểm tra xác minh danh tính...</p>
+        ) : ready ? (
+          <CreateApplicationWizard />
+        ) : (
+          <div className="space-y-4">
+            <Alert variant="warning">
+              Cần xác minh danh tính (eKYC) trước khi tạo hồ sơ đăng ký nhà ở xã hội. Bạn vẫn có thể
+              duyệt dự án và lưu quan tâm mà không cần eKYC.
+            </Alert>
+            <Button variant="accent" onClick={() => navigate('verify-identity')}>
+              Xác minh danh tính
+            </Button>
+            <Button variant="outline" onClick={() => navigate('applications')}>
+              Quay lại danh sách hồ sơ
+            </Button>
+          </div>
+        )}
       </PageCard>
     </div>
   )
@@ -227,13 +352,16 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
   const [uploading, setUploading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [acting, setActing] = useState('')
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
+  const [withdrawReason, setWithdrawReason] = useState('')
+  const [receiptOpen, setReceiptOpen] = useState(false)
+  const [docType, setDocType] = useState(Object.keys(DOC_TYPE_LABELS)[0] ?? '')
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [, setTick] = useState(0)
 
   const refresh = async () => {
     const data = await housingApplicationsApi.getById(appId)
-    setApp((prev) => {
-      if (prev === null && data == null) return prev
-      return parseApplicationDetail(data)
-    })
+    setApp(parseApplicationDetail(data))
   }
 
   useEffect(() => {
@@ -251,6 +379,12 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
     return () => { cancelled = true }
   }, [appId])
 
+  useEffect(() => {
+    if (app?.applicationStatus !== 'PENDING_SXD_REVIEW') return
+    const id = window.setInterval(() => setTick((t) => t + 1), 60_000)
+    return () => window.clearInterval(id)
+  }, [app?.applicationStatus])
+
   const review = async (action: string, needNote = false) => {
     if (acting) return
     let note: string | null = null
@@ -265,6 +399,9 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
       else if (role === 'Department Of Construction') await housingApplicationsApi.sxdReview(appId, body)
       await refresh()
       setMsg({ type: 'success', text: 'Cập nhật hồ sơ thành công.' })
+      if (role === 'Housing Developer' && action === 'REQUEST_MORE_DOCUMENTS') {
+        /* no-op */
+      }
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
     } finally {
@@ -279,6 +416,25 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
       await housingApplicationsApi.submitToDepartment(applicationIds)
       await refresh()
       setMsg({ type: 'success', text: `Đã gửi ${applicationIds.length} hồ sơ lên Sở Xây dựng.` })
+      setReceiptOpen(true)
+    } catch (err) {
+      setMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setActing('')
+    }
+  }
+
+  const confirmWithdraw = async () => {
+    if (!withdrawReason.trim()) {
+      setMsg({ type: 'error', text: 'Vui lòng nhập lý do rút hồ sơ.' })
+      return
+    }
+    setActing('cancel')
+    try {
+      await housingApplicationsApi.cancel(appId, withdrawReason.trim())
+      setWithdrawOpen(false)
+      await refresh()
+      setMsg({ type: 'success', text: 'Đã rút hồ sơ.' })
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
     } finally {
@@ -290,17 +446,46 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
   if (!app) return <Alert variant="error">Không đọc được dữ liệu hồ sơ.</Alert>
 
   const canEditDocs = role === 'Applicant' && (app.applicationStatus === 'DRAFT' || app.applicationStatus === 'NEED_MORE_DOCUMENTS')
+  const needMoreNote = (app.reviewHistories ?? [])
+    .filter((h) => h.newStatus === 'NEED_MORE_DOCUMENTS' || h.action?.includes('REQUEST_MORE'))
+    .at(-1)?.note
+  const countdown =
+    app.applicationStatus === 'PENDING_SXD_REVIEW'
+      ? formatSxdCountdown(app.submittedAt || app.createdAt)
+      : null
+  const pdfDoc = (app.documents ?? []).find((d) => d.fileUrl?.toLowerCase().includes('.pdf') || d.fileName?.toLowerCase().endsWith('.pdf'))
+  const isStaff = role === 'Housing Developer' || role === 'Department Of Construction'
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-xl font-bold">{app.projectName}</h2>
-        <StatusBadge status={app.applicationStatus} />
-      </div>
+  const profilePanel = (
+    <div className="space-y-4">
+      {(app.isViolation || app.violationReason) && (
+        <Alert variant="error">
+          <strong>Cảnh báo vi phạm:</strong> {app.violationReason || 'Hồ sơ bị đánh dấu vi phạm (trùng CCCD / đã có nhà đất).'}
+        </Alert>
+      )}
+      {role === 'Applicant' && app.applicationStatus === 'NEED_MORE_DOCUMENTS' && (
+        <Alert variant="warning">
+          <strong>Yêu cầu bổ sung hồ sơ.</strong>{' '}
+          {needMoreNote || 'Chủ đầu tư yêu cầu bổ sung giấy tờ. Vui lòng tải lại tài liệu bên dưới rồi nộp lại.'}
+        </Alert>
+      )}
+      {countdown && role === 'Department Of Construction' && (
+        <Alert variant={countdown.isOverdue ? 'error' : countdown.days <= 3 ? 'warning' : 'info'}>
+          Hạn hậu kiểm 20 ngày: <strong>{countdown.label}</strong>
+          {' · '}đến {countdown.deadline.toLocaleString('vi-VN')}
+          {countdown.isOverdue && ' — hệ thống có thể tự duyệt quá hạn.'}
+        </Alert>
+      )}
+
       <div className="glass-card p-4">
+        <h3 className="mb-3 font-semibold">Tiến độ hồ sơ</h3>
+        <ApplicationTimeline currentStatus={app.applicationStatus} histories={app.reviewHistories} />
+      </div>
+
+      <div className={`glass-card p-4 ${app.isViolation ? 'ring-2 ring-rose-400' : ''}`}>
         <h3 className="mb-2 font-semibold">Thông tin đăng ký</h3>
-        <DetailRow label="Họ tên" value={app.fullName} />
-        <DetailRow label="CCCD" value={app.citizenId} />
+        <DetailRow label="Họ tên" value={app.fullName} danger={app.isViolation} />
+        <DetailRow label="CCCD" value={app.citizenId} danger={app.isViolation} />
         <DetailRow label="Nghề nghiệp" value={app.occupation || '—'} />
         <DetailRow label="Nơi làm việc" value={app.workPlace || '—'} />
         <DetailRow label="Nơi ở hiện tại" value={app.currentResidence} />
@@ -308,8 +493,10 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
         <DetailRow label="Thực trạng nhà ở" value={HOUSING_STATUS_LABELS[app.housingStatus] ?? app.housingStatus} />
         <DetailRow label="Thu nhập/tháng" value={`${Number(app.estimatedMonthlyIncome).toLocaleString('vi-VN')} VNĐ`} />
         <DetailRow label="Ngày tạo" value={new Date(app.createdAt).toLocaleString('vi-VN')} />
+        {app.submittedAt && <DetailRow label="Ngày nộp" value={new Date(app.submittedAt).toLocaleString('vi-VN')} />}
         {app.officerFullName && <DetailRow label="Cán bộ thẩm định" value={app.officerFullName} />}
       </div>
+
       <div className="glass-card p-4">
         <h3 className="mb-2 font-semibold">Tài liệu đính kèm</h3>
         {(app.documents ?? []).length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có tài liệu.</p>}
@@ -349,40 +536,76 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
           </div>
         ))}
         {canEditDocs && (
-          <form className="mt-4 space-y-3 border-t pt-4" onSubmit={async (e) => {
-            e.preventDefault()
-            if (uploading) return
-            const formEl = e.currentTarget
-            const fd = new FormData(formEl)
-            const file = fd.get('file') as File | null
-            const documentType = String(fd.get('documentType') ?? '')
-            if (!documentType) { setMsg({ type: 'error', text: 'Chọn loại giấy tờ.' }); return }
-            if (!file?.size) { setMsg({ type: 'error', text: 'Chọn file PDF.' }); return }
-            const ok = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-            if (!ok) { setMsg({ type: 'error', text: 'Tài liệu phải là file PDF.' }); return }
-            if (file.size > 10 * 1024 * 1024) { setMsg({ type: 'error', text: 'File PDF tối đa 10 MB.' }); return }
-            setUploading(true)
-            try {
-              await housingApplicationsApi.uploadDocument(app.applicationId, documentType, file)
-              await refresh()
-              setMsg({ type: 'success', text: 'Tải lên tài liệu thành công.' })
-              formEl.reset()
-            } catch (err) {
-              setMsg({ type: 'error', text: formatError(err) })
-            } finally {
-              setUploading(false)
-            }
-          }}>
+          <div className="mt-4 space-y-3 border-t pt-4">
             <FormField label="Loại giấy tờ" htmlFor="documentType">
-              <Select id="documentType" name="documentType">
+              <Select id="documentType" value={docType} onChange={(e) => setDocType(e.target.value)}>
                 {Object.entries(DOC_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </Select>
             </FormField>
-            <FormField label="Tệp PDF (tối đa 10 MB)" htmlFor="doc-file"><Input id="doc-file" name="file" type="file" accept="application/pdf,.pdf" required /></FormField>
-            <Button type="submit" variant="outline" disabled={uploading}>{uploading ? 'Đang tải lên…' : 'Tải lên tài liệu'}</Button>
-          </form>
+            <FileDropzone onFile={setPendingFile} disabled={uploading} />
+            {pendingFile && <p className="text-xs text-slate-500">Đã chọn: {pendingFile.name}</p>}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={uploading || !pendingFile}
+              onClick={async () => {
+                if (!pendingFile || uploading) return
+                setUploading(true)
+                try {
+                  await housingApplicationsApi.uploadDocument(app.applicationId, docType, pendingFile)
+                  await refresh()
+                  setPendingFile(null)
+                  setMsg({ type: 'success', text: 'Tải lên tài liệu thành công.' })
+                } catch (err) {
+                  setMsg({ type: 'error', text: formatError(err) })
+                } finally {
+                  setUploading(false)
+                }
+              }}
+            >
+              {uploading ? 'Đang tải lên…' : 'Tải lên tài liệu'}
+            </Button>
+          </div>
         )}
       </div>
+    </div>
+  )
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xl font-bold">{app.projectName}</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge status={app.applicationStatus} />
+          {(app.receiptUrl || app.applicationStatus !== 'DRAFT') && (
+            <Button variant="outline" size="sm" onClick={() => setReceiptOpen(true)}>
+              <Printer className="mr-1.5 h-4 w-4" /> Phiếu tiếp nhận
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {isStaff ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="min-w-0">{profilePanel}</div>
+          <div className="glass-card flex min-h-[480px] flex-col overflow-hidden p-0">
+            <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+              <FileText className="h-4 w-4 text-slate-500" />
+              <span className="text-sm font-semibold">Xem trước tài liệu PDF</span>
+            </div>
+            {pdfDoc ? (
+              <iframe title="PDF hồ sơ" src={pdfDoc.fileUrl} className="min-h-[440px] w-full flex-1 bg-slate-100" />
+            ) : (
+              <div className="flex flex-1 items-center justify-center p-6 text-sm text-slate-500">
+                Chưa có file PDF để xem. Mở từng tài liệu ở cột trái.
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        profilePanel
+      )}
+
       <div className="flex flex-wrap gap-2">
         {role === 'Applicant' && app.applicationStatus === 'DRAFT' && (
           <Button variant="accent" disabled={acting === 'submit'} onClick={async () => {
@@ -392,6 +615,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
               await housingApplicationsApi.submit(app.applicationId)
               await refresh()
               setMsg({ type: 'success', text: 'Đã nộp hồ sơ.' })
+              setReceiptOpen(true)
             } catch (err) {
               setMsg({ type: 'error', text: formatError(err) })
             } finally {
@@ -399,21 +623,25 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             }
           }}>{acting === 'submit' ? 'Đang nộp…' : 'Nộp hồ sơ'}</Button>
         )}
-        {role === 'Applicant' && !['APPROVED', 'DEPOSIT_PAID', 'REJECTED', 'CANCELED', 'EXPIRED'].includes(app.applicationStatus) && (
-          <Button variant="outline" className="text-red-600" disabled={acting === 'cancel'} onClick={async () => {
+        {role === 'Applicant' && app.applicationStatus === 'NEED_MORE_DOCUMENTS' && (
+          <Button variant="accent" disabled={acting === 'submit'} onClick={async () => {
             if (acting) return
-            const reason = window.prompt('Lý do hủy hồ sơ (tùy chọn):')
-            setActing('cancel')
+            setActing('submit')
             try {
-              await housingApplicationsApi.cancel(app.applicationId, reason ?? undefined)
+              await housingApplicationsApi.submit(app.applicationId)
               await refresh()
-              setMsg({ type: 'success', text: 'Đã hủy hồ sơ.' })
+              setMsg({ type: 'success', text: 'Đã nộp lại hồ sơ bổ sung.' })
             } catch (err) {
               setMsg({ type: 'error', text: formatError(err) })
             } finally {
               setActing('')
             }
-          }}>{acting === 'cancel' ? 'Đang hủy…' : 'Hủy hồ sơ'}</Button>
+          }}>{acting === 'submit' ? 'Đang nộp…' : 'Nộp lại sau bổ sung'}</Button>
+        )}
+        {role === 'Applicant' && !['APPROVED', 'APPROVED_BY_TIMEOUT', 'DEPOSIT_PAID', 'CONTRACT_SIGNED', 'REJECTED', 'CANCELED', 'EXPIRED', 'LOTTERY_LOST'].includes(app.applicationStatus) && (
+          <Button variant="outline" className="text-red-600" disabled={acting === 'cancel'} onClick={() => setWithdrawOpen(true)}>
+            Rút hồ sơ
+          </Button>
         )}
         {role === 'Housing Developer' && ['SUBMITTED', 'NEED_MORE_DOCUMENTS'].includes(app.applicationStatus) && (
           <Button variant="accent" disabled={acting === 'assign'} onClick={async () => {
@@ -432,10 +660,10 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
         )}
         {role === 'Housing Developer' && app.applicationStatus === 'REVIEWING' && (
           <>
-            <Button variant="outline" disabled={!!acting} onClick={() => void review('REQUEST_MORE_DOCUMENTS', true)}>Yêu cầu bổ sung</Button>
-            <Button variant="accent" disabled={!!acting} onClick={() => void review('REJECT', true)}>Từ chối</Button>
+            <Button variant="outline" className="border-amber-400 text-amber-700" disabled={!!acting} onClick={() => void review('REQUEST_MORE_DOCUMENTS', true)}>🟡 Yêu cầu bổ sung</Button>
+            <Button variant="outline" className="border-rose-400 text-rose-700" disabled={!!acting} onClick={() => void review('REJECT', true)}>🔴 Từ chối</Button>
             <Button variant="accent" disabled={acting === 'submit-sxd'} onClick={() => void submitToSxd([app.applicationId])}>
-              {acting === 'submit-sxd' ? 'Đang gửi…' : 'Gửi Sở Xây dựng'}
+              {acting === 'submit-sxd' ? 'Đang gửi…' : '🟢 Đạt sơ duyệt → Gửi Sở'}
             </Button>
           </>
         )}
@@ -446,6 +674,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
           </>
         )}
       </div>
+
       {(app.reviewHistories ?? []).length > 0 && (
         <div className="glass-card p-4">
           <h3 className="mb-2 font-semibold">Lịch sử xét duyệt</h3>
@@ -461,6 +690,62 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
         </div>
       )}
       {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
+
+      <Modal
+        open={withdrawOpen}
+        onClose={() => setWithdrawOpen(false)}
+        title="Rút hồ sơ đã nộp"
+        description="Hành động này không thể hoàn tác. Vui lòng nêu rõ lý do."
+      >
+        <FormField label="Lý do rút hồ sơ *" htmlFor="withdraw-reason">
+          <Textarea
+            id="withdraw-reason"
+            rows={3}
+            value={withdrawReason}
+            onChange={(e) => setWithdrawReason(e.target.value)}
+            placeholder="Ví dụ: Không còn nhu cầu mua nữa"
+          />
+        </FormField>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setWithdrawOpen(false)}>Huỷ</Button>
+          <Button variant="accent" className="bg-red-600 hover:bg-red-700" disabled={acting === 'cancel'} onClick={() => void confirmWithdraw()}>
+            {acting === 'cancel' ? 'Đang rút…' : 'Xác nhận rút hồ sơ'}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={receiptOpen}
+        onClose={() => setReceiptOpen(false)}
+        title="Phiếu tiếp nhận hồ sơ"
+        description="Bản xem trước để in gửi người dân."
+        size="lg"
+      >
+        <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm dark:border-slate-700 dark:bg-slate-900 print:border-0">
+          <p className="text-center text-xs font-semibold uppercase tracking-widest text-slate-500">Phiếu tiếp nhận hồ sơ NOXH</p>
+          <h4 className="mt-2 text-center text-lg font-bold">{app.projectName}</h4>
+          <div className="mt-4 space-y-2">
+            <p><strong>Mã tiếp nhận:</strong> <span className="font-mono">{app.applicationId}</span></p>
+            <p><strong>Người nộp:</strong> {app.fullName}</p>
+            <p><strong>CCCD:</strong> {app.citizenId}</p>
+            <p><strong>Thời điểm:</strong> {new Date(app.submittedAt || app.updatedAt || app.createdAt).toLocaleString('vi-VN')}</p>
+            <p><strong>Trạng thái:</strong> {labelApplicationStatus(app.applicationStatus)}</p>
+          </div>
+          {app.receiptUrl ? (
+            <a href={app.receiptUrl} target="_blank" rel="noopener" className="mt-4 inline-block font-semibold text-blue-600 hover:underline">
+              Mở file PDF phiếu tiếp nhận
+            </a>
+          ) : (
+            <p className="mt-4 text-xs text-slate-500">PDF phiếu sẽ hiển thị khi hệ thống đã sinh `receiptUrl`.</p>
+          )}
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setReceiptOpen(false)}>Đóng</Button>
+          <Button variant="accent" onClick={() => window.print()}>
+            <Printer className="mr-1.5 h-4 w-4" /> In
+          </Button>
+        </div>
+      </Modal>
     </div>
   )
 }

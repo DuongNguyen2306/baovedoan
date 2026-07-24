@@ -2,6 +2,7 @@ export type RouteId =
   | 'landing'
   | 'tra-cuu'
   | 'tim-nha'
+  | 'thong-bao'
   | 'login'
   | 'register'
   | 'verify-otp'
@@ -91,6 +92,14 @@ export const routes: RouteConfig[] = [
     title: 'Tìm kiếm nhà ở xã hội',
     subtitle: 'Tra cứu dự án theo vị trí, giá và diện tích.',
     cta: 'Tìm kiếm',
+  },
+  {
+    id: 'thong-bao',
+    label: 'Thông báo',
+    group: 'access',
+    title: 'Thông báo công khai',
+    subtitle: 'Thông báo chính thức từ Sở Xây dựng và Chủ đầu tư.',
+    cta: '',
   },
   {
     id: 'login',
@@ -249,7 +258,6 @@ export const routes: RouteConfig[] = [
     id: 'project-detail',
     label: 'Chi tiết dự án',
     group: 'workspace',
-    auth: true,
     title: 'Chi tiết dự án',
     subtitle: 'Xem và cập nhật thông tin dự án.',
     cta: 'Cập nhật',
@@ -392,9 +400,9 @@ export const routes: RouteConfig[] = [
     label: 'Bốc thăm trực tiếp',
     group: 'workspace',
     auth: true,
-    roles: ['Applicant'],
-    title: 'Bốc thăm trực tiếp',
-    subtitle: 'Theo dõi kết quả trực tiếp từ chủ đầu tư.',
+    roles: ['Applicant', 'Housing Developer', 'Department Of Construction'],
+    title: 'Giám sát bốc thăm trực tiếp',
+    subtitle: 'Theo dõi tiến độ realtime: biểu đồ căn đã bốc và live log người trúng.',
     cta: '',
   },
   // ====== Contracts (mock cho BE chưa có) ======
@@ -600,6 +608,7 @@ const ROLE_ACCESS: Record<string, RouteId[]> = {
     'lottery-sessions',
     'lottery-create',
     'lottery-detail',
+    'lottery-live',
     'contracts',
     'contract-create',
     'contract-detail',
@@ -616,6 +625,7 @@ const ROLE_ACCESS: Record<string, RouteId[]> = {
     'change-password',
     'lottery-sessions',
     'lottery-detail',
+    'lottery-live',
     'contracts',
     'contract-detail',
     'audit-list',
@@ -649,7 +659,7 @@ export function canAccess(role: string, id: RouteId): boolean {
 }
 
 // Các mục hiển thị trên thanh điều hướng cho từng role (đúng thứ tự).
-const PUBLIC_NAV: RouteId[] = ['landing', 'tim-nha', 'tra-cuu', 'login', 'register']
+const PUBLIC_NAV: RouteId[] = ['landing', 'tim-nha', 'thong-bao', 'tra-cuu', 'login', 'register']
 
 export const AUTH_FORM_ROUTES = new Set<RouteId>([
   'login',
@@ -667,8 +677,8 @@ export function publicNavRoutes(): RouteId[] {
 
 const NAV_BY_ROLE: Record<string, RouteId[]> = {
   'System Administrator': ['admin-staff', 'admin-logs', 'admin-categories', 'notifications', 'profile'],
-  'Housing Developer': ['home-developer', 'applications', 'projects', 'lottery-sessions', 'contracts', 'notifications', 'profile'],
-  'Department Of Construction': ['home-sxd', 'applications', 'projects', 'lottery-sessions', 'contracts', 'audit-list', 'notifications', 'profile'],
+  'Housing Developer': ['home-developer', 'applications', 'projects', 'lottery-sessions', 'lottery-live', 'contracts', 'notifications', 'profile'],
+  'Department Of Construction': ['home-sxd', 'applications', 'projects', 'lottery-sessions', 'lottery-live', 'contracts', 'audit-list', 'notifications', 'profile'],
   Applicant: ['home-user', 'quan-tam', 'applications', 'projects', 'contracts', 'notifications', 'profile'],
 }
 

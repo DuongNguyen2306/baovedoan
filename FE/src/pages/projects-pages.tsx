@@ -22,7 +22,8 @@ import { formatError, formatSuccess } from '@/lib/format-error'
 import { resolveProvinceName } from '@/lib/vietnam-locations'
 import { mapProjectToCard } from '@/lib/projects'
 import { FLASH_CREATE_PROJECT_KEY } from '@/lib/constants'
-import { getRole } from '@/router'
+import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
+import { getRole, isLoggedIn } from '@/router'
 import {
   applyClientFilters,
   EMPTY_HOUSING_SEARCH,
@@ -400,20 +401,29 @@ export function CreateProjectPage() {
 export function ProjectDetailPage() {
   const [projectId] = useState(() => sessionStorage.getItem('projectId') ?? '')
   const role = getRole()
+  const logged = isLoggedIn()
   const isApplicant = role === 'Applicant'
   const isDeveloper = role === 'Housing Developer'
   const isAdmin = role === 'System Administrator'
+  const isStaffEditor = logged && (isDeveloper || isAdmin || role === 'Department Of Construction')
+  const showPublicView = !logged || isApplicant || !isStaffEditor
 
   return (
     <div>
       <PageHeader routeId="project-detail" />
       <PageCard className="p-6">
-        <Button variant="ghost" className="mb-4" onClick={() => navigate('projects')}>← Danh sách dự án</Button>
+        <Button
+          variant="ghost"
+          className="mb-4"
+          onClick={() => navigate(logged ? 'projects' : 'tim-nha')}
+        >
+          ← {logged ? 'Danh sách dự án' : 'Tìm nhà ở'}
+        </Button>
         {!projectId ? (
           <Alert variant="error">
             Không tìm thấy dự án. Quay lại danh sách và chọn lại dự án.
           </Alert>
-        ) : isApplicant ? (
+        ) : showPublicView ? (
           <ProjectDetailView projectId={projectId} />
         ) : (
           <>
@@ -436,6 +446,8 @@ function ProjectDetailView({ projectId }: { projectId: string }) {
   const [project, setProject] = useState<HousingProjectDto | null>(null)
   const { isWishlisted, toggle } = useWishlist()
   const [wishlistBusy, setWishlistBusy] = useState(false)
+  const logged = isLoggedIn()
+  const isApplicant = getRole() === 'Applicant'
 
   useEffect(() => {
     let cancelled = false
@@ -463,8 +475,16 @@ function ProjectDetailView({ projectId }: { projectId: string }) {
   if (!project) return <Alert variant="error">Không tìm thấy dự án</Alert>
 
   const wishlisted = isWishlisted(projectId)
+  const openDate = project.applicationOpenDate
+  const closeDate = project.applicationCloseDate
+  const statusCode = String(project.status || '').toUpperCase()
+  const canApply = /OPEN|REGISTRATION/.test(statusCode) || !project.status
 
   const handleWishlist = async () => {
+    if (!logged) {
+      navigate('login')
+      return
+    }
     setWishlistBusy(true)
     try {
       await toggle(projectId)
@@ -473,7 +493,17 @@ function ProjectDetailView({ projectId }: { projectId: string }) {
     }
   }
 
-  const handleApply = () => {
+  const handleApply = async () => {
+    if (!logged) {
+      navigate('login')
+      return
+    }
+    if (!isApplicant) {
+      setError('Chỉ tài khoản người dân mới nộp hồ sơ được.')
+      return
+    }
+    const ok = await ensureVerifiedForApplication({ projectId })
+    if (!ok) return
     navigate('create-application')
   }
 
@@ -482,6 +512,12 @@ function ProjectDetailView({ projectId }: { projectId: string }) {
     if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)} tỷ`
     if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)} triệu`
     return v.toLocaleString('vi-VN')
+  }
+
+  const formatWhen = (v?: string) => {
+    if (!v) return '—'
+    const d = new Date(v)
+    return Number.isNaN(d.getTime()) ? v : d.toLocaleString('vi-VN')
   }
 
   return (
@@ -506,11 +542,20 @@ function ProjectDetailView({ projectId }: { projectId: string }) {
           )}
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" disabled={wishlistBusy} onClick={handleWishlist}>
-            <Heart className={wishlisted ? 'mr-2 h-4 w-4 fill-current text-rose-500' : 'mr-2 h-4 w-4'} />
-            {wishlisted ? 'Đã quan tâm' : 'Quan tâm'}
+          {logged && isApplicant && (
+            <Button variant="outline" disabled={wishlistBusy} onClick={handleWishlist}>
+              <Heart className={wishlisted ? 'mr-2 h-4 w-4 fill-current text-rose-500' : 'mr-2 h-4 w-4'} />
+              {wishlisted ? 'Đã quan tâm' : 'Quan tâm'}
+            </Button>
+          )}
+          <Button
+            variant="accent"
+            disabled={!canApply && logged && isApplicant}
+            onClick={() => void handleApply()}
+            title={!logged ? 'Đăng nhập tài khoản người dân để nộp hồ sơ' : undefined}
+          >
+            {!logged ? 'Đăng nhập để nộp hồ sơ' : 'Nộp hồ sơ ngay'}
           </Button>
-          <Button onClick={handleApply}>Đăng ký hồ sơ</Button>
         </div>
       </div>
 
@@ -523,11 +568,13 @@ function ProjectDetailView({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <InfoItem label="Giá tối thiểu" value={formatPrice(project.minPrice)} />
-        <InfoItem label="Giá tối đa" value={formatPrice(project.maxPrice)} />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <InfoItem label="Giá đề xuất (tối thiểu)" value={formatPrice(project.minPrice)} />
+        <InfoItem label="Giá đề xuất (tối đa)" value={formatPrice(project.maxPrice)} />
         <InfoItem label="Diện tích" value={`${project.minArea ?? 0} – ${project.maxArea ?? 0} m²`} />
-        <InfoItem label="Căn còn trống" value={`${project.availableUnits ?? 0} căn`} />
+        <InfoItem label="Số căn hộ trống" value={`${project.availableUnits ?? 0} căn`} />
+        <InfoItem label="Mở thu nhận hồ sơ" value={formatWhen(openDate)} />
+        <InfoItem label="Kết thúc thu nhận" value={formatWhen(closeDate)} />
       </div>
 
       {project.description && (

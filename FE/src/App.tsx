@@ -2,9 +2,9 @@ import { useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AppShell } from '@/components/layout/app-shell'
 import { PaymentNotice } from '@/components/layout/payment-notice'
+import { EkycNotice } from '@/components/layout/ekyc-notice'
 import { useHashRoute } from '@/hooks/useHashRoute'
-import { usersApi } from '@/api/users'
-import { getCachedVerified, readVerifiedStatus, setCachedVerified } from '@/lib/verification'
+import { getCachedVerified, refreshVerifiedCache, setCachedVerified } from '@/lib/verification'
 import {
   ChangePasswordPage,
   ForgotPasswordPage,
@@ -23,6 +23,7 @@ import { AdminStaffPage, CreateStaffPage, StaffDetailPage } from '@/pages/admin-
 import { LandingPage } from '@/pages/landing-page'
 import { LoginPage } from '@/pages/login-page'
 import { HousingSearchPage } from '@/pages/housing-search-page'
+import { AnnouncementsPage } from '@/pages/announcements-page'
 import { LookupPage } from '@/pages/lookup-page'
 import { NotificationsPage } from '@/pages/notifications-page'
 import { CreatePaymentPage, PaymentsPage } from '@/pages/payments-pages'
@@ -69,6 +70,7 @@ function RouteView({ route }: { route: RouteId }) {
     case 'landing': return <LandingPage />
     case 'tra-cuu': return <LookupPage />
     case 'tim-nha': return <HousingSearchPage />
+    case 'thong-bao': return <AnnouncementsPage />
     case 'login': return <LoginPage />
     case 'register': return <RegisterPage />
     case 'verify-otp': return <VerifyOtpPage />
@@ -119,11 +121,8 @@ export function App() {
   const config = getRouteConfig(route)
   const role = getRole()
   const logged = isLoggedIn()
-  // Cache kết quả verified để không gọi getProfile mỗi lần route đổi.
-  // Dùng cả ref cục bộ (re-render nhanh) lẫn module cache (chia sẻ với verify-identity-page).
-  const verifiedRef = useRef<boolean | null>(getCachedVerified())
-  // Tránh gọi getProfile trùng nhau khi nhiều route đổi liên tiếp.
-  const inFlightRef = useRef(false)
+  // Warm cache eKYC (không ép redirect) — hard gate nằm ở nút đăng ký hồ sơ.
+  const warmedRef = useRef(false)
 
   useEffect(() => {
     if (config.auth && !logged) {
@@ -134,44 +133,12 @@ export function App() {
       navigate(roleHome(role))
       return
     }
-    // Middleware: Applicant đã login mà chưa xác minh CCCD → ép sang verify-identity.
-    // - Cache `null` nghĩa là chưa biết → cần check.
-    // - Cache `true`  → đã xác minh, không làm gì.
-    // - Cache `false` → đã biết là chưa xác minh, KHÔNG redirect lại
-    //   (tránh vòng lặp nhảy home-user ↔ verify-identity).
-    if (
-      logged &&
-      role === 'Applicant' &&
-      route !== 'verify-identity' &&
-      route !== 'login' &&
-      route !== 'register' &&
-      route !== 'verify-otp' &&
-      route !== 'resend-otp' &&
-      route !== 'forgot-password'
-    ) {
-      if (verifiedRef.current !== null) return
-      if (inFlightRef.current) return
-      inFlightRef.current = true
-      void usersApi
-        .getProfile()
-        .then((data) => {
-          const verified = readVerifiedStatus(data)
-          // null = không xác định được từ response → không cache, không redirect,
-          // để user dùng app bình thường thay vì kẹt ở verify-identity.
-          if (verified === null) return
-          verifiedRef.current = verified
-          setCachedVerified(verified)
-          if (verified === false) navigate('verify-identity')
-        })
-        .catch(() => {
-          /* ignore — nếu lỗi mạng, không block người dùng */
-        })
-        .finally(() => {
-          inFlightRef.current = false
-        })
+    if (logged && role === 'Applicant' && !warmedRef.current && getCachedVerified() === null) {
+      warmedRef.current = true
+      void refreshVerifiedCache().then((v) => {
+        if (v !== null) setCachedVerified(v)
+      })
     }
-    // Không reset verifiedRef khi vào verify-identity nữa — sẽ do
-    // verify-identity-page.tsx chủ động set true sau khi lưu thành công.
   }, [route, config.auth, logged, role])
 
   if (config.auth && !logged) return null
@@ -179,10 +146,17 @@ export function App() {
 
   const centered = AUTH_FORM_ROUTES.has(route)
   const showPaymentNotice = logged && !centered && route !== 'landing'
+  const showEkycNotice =
+    logged &&
+    role === 'Applicant' &&
+    !centered &&
+    route !== 'landing' &&
+    route !== 'verify-identity'
 
   return (
     <AppShell>
       {showPaymentNotice && <PaymentNotice />}
+      {showEkycNotice && <EkycNotice />}
       <AnimatePresence mode="wait">
         <motion.div
           key={route}

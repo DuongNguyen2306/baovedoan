@@ -170,13 +170,24 @@ export function HousingSearchForm({ value, onChange, onSubmit, loading, compact 
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Trạng thái</label>
+            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Trạng thái mở bán</label>
             <select
               className="input h-9 w-full text-sm"
-              value={value.statusId}
-              onChange={(e) => set({ statusId: e.target.value })}
+              value={value.statusCode || value.statusId}
+              onChange={(e) => {
+                const v = e.target.value
+                // Prefer statusCode for OPEN / Open_For_Registration; keep statusId for catalog ids
+                if (v === 'OPEN' || v === 'UPCOMING' || v === 'CLOSED') {
+                  set({ statusCode: v, statusId: '' })
+                } else {
+                  set({ statusId: v, statusCode: '' })
+                }
+              }}
             >
               <option value="">Tất cả</option>
+              <option value="OPEN">Đang mở đăng ký (Open_For_Registration)</option>
+              <option value="UPCOMING">Sắp mở</option>
+              <option value="CLOSED">Đã đóng</option>
               {statuses.map((s) => (
                 <option key={s.id} value={s.id}>{s.label}</option>
               ))}

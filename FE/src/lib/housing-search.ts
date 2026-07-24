@@ -12,6 +12,8 @@ export interface HousingSearchFilter {
   maxArea: string
   minAvailable: string
   statusId: string
+  /** OPEN | UPCOMING | Open_For_Registration ... */
+  statusCode: string
 }
 
 export const EMPTY_HOUSING_SEARCH: HousingSearchFilter = {
@@ -24,6 +26,7 @@ export const EMPTY_HOUSING_SEARCH: HousingSearchFilter = {
   maxArea: '',
   minAvailable: '',
   statusId: '',
+  statusCode: '',
 }
 
 const QUERY_KEYS: Record<keyof HousingSearchFilter, string> = {
@@ -36,6 +39,7 @@ const QUERY_KEYS: Record<keyof HousingSearchFilter, string> = {
   maxArea: 'dtDen',
   minAvailable: 'can',
   statusId: 'trangThai',
+  statusCode: 'maTrangThai',
 }
 
 export function parseHousingSearchFromHash(): HousingSearchFilter {
@@ -56,6 +60,7 @@ export function parseHousingSearchFromHash(): HousingSearchFilter {
     maxArea: read('maxArea'),
     minAvailable: read('minAvailable'),
     statusId: read('statusId'),
+    statusCode: read('statusCode'),
   }
 }
 
@@ -88,6 +93,7 @@ export function toApiFilter(filter: HousingSearchFilter): HousingProjectFilter {
     minArea: parseNum(filter.minArea),
     maxArea: parseNum(filter.maxArea),
     statusId: filter.statusId || undefined,
+    statusCode: filter.statusCode || undefined,
   }
 }
 
@@ -117,6 +123,15 @@ export function applyClientFilters(projects: HousingProjectDto[], filter: Housin
 
     if (p.availableUnits != null && p.availableUnits < minAvailable) return false
     if (filter.statusId && p.housingProjectStatusId !== filter.statusId) return false
+    if (filter.statusCode) {
+      const code = String(p.status || '').toUpperCase()
+      const want = filter.statusCode.toUpperCase()
+      if (want === 'OPEN' || want === 'OPEN_FOR_REGISTRATION') {
+        if (!/OPEN|REGISTRATION/.test(code) && code) return false
+      } else if (code && !code.includes(want) && code !== want) {
+        return false
+      }
+    }
 
     return true
   })

@@ -51,16 +51,10 @@ export function LoginPage() {
           try {
             const profile = await usersApi.getProfile()
             const verified = readVerifiedStatus(profile)
-            // null = không xác định được từ response → bỏ qua, cho user vào home
-            if (verified === true) {
-              setCachedVerified(true)
-            } else if (verified === false) {
-              setCachedVerified(false)
-              navigate('verify-identity')
-              return
-            } else {
-              setCachedVerified(null)
-            }
+            // Chỉ cache — không ép sang verify-identity (hard gate lúc đăng ký hồ sơ).
+            if (verified === true) setCachedVerified(true)
+            else if (verified === false) setCachedVerified(false)
+            else setCachedVerified(null)
           } catch {
             /* ignore — fallback dưới */
           }

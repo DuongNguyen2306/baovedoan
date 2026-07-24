@@ -12,6 +12,8 @@ export interface HousingProjectFilter {
   minArea?: number
   maxArea?: number
   statusId?: string
+  /** e.g. OPEN, UPCOMING, Open_For_Registration */
+  statusCode?: string
 }
 
 export type DeveloperDecisionType =
@@ -60,6 +62,7 @@ function buildQuery(params?: HousingProjectFilter): string {
   if (params?.minArea != null) qs.set('minArea', String(params.minArea))
   if (params?.maxArea != null) qs.set('maxArea', String(params.maxArea))
   if (params?.statusId) qs.set('statusId', params.statusId)
+  if (params?.statusCode) qs.set('statusCode', params.statusCode)
   return qs.toString()
 }
 

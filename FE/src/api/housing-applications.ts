@@ -35,6 +35,12 @@ export function parseApplicationDetail(data: unknown): ApplicationDetailDto | nu
 }
 
 export const housingApplicationsApi = {
+  activeCheck: () =>
+    request<{ hasActiveApplication?: boolean; HasActiveApplication?: boolean; message?: string }>(
+      '/api/housing-applications/active-check',
+      { auth: true },
+    ),
+
   update: (id: string, body: Omit<CreateApplicationDto, 'projectId'>) =>
     request<ApiResult>(`/api/housing-applications/${id}`, {
       method: 'PUT',

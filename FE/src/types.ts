@@ -107,6 +107,8 @@ export interface HousingProjectDto {
   imageUrl?: string
   status?: string
   housingProjectStatusId?: string
+  applicationOpenDate?: string
+  applicationCloseDate?: string
   createdAt?: string
   updatedAt?: string
   images?: { id: string; imageUrl: string; displayOrder: number }[]
@@ -234,6 +236,9 @@ export interface ApplicationSummaryDto {
   housingStatus: string
   estimatedMonthlyIncome: number
   documentCount: number
+  receiptUrl?: string | null
+  isViolation?: boolean
+  violationReason?: string | null
 }
 
 export interface ApplicationDocumentDto {
@@ -281,6 +286,9 @@ export interface ApplicationDetailDto {
   officerFullName?: string | null
   documents?: ApplicationDocumentDto[]
   reviewHistories?: ReviewHistoryDto[]
+  receiptUrl?: string | null
+  isViolation?: boolean
+  violationReason?: string | null
 }
 
 export interface ReviewRequestDto {

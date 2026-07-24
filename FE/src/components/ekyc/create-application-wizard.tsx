@@ -16,6 +16,7 @@ import {
 import { housingApplicationsApi } from '@/api/housing-applications'
 import { housingProjectsApi } from '@/api/housing-projects'
 import { usersApi } from '@/api/users'
+import { FileDropzone } from '@/components/shared/file-dropzone'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -194,6 +195,32 @@ export function CreateApplicationWizard() {
   const [draftId, setDraftId] = useState<string | null>(null)
   const [draftStatus, setDraftStatus] = useState<string>('DRAFT')
   const [docs, setDocs] = useState<Record<string, DocUpload | null>>({})
+  const [commitment, setCommitment] = useState(false)
+  const [activeBlock, setActiveBlock] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void housingApplicationsApi
+      .activeCheck()
+      .then((data) => {
+        if (cancelled) return
+        const has =
+          Boolean((data as { hasActiveApplication?: boolean })?.hasActiveApplication) ||
+          Boolean((data as { HasActiveApplication?: boolean })?.HasActiveApplication)
+        if (has) {
+          const message =
+            (data as { message?: string })?.message ||
+            'Bạn đang có hồ sơ khác đang hoạt động. Không thể tạo hồ sơ mới.'
+          setActiveBlock(message)
+        }
+      })
+      .catch(() => {
+        /* ignore — BE vẫn chặn khi tạo */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Khi đổi nhóm đối tượng, danh sách giấy tờ bắt buộc thay đổi → reset các ô tương ứng.
   const requiredDocs = useMemo(
@@ -262,7 +289,7 @@ export function CreateApplicationWizard() {
   const step2Ready =
     householdSize !== '' &&
     Number(householdSize) >= 0 &&
-    household.every((m) => m.fullName.trim().length > 0 && m.relationship !== '')
+    household.every((m) => m.fullName.trim().length > 0 && m.relationship !== '' && m.citizenId.trim().length >= 9)
 
   const step3Ready = form.priorityGroup !== '' && (!hasPriorContract || priorContractNote.trim().length > 0)
 
@@ -427,6 +454,10 @@ export function CreateApplicationWizard() {
       setMsg({ type: 'error', text: 'Bạn cần lưu nháp và upload đầy đủ tài liệu trước khi nộp.' })
       return
     }
+    if (!commitment) {
+      setMsg({ type: 'error', text: 'Vui lòng tích cam kết thông tin chính xác trước khi nộp.' })
+      return
+    }
     if (!allDocsUploaded) {
       setMsg({
         type: 'error',
@@ -463,6 +494,21 @@ export function CreateApplicationWizard() {
 
   const goNextFromStep1 = () => {
     setStep(2)
+  }
+
+  const goNextFromStep2 = () => {
+    const ids = household.map((m) => m.citizenId.trim()).filter(Boolean)
+    const dup = ids.find((id, i) => ids.indexOf(id) !== i)
+    if (dup) {
+      setMsg({ type: 'error', text: `Số CCCD "${dup}" bị trùng giữa các thành viên hộ gia đình.` })
+      return
+    }
+    if (form.citizenId.trim() && ids.includes(form.citizenId.trim())) {
+      setMsg({ type: 'error', text: 'CCCD thành viên không được trùng với CCCD của bạn.' })
+      return
+    }
+    setMsg(null)
+    setStep(3)
   }
 
   const goNextFromStep3 = async () => {
@@ -531,6 +577,15 @@ export function CreateApplicationWizard() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
+      {activeBlock && (
+        <Alert variant="error">
+          {activeBlock}{' '}
+          <button type="button" className="font-semibold underline" onClick={() => navigate('applications')}>
+            Xem hồ sơ của tôi
+          </button>
+        </Alert>
+      )}
+      <fieldset disabled={!!activeBlock} className={activeBlock ? 'pointer-events-none opacity-60' : undefined}>
       <Stepper progress={progress} />
 
       <AnimatePresence mode="wait">
@@ -683,8 +738,8 @@ export function CreateApplicationWizard() {
                         <FormField label="Năm sinh" htmlFor={`m-year-${m.id}`}>
                           <Input id={`m-year-${m.id}`} type="date" value={m.dateOfBirth} onChange={(e) => updateMember(m.id, { dateOfBirth: e.target.value })} />
                         </FormField>
-                        <FormField label="CCCD thành viên" htmlFor={`m-cid-${m.id}`}>
-                          <Input id={`m-cid-${m.id}`} value={m.citizenId} onChange={(e) => updateMember(m.id, { citizenId: e.target.value })} maxLength={15} placeholder="Nếu có" />
+                        <FormField label="CCCD thành viên *" htmlFor={`m-cid-${m.id}`}>
+                          <Input id={`m-cid-${m.id}`} value={m.citizenId} onChange={(e) => updateMember(m.id, { citizenId: e.target.value })} maxLength={15} placeholder="Bắt buộc để quét trùng" required />
                         </FormField>
                       </div>
                     </div>
@@ -697,7 +752,7 @@ export function CreateApplicationWizard() {
 
                 <div className="flex flex-wrap justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
                   <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep(1)}>← Quay lại</Button>
-                  <Button type="button" variant="accent" disabled={!step2Ready || isBusy} onClick={() => setStep(3)}>
+                  <Button type="button" variant="accent" disabled={!step2Ready || isBusy} onClick={goNextFromStep2}>
                     Tiếp tục <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
@@ -780,24 +835,12 @@ export function CreateApplicationWizard() {
                     return (
                       <div key={key} className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/40">
                         <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{DOC_TYPE_LABELS[key]}</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <input
-                            id={`doc-${key}`}
-                            type="file"
-                            accept="application/pdf,.pdf"
-                            className="block text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary hover:file:bg-primary/20 dark:file:bg-accent/20 dark:file:text-accent"
-                            onChange={(e) => {
-                              const f = e.target.files?.[0] ?? null
-                              handleFilePick(key, f)
-                              e.target.value = ''
-                            }}
+                        <div className="mt-2">
+                          <FileDropzone
                             disabled={isBusy || !draftId}
+                            label={`Kéo thả PDF «${DOC_TYPE_LABELS[key]}» hoặc bấm chọn`}
+                            onFile={(f) => handleFilePick(key, f)}
                           />
-                          {doc && (
-                            <button type="button" onClick={() => setDocs((d) => ({ ...d, [key]: null }))} className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200 hover:text-red-500 dark:hover:bg-slate-700" aria-label="Xóa file">
-                              <X className="h-4 w-4" />
-                            </button>
-                          )}
                         </div>
                         {doc && (
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
@@ -806,6 +849,9 @@ export function CreateApplicationWizard() {
                             {doc.state === 'uploading' && <span className="inline-flex items-center gap-1 text-primary dark:text-accent"><Loader2 className="h-3 w-3 animate-spin" /> Đang tải lên…</span>}
                             {doc.state === 'uploaded' && <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="h-3 w-3" /> Đã tải lên</span>}
                             {doc.state === 'error' && <span className="text-red-600 dark:text-red-400">{doc.error || 'Lỗi upload'}</span>}
+                            <button type="button" onClick={() => setDocs((d) => ({ ...d, [key]: null }))} className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200 hover:text-red-500 dark:hover:bg-slate-700" aria-label="Xóa file">
+                              <X className="h-4 w-4" />
+                            </button>
                           </div>
                         )}
                       </div>
@@ -917,10 +963,22 @@ export function CreateApplicationWizard() {
 
                 <div className="flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
                   <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep(4)}>← Quay lại</Button>
-                  <Button type="button" variant="accent" disabled={!allDocsUploaded || (draftStatus !== 'DRAFT' && draftStatus !== 'NEED_MORE_DOCUMENTS') || isBusy} onClick={() => void handleSubmit()}>
+                  <Button type="button" variant="accent" disabled={!commitment || !allDocsUploaded || (draftStatus !== 'DRAFT' && draftStatus !== 'NEED_MORE_DOCUMENTS') || isBusy} onClick={() => void handleSubmit()}>
                     {busy === 'submit' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang nộp…</> : 'Nộp hồ sơ'}
                   </Button>
                 </div>
+
+                <label className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-700 dark:bg-slate-800/40">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 accent-primary"
+                    checked={commitment}
+                    onChange={(e) => setCommitment(e.target.checked)}
+                  />
+                  <span>
+                    Tôi cam kết thông tin và tài liệu đã cung cấp là chính xác. Sau khi nộp, hồ sơ sẽ được đóng băng để thẩm định.
+                  </span>
+                </label>
 
                 {draftId && (
                   <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -932,6 +990,7 @@ export function CreateApplicationWizard() {
           </motion.section>
         )}
       </AnimatePresence>
+      </fieldset>
 
       {msg && (
         <Alert variant={msg.type === 'error' ? 'error' : msg.type === 'warning' ? 'warning' : msg.type === 'info' ? 'info' : 'success'}>

@@ -1,3 +1,5 @@
+import { usersApi } from '@/api/users'
+
 /**
  * Helper đọc trạng thái xác minh CCCD từ response của `usersApi.getProfile()`.
  *
@@ -30,7 +32,6 @@ export function readVerifiedStatus(data: unknown): boolean | null {
 
 /**
  * Cache trạng thái xác minh ở phạm vi module để mọi component truy cập được.
- * Tránh tình trạng mỗi component tự giữ ref riêng → redirect lặp vô tận.
  */
 type VerifiedCache = { value: boolean | null }
 const verifiedCache: VerifiedCache = { value: null }
@@ -41,8 +42,22 @@ export function getCachedVerified(): boolean | null {
 
 export function setCachedVerified(value: boolean | null): void {
   verifiedCache.value = value
-  // Also clear localStorage cache to ensure fresh check
   try {
     localStorage.removeItem('ekyc_verified_cache')
-  } catch {}
+    if (value === true) sessionStorage.removeItem('ekyc_notice_dismissed')
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Làm mới cache từ profile (không redirect). */
+export async function refreshVerifiedCache(): Promise<boolean | null> {
+  try {
+    const data = await usersApi.getProfile()
+    const verified = readVerifiedStatus(data)
+    if (verified !== null) setCachedVerified(verified)
+    return verified
+  } catch {
+    return getCachedVerified()
+  }
 }
