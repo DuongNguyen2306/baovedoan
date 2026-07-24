@@ -14,6 +14,7 @@ function hubBaseUrl(): string {
 
 export type LotteryHubHandlers = {
   onLobbyCount?: (count: number) => void
+  onSxdSupervisorCount?: (count: number) => void
   onDrawResult?: (data: unknown) => void
   onStatus?: (status: string) => void
 }
@@ -33,6 +34,7 @@ export async function connectLotteryHub(
     .build()
 
   connection.on('ReceiveLobbyCount', (count: number) => handlers.onLobbyCount?.(count))
+  connection.on('ReceiveSxdSupervisorCount', (count: number) => handlers.onSxdSupervisorCount?.(count))
   connection.on('ReceiveDrawResult', (data: unknown) => handlers.onDrawResult?.(data))
   connection.on('ReceiveLotteryStatus', (status: string) => handlers.onStatus?.(status))
 

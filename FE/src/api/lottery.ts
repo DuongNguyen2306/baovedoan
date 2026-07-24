@@ -35,6 +35,9 @@ export interface LotteryScheduleDto {
   status: LotteryScheduleStatus | string
   sessionStatus?: string | null
   joinCode?: string | null
+  sxdOnlineCount?: number
+  supervisorId?: string | null
+  supervisorName?: string | null
   isLotteryApproved?: boolean | null
   approvedAt?: string | null
   lotteryApprovedAt?: string | null
@@ -292,6 +295,12 @@ export function parseLotterySchedule(data: unknown): LotteryScheduleDto | null {
     lotteryApprovedAt: (o.lotteryApprovedAt ?? o.LotteryApprovedAt) as string | null,
     sessionStatus: (o.sessionStatus ?? o.SessionStatus) as string | null,
     joinCode: (o.joinCode ?? o.JoinCode) as string | null,
+    sxdOnlineCount: Number(o.sxdOnlineCount ?? o.SxdOnlineCount ?? 0),
+    supervisorId: (() => {
+      const v = o.supervisorId ?? o.SupervisorId
+      return v == null ? null : String(v)
+    })(),
+    supervisorName: (o.supervisorName ?? o.SupervisorName) as string | null,
     totalEligibleParticipants: Number(o.totalEligibleParticipants ?? o.TotalEligibleParticipants ?? 0),
     status: mapSessionToUiStatus(o),
   }
