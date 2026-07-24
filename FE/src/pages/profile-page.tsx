@@ -19,6 +19,9 @@ export function ProfilePage() {
   const [pwMsg, setPwMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [showPasswordForm, setShowPasswordForm] = useState(false)
   const [phoneNumber, setPhoneNumber] = useState('')
+  const [citizenId, setCitizenId] = useState('')
+  const [address, setAddress] = useState('')
+  const [dateOfBirth, setDateOfBirth] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -27,6 +30,15 @@ export function ProfilePage() {
         const u = (data as { user?: Record<string, unknown> })?.user
         if (!u) return
         setPhoneNumber(String(u.phoneNumber ?? u.PhoneNumber ?? ''))
+        setCitizenId(String(u.citizenId ?? u.CitizenId ?? ''))
+        setAddress(String(u.address ?? u.Address ?? ''))
+        const dobRaw = u.dateOfBirth ?? u.DateOfBirth
+        if (dobRaw) {
+          const d = new Date(String(dobRaw))
+          setDateOfBirth(Number.isNaN(d.getTime()) ? String(dobRaw) : d.toLocaleDateString('vi-VN'))
+        } else {
+          setDateOfBirth('')
+        }
       })
     })
   }, [refreshProfile])
@@ -42,12 +54,15 @@ export function ProfilePage() {
   }
 
   const displayRole = roleLabel || labelRole(getRole())
+  const hasEkyc = !!citizenId.trim()
 
   return (
     <div className="glass-card overflow-hidden">
       <div className="border-b border-slate-200/80 p-6 dark:border-slate-800">
         <h2 className="text-2xl font-bold">Hồ sơ cá nhân</h2>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Cập nhật thông tin và ảnh đại diện của bạn.</p>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Thông tin định danh lấy từ eKYC (chỉ đọc). Bạn chỉ có thể cập nhật số điện thoại và ảnh đại diện.
+        </p>
       </div>
       <div className="grid gap-8 p-6 lg:grid-cols-[220px_1fr]">
         <aside className="text-center">
@@ -89,11 +104,12 @@ export function ProfilePage() {
           <form className="space-y-4" onSubmit={async (e) => {
             e.preventDefault()
             try {
+              // BE: đã eKYC thì chỉ cập nhật SĐT; vẫn gửi fullName hiện tại để DTO hợp lệ
               const data = await usersApi.updateProfile({
                 fullName,
                 phoneNumber: phoneNumber || null,
               })
-              setMsg({ type: 'success', text: formatSuccess(data) || 'Cập nhật thành công.' })
+              setMsg({ type: 'success', text: formatSuccess(data) || 'Cập nhật số điện thoại thành công.' })
             } catch (err) { setMsg({ type: 'error', text: formatError(err) }) }
           }}>
             <FormField label="Địa chỉ email đăng ký" htmlFor="email">
@@ -103,18 +119,54 @@ export function ProfilePage() {
               <FormField label="Vai trò" htmlFor="role">
                 <Input id="role" name="role" readOnly className="opacity-70" value={displayRole} />
               </FormField>
-              <FormField label="Họ và tên" htmlFor="fullName">
+              <FormField label="Họ và tên (eKYC)" htmlFor="fullName">
                 <Input
                   id="fullName"
                   name="fullName"
                   readOnly
                   className="opacity-70"
-                  title="Họ tên được lấy từ CCCD và không thể thay đổi tại đây"
+                  title="Họ tên lấy từ CCCD / eKYC — không thể thay đổi tại đây"
                   value={fullName}
                 />
               </FormField>
             </div>
-            <FormField label="Số điện thoại" htmlFor="phoneNumber">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="Số CCCD (eKYC)" htmlFor="citizenId">
+                <Input
+                  id="citizenId"
+                  readOnly
+                  className="font-mono opacity-70"
+                  value={citizenId || 'Chưa xác minh'}
+                  title="Lấy từ eKYC"
+                />
+              </FormField>
+              <FormField label="Ngày sinh (eKYC)" htmlFor="dateOfBirth">
+                <Input
+                  id="dateOfBirth"
+                  readOnly
+                  className="opacity-70"
+                  value={dateOfBirth || '—'}
+                />
+              </FormField>
+            </div>
+            <FormField label="Địa chỉ thường trú (eKYC)" htmlFor="address">
+              <Input
+                id="address"
+                readOnly
+                className="opacity-70"
+                value={address || '—'}
+                title="Lấy từ eKYC"
+              />
+            </FormField>
+            {!hasEkyc && (
+              <Alert variant="warning">
+                Chưa có dữ liệu eKYC.{' '}
+                <button type="button" className="font-semibold underline" onClick={() => navigate('verify-identity')}>
+                  Xác minh danh tính
+                </button>
+              </Alert>
+            )}
+            <FormField label="Số điện thoại (có thể cập nhật)" htmlFor="phoneNumber">
               <Input
                 id="phoneNumber"
                 name="phoneNumber"
@@ -124,7 +176,7 @@ export function ProfilePage() {
                 placeholder="Nhập số điện thoại"
               />
             </FormField>
-            <Button type="submit" variant="accent">Lưu thay đổi</Button>
+            <Button type="submit" variant="accent">Lưu số điện thoại</Button>
             {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
           </form>
 

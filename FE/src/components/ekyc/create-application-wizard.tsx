@@ -119,6 +119,20 @@ function extractAddress(data: unknown): string {
   return typeof addr === 'string' ? addr : ''
 }
 
+function extractDateOfBirth(data: unknown): string {
+  if (!data || typeof data !== 'object') return ''
+  const root = data as Record<string, unknown>
+  const u = (root.user ?? root.User ?? root) as Record<string, unknown>
+  if (!u || typeof u !== 'object') return ''
+  const raw = u.dateOfBirth ?? u.DateOfBirth
+  if (!raw) return ''
+  const d = new Date(String(raw))
+  if (Number.isNaN(d.getTime())) return String(raw)
+  return d.toLocaleDateString('vi-VN')
+}
+
+const ekycInputClass = 'bg-slate-50 opacity-90 dark:bg-slate-800/50'
+
 function uid(): string {
   return Math.random().toString(36).slice(2, 10)
 }
@@ -197,6 +211,8 @@ export function CreateApplicationWizard() {
   const [docs, setDocs] = useState<Record<string, DocUpload | null>>({})
   const [commitment, setCommitment] = useState(false)
   const [activeBlock, setActiveBlock] = useState<string | null>(null)
+  const [dateOfBirthLabel, setDateOfBirthLabel] = useState('')
+  const [ekycIncomplete, setEkycIncomplete] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -242,16 +258,22 @@ export function CreateApplicationWizard() {
       .then((data) => {
         const cid = extractCitizenId(data)
         const addr = extractAddress(data)
+        const dob = extractDateOfBirth(data)
+        const name = profileFullName || ''
+        setDateOfBirthLabel(dob)
         setForm((f) => ({
           ...f,
-          fullName: f.fullName || profileFullName || '',
-          citizenId: f.citizenId || cid,
+          fullName: name || f.fullName,
+          citizenId: cid || f.citizenId,
+          // Thường trú lấy từ eKYC — khóa không sửa tay
+          permanentAddress: addr || f.permanentAddress,
           currentResidence: f.currentResidence || addr,
-          permanentAddress: f.permanentAddress || addr,
         }))
+        setEkycIncomplete(!cid || !name.trim() || !addr.trim())
       })
       .catch(() => {
         setForm((f) => ({ ...f, fullName: f.fullName || profileFullName || '' }))
+        setEkycIncomplete(true)
       })
   }, [profileFullName])
 
@@ -277,6 +299,20 @@ export function CreateApplicationWizard() {
     }).catch(() => setProjects([]))
   }, [])
 
+  const parseAreaPerPerson = (raw: string): number | null => {
+    const area = parseFloat(raw.replace(/,/g, ''))
+    if (!raw.trim() || Number.isNaN(area)) return null
+    return area
+  }
+
+  /** Diện tích chỉ hợp lệ khi SMALL_HOUSE: > 0 và < 15 m²/người. */
+  const isValidSmallHouseArea = (raw: string): boolean => {
+    const area = parseAreaPerPerson(raw)
+    return area != null && area > 0 && area < 15
+  }
+
+  const isMarried = form.maritalStatus === 'MARRIED'
+
   const step1Ready =
     !!form.projectId &&
     form.fullName.trim().length > 0 &&
@@ -284,7 +320,11 @@ export function CreateApplicationWizard() {
     form.currentResidence.trim().length > 0 &&
     form.permanentAddress.trim().length > 0 &&
     form.maritalStatus.trim().length > 0 &&
-    Number(form.monthlyIncome) >= 0
+    form.monthlyIncome !== '' &&
+    Number(form.monthlyIncome) >= 0 &&
+    (form.housingStatus !== 'SMALL_HOUSE' || isValidSmallHouseArea(form.averageHousingAreaPerPerson)) &&
+    // Đã kết hôn: thu nhập vợ/chồng bắt buộc (>= 0); các tình trạng khác không bắt
+    (!isMarried || (form.spouseMonthlyIncome !== '' && Number(form.spouseMonthlyIncome) >= 0))
 
   const step2Ready =
     householdSize !== '' &&
@@ -297,12 +337,18 @@ export function CreateApplicationWizard() {
 
   const buildCreateBody = (): CreateApplicationDto | null => {
     if (!form.projectId || !form.priorityGroup) return null
-    if (form.housingStatus === 'SMALL_HOUSE') {
-      const area = parseFloat(form.averageHousingAreaPerPerson)
-      if (!form.averageHousingAreaPerPerson.trim() || Number.isNaN(area) || area < 0 || area >= 15) {
+    if (form.housingStatus === 'SMALL_HOUSE' && !isValidSmallHouseArea(form.averageHousingAreaPerPerson)) {
+      setMsg({
+        type: 'error',
+        text: 'Khi khai nhà diện tích nhỏ: bắt buộc nhập diện tích bình quân đầu người dưới 15 m²/người.',
+      })
+      return null
+    }
+    if (form.maritalStatus === 'MARRIED') {
+      if (form.spouseMonthlyIncome === '' || Number.isNaN(parseFloat(form.spouseMonthlyIncome)) || Number(form.spouseMonthlyIncome) < 0) {
         setMsg({
           type: 'error',
-          text: 'Khi khai nhà diện tích nhỏ: diện tích bình quân đầu người phải dưới 15 m².',
+          text: 'Khi đã kết hôn: bắt buộc khai thu nhập vợ/chồng (có thể là 0).',
         })
         return null
       }
@@ -318,10 +364,15 @@ export function CreateApplicationWizard() {
       housingStatus: form.housingStatus,
       maritalStatus: form.maritalStatus,
       monthlyIncome: form.monthlyIncome !== '' ? parseFloat(form.monthlyIncome) : null,
-      spouseMonthlyIncome: form.spouseMonthlyIncome ? parseFloat(form.spouseMonthlyIncome) : null,
-      averageHousingAreaPerPerson: form.averageHousingAreaPerPerson
-        ? parseFloat(form.averageHousingAreaPerPerson)
-        : null,
+      spouseMonthlyIncome:
+        form.maritalStatus === 'MARRIED' && form.spouseMonthlyIncome !== ''
+          ? parseFloat(form.spouseMonthlyIncome)
+          : null,
+      // NO_HOUSE: không gửi diện tích (tránh sai sót giữ giá trị cũ)
+      averageHousingAreaPerPerson:
+        form.housingStatus === 'SMALL_HOUSE'
+          ? parseAreaPerPerson(form.averageHousingAreaPerPerson)
+          : null,
       priorityGroup: form.priorityGroup,
       householdMembers:
         household.length > 0
@@ -493,6 +544,28 @@ export function CreateApplicationWizard() {
   }
 
   const goNextFromStep1 = () => {
+    if (ekycIncomplete || !form.fullName.trim() || !form.citizenId.trim() || !form.permanentAddress.trim()) {
+      setMsg({
+        type: 'error',
+        text: 'Thiếu thông tin eKYC (họ tên / CCCD / địa chỉ). Vui lòng xác minh danh tính trước khi nộp hồ sơ.',
+      })
+      return
+    }
+    if (form.housingStatus === 'SMALL_HOUSE' && !isValidSmallHouseArea(form.averageHousingAreaPerPerson)) {
+      setMsg({
+        type: 'error',
+        text: 'Vui lòng nhập diện tích bình quân đầu người dưới 15 m² (bắt buộc khi khai nhà diện tích nhỏ).',
+      })
+      return
+    }
+    if (form.maritalStatus === 'MARRIED' && (form.spouseMonthlyIncome === '' || Number(form.spouseMonthlyIncome) < 0)) {
+      setMsg({
+        type: 'error',
+        text: 'Vui lòng khai thu nhập vợ/chồng (bắt buộc khi đã kết hôn).',
+      })
+      return
+    }
+    setMsg(null)
     setStep(2)
   }
 
@@ -564,15 +637,22 @@ export function CreateApplicationWizard() {
   const summary = useMemo(
     () => (
       <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4 dark:border-accent/30 dark:bg-accent/10">
-        <p className="text-xs font-bold uppercase tracking-widest text-primary dark:text-accent">Thông tin đã xác thực</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-primary dark:text-accent">Thông tin từ eKYC (chỉ đọc)</p>
         <div className="mt-2 grid gap-1 text-sm dark:text-slate-200">
           <p><span className="text-slate-500 dark:text-slate-400">Họ tên:</span> {form.fullName || '—'}</p>
           <p><span className="text-slate-500 dark:text-slate-400">CCCD:</span> {form.citizenId || '—'}</p>
+          {dateOfBirthLabel && (
+            <p><span className="text-slate-500 dark:text-slate-400">Ngày sinh:</span> {dateOfBirthLabel}</p>
+          )}
+          <p><span className="text-slate-500 dark:text-slate-400">Thường trú (CCCD):</span> {form.permanentAddress || '—'}</p>
           <p><span className="text-slate-500 dark:text-slate-400">Khuôn mặt:</span> ✓ Đã xác thực khi tạo tài khoản</p>
         </div>
+        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          Họ tên, CCCD, địa chỉ thường trú lấy từ eKYC — không sửa tay. Cập nhật số điện thoại tại Hồ sơ cá nhân.
+        </p>
       </div>
     ),
-    [form.fullName, form.citizenId],
+    [form.fullName, form.citizenId, form.permanentAddress, dateOfBirthLabel],
   )
 
   return (
@@ -597,10 +677,21 @@ export function CreateApplicationWizard() {
                   <UserCheck className="h-5 w-5 text-primary" />
                   Bước 1 — Thông tin cá nhân
                 </CardTitle>
-                <CardDescription>Chọn dự án và bổ sung thông tin còn thiếu. Họ tên & CCCD đã xác thực.</CardDescription>
+                <CardDescription>
+                  Họ tên, CCCD, địa chỉ thường trú lấy từ eKYC (chỉ đọc). Bổ sung nghề nghiệp, nơi ở hiện tại và thực trạng nhà ở.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {summary}
+
+                {ekycIncomplete && (
+                  <Alert variant="warning">
+                    Chưa đủ dữ liệu eKYC để tạo hồ sơ.{' '}
+                    <button type="button" className="font-semibold underline" onClick={() => navigate('verify-identity')}>
+                      Xác minh danh tính
+                    </button>
+                  </Alert>
+                )}
 
                 <FormField label="Dự án nhà ở *" htmlFor="projectId">
                   <Select id="projectId" value={form.projectId} onChange={(e) => setForm((f) => ({ ...f, projectId: e.target.value }))} required>
@@ -615,13 +706,31 @@ export function CreateApplicationWizard() {
                 </FormField>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <FormField label="Họ và tên *" htmlFor="fullName">
-                    <Input id="fullName" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} maxLength={100} required />
+                  <FormField label="Họ và tên (eKYC) *" htmlFor="fullName">
+                    <Input
+                      id="fullName"
+                      value={form.fullName}
+                      readOnly
+                      className={ekycInputClass}
+                      title="Lấy từ eKYC — không thể sửa tay"
+                    />
                   </FormField>
-                  <FormField label="Số CCCD *" htmlFor="citizenId">
-                    <Input id="citizenId" value={form.citizenId} readOnly className="bg-slate-50 font-mono dark:bg-slate-800/50" />
+                  <FormField label="Số CCCD (eKYC) *" htmlFor="citizenId">
+                    <Input
+                      id="citizenId"
+                      value={form.citizenId}
+                      readOnly
+                      className={`${ekycInputClass} font-mono`}
+                      title="Lấy từ eKYC — không thể sửa tay"
+                    />
                   </FormField>
                 </div>
+
+                {dateOfBirthLabel && (
+                  <FormField label="Ngày sinh (eKYC)" htmlFor="dateOfBirth">
+                    <Input id="dateOfBirth" value={dateOfBirthLabel} readOnly className={ekycInputClass} />
+                  </FormField>
+                )}
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <FormField label="Nghề nghiệp" htmlFor="occupation">
@@ -634,22 +743,57 @@ export function CreateApplicationWizard() {
 
                 <FormField label="Nơi ở hiện tại *" htmlFor="currentResidence">
                   <Input id="currentResidence" value={form.currentResidence} onChange={(e) => setForm((f) => ({ ...f, currentResidence: e.target.value }))} maxLength={500} required />
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Địa chỉ đang sinh sống (có thể khác thường trú trên CCCD).
+                  </p>
                 </FormField>
 
-                <FormField label="Địa chỉ thường trú / tạm trú *" htmlFor="permanentAddress">
-                  <Input id="permanentAddress" value={form.permanentAddress} onChange={(e) => setForm((f) => ({ ...f, permanentAddress: e.target.value }))} maxLength={500} required />
+                <FormField label="Địa chỉ thường trú / tạm trú (eKYC) *" htmlFor="permanentAddress">
+                  <Input
+                    id="permanentAddress"
+                    value={form.permanentAddress}
+                    readOnly
+                    className={ekycInputClass}
+                    title="Lấy từ eKYC — không thể sửa tay"
+                  />
                 </FormField>
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <FormField label="Thực trạng nhà ở *" htmlFor="housingStatus">
-                    <Select id="housingStatus" value={form.housingStatus} onChange={(e) => setForm((f) => ({ ...f, housingStatus: e.target.value as typeof form.housingStatus }))} required>
+                    <Select
+                      id="housingStatus"
+                      value={form.housingStatus}
+                      onChange={(e) => {
+                        const next = e.target.value as typeof form.housingStatus
+                        setForm((f) => ({
+                          ...f,
+                          housingStatus: next,
+                          // Đổi sang chưa có nhà → xoá diện tích để không gửi nhầm
+                          averageHousingAreaPerPerson:
+                            next === 'SMALL_HOUSE' ? f.averageHousingAreaPerPerson : '',
+                        }))
+                      }}
+                      required
+                    >
                       {Object.entries(HOUSING_STATUS_LABELS).map(([v, l]) => (
                         <option key={v} value={v}>{l}</option>
                       ))}
                     </Select>
                   </FormField>
                   <FormField label="Tình trạng hôn nhân *" htmlFor="maritalStatus">
-                    <Select id="maritalStatus" value={form.maritalStatus} onChange={(e) => setForm((f) => ({ ...f, maritalStatus: e.target.value as typeof form.maritalStatus }))} required>
+                    <Select
+                      id="maritalStatus"
+                      value={form.maritalStatus}
+                      onChange={(e) => {
+                        const next = e.target.value as typeof form.maritalStatus
+                        setForm((f) => ({
+                          ...f,
+                          maritalStatus: next,
+                          spouseMonthlyIncome: next === 'MARRIED' ? f.spouseMonthlyIncome : '',
+                        }))
+                      }}
+                      required
+                    >
                       {MARITAL_STATUSES.map((s) => (
                         <option key={s.value} value={s.value}>{s.label}</option>
                       ))}
@@ -661,22 +805,56 @@ export function CreateApplicationWizard() {
                   <FormField label="Thu nhập hàng tháng (VNĐ) *" htmlFor="monthlyIncome">
                     <Input id="monthlyIncome" type="number" min={0} step={1000} value={form.monthlyIncome} onChange={(e) => setForm((f) => ({ ...f, monthlyIncome: e.target.value }))} placeholder="Ví dụ: 12000000" required />
                   </FormField>
+                  {isMarried ? (
+                    <FormField label="Thu nhập vợ/chồng (VNĐ) *" htmlFor="spouseMonthlyIncome">
+                      <Input
+                        id="spouseMonthlyIncome"
+                        type="number"
+                        min={0}
+                        step={1000}
+                        value={form.spouseMonthlyIncome}
+                        onChange={(e) => setForm((f) => ({ ...f, spouseMonthlyIncome: e.target.value }))}
+                        placeholder="Ví dụ: 8000000"
+                        required
+                      />
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Dùng để xét trần thu nhập hộ đã kết hôn (Đ30). Có thể nhập 0.
+                      </p>
+                    </FormField>
+                  ) : (
+                    <div className="hidden sm:block" aria-hidden />
+                  )}
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <FormField label="Thu nhập vợ/chồng (VNĐ)" htmlFor="spouseMonthlyIncome">
-                    <Input id="spouseMonthlyIncome" type="number" min={0} step={1000} value={form.spouseMonthlyIncome} onChange={(e) => setForm((f) => ({ ...f, spouseMonthlyIncome: e.target.value }))} placeholder="Ví dụ: 8000000" />
+                {form.housingStatus === 'SMALL_HOUSE' && (
+                  <FormField label="Diện tích bình quân đầu người (m²) *" htmlFor="averageHousingAreaPerPerson">
+                    <Input
+                      id="averageHousingAreaPerPerson"
+                      type="number"
+                      min={0.1}
+                      max={14.99}
+                      step={0.1}
+                      value={form.averageHousingAreaPerPerson}
+                      onChange={(e) => setForm((f) => ({ ...f, averageHousingAreaPerPerson: e.target.value }))}
+                      placeholder="Ví dụ: 12.5 (phải dưới 15)"
+                      required
+                    />
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      Chỉ khai khi có nhà thuộc sở hữu và diện tích bình quân &lt; 15 m²/người (Đ29.2).
+                    </p>
+                    {form.averageHousingAreaPerPerson.trim() !== '' && !isValidSmallHouseArea(form.averageHousingAreaPerPerson) && (
+                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                        Diện tích phải lớn hơn 0 và nhỏ hơn 15 m²/người.
+                      </p>
+                    )}
                   </FormField>
-                  <FormField label="Diện tích TB / người (m²)" htmlFor="averageHousingAreaPerPerson">
-                    <Input id="averageHousingAreaPerPerson" type="number" min={0} step={0.1} value={form.averageHousingAreaPerPerson} onChange={(e) => setForm((f) => ({ ...f, averageHousingAreaPerPerson: e.target.value }))} placeholder="Ví dụ: 15.5" />
-                  </FormField>
-                </div>
+                )}
 
                 <div className="flex flex-wrap justify-between gap-2 pt-2">
                   <span className="text-xs text-slate-500 dark:text-slate-400">
                     Nháp sẽ được tạo sau khi chọn nhóm đối tượng (bước 3).
                   </span>
-                  <Button type="button" variant="accent" disabled={!step1Ready || isBusy} onClick={() => goNextFromStep1()}>
+                  <Button type="button" variant="accent" disabled={!step1Ready || isBusy || ekycIncomplete} onClick={() => goNextFromStep1()}>
                     Tiếp tục <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
@@ -903,8 +1081,16 @@ export function CreateApplicationWizard() {
                       <p><strong>Thực trạng nhà:</strong> {HOUSING_STATUS_LABELS[form.housingStatus] ?? '—'}</p>
                       <p><strong>Tình trạng hôn nhân:</strong> {MARITAL_STATUSES.find((s) => s.value === form.maritalStatus)?.label ?? (form.maritalStatus || '—')}</p>
                       <p><strong>Nhóm đối tượng:</strong> {PRIORITY_GROUPS.find((g) => g.value === form.priorityGroup)?.label ?? '—'}</p>
-                      <p><strong>Thu nhập:</strong> {form.monthlyIncome ? `${Number(form.monthlyIncome).toLocaleString('vi-VN')} đ` : '—'}{form.spouseMonthlyIncome ? ` · Vợ/chồng: ${Number(form.spouseMonthlyIncome).toLocaleString('vi-VN')} đ` : ''}</p>
-                      {form.averageHousingAreaPerPerson && <p><strong>Diện tích TB/người:</strong> {form.averageHousingAreaPerPerson} m²</p>}
+                      <p>
+                        <strong>Thu nhập:</strong>{' '}
+                        {form.monthlyIncome ? `${Number(form.monthlyIncome).toLocaleString('vi-VN')} đ` : '—'}
+                        {form.maritalStatus === 'MARRIED' && form.spouseMonthlyIncome
+                          ? ` · Vợ/chồng: ${Number(form.spouseMonthlyIncome).toLocaleString('vi-VN')} đ`
+                          : ''}
+                      </p>
+                      {form.housingStatus === 'SMALL_HOUSE' && (
+                        <p><strong>Diện tích TB/người:</strong> {form.averageHousingAreaPerPerson || '—'} m²</p>
+                      )}
                     </div>
                   </section>
 

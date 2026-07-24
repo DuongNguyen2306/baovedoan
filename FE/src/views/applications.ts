@@ -189,6 +189,18 @@ export function createApplicationView(): HTMLElement {
       { value: 'NO_HOUSE', label: HOUSING_STATUS_LABELS.NO_HOUSE },
       { value: 'SMALL_HOUSE', label: HOUSING_STATUS_LABELS.SMALL_HOUSE },
     ], { required: 'true' }),
+    (() => {
+      const wrap = el('div', { class: 'form-field housing-area-field', hidden: 'true' })
+      wrap.append(
+        field('Diện tích bình quân đầu người (m²)', 'averageHousingAreaPerPerson', 'number', {
+          min: '0.1',
+          max: '14.99',
+          step: '0.1',
+          placeholder: 'Ví dụ: 12.5 (dưới 15)',
+        }),
+      )
+      return wrap
+    })(),
     field('Thu nhập hàng tháng (VNĐ)', 'estimatedMonthlyIncome', 'number', {
       required: 'true',
       min: '0',
@@ -196,6 +208,20 @@ export function createApplicationView(): HTMLElement {
     }),
     el('button', { type: 'submit', class: 'btn-primary' }, 'Tạo hồ sơ nháp'),
   )
+
+  const housingStatusSelect = form.querySelector<HTMLSelectElement>('[name=housingStatus]')
+  const areaFieldWrap = form.querySelector<HTMLElement>('.housing-area-field')
+  const areaInput = form.querySelector<HTMLInputElement>('[name=averageHousingAreaPerPerson]')
+  const syncHousingAreaVisibility = () => {
+    const isSmall = housingStatusSelect?.value === 'SMALL_HOUSE'
+    if (areaFieldWrap) areaFieldWrap.hidden = !isSmall
+    if (areaInput) {
+      areaInput.required = !!isSmall
+      if (!isSmall) areaInput.value = ''
+    }
+  }
+  housingStatusSelect?.addEventListener('change', syncHousingAreaVisibility)
+  syncHousingAreaVisibility()
 
   ocrSection.querySelector('.ekyc-btn')?.addEventListener('click', async () => {
     const input = ocrSection.querySelector<HTMLInputElement>('#ocr-file')
@@ -253,6 +279,16 @@ export function createApplicationView(): HTMLElement {
   onFormSubmit(form, result, async (fd) => {
     const projectId = fdStr(fd, 'projectId')
     if (!projectId) throw new Error('Chọn dự án nhà ở.')
+    const housingStatus = fdStr(fd, 'housingStatus')
+    const areaRaw = fdStr(fd, 'averageHousingAreaPerPerson')
+    let averageHousingAreaPerPerson: number | null = null
+    if (housingStatus === 'SMALL_HOUSE') {
+      const area = parseFloat(areaRaw.replace(/,/g, ''))
+      if (!areaRaw.trim() || Number.isNaN(area) || area <= 0 || area >= 15) {
+        throw new Error('Khi khai nhà diện tích nhỏ: diện tích bình quân đầu người phải dưới 15 m²/người.')
+      }
+      averageHousingAreaPerPerson = area
+    }
     const body = {
       projectId,
       fullName: fdStr(fd, 'fullName'),
@@ -261,7 +297,8 @@ export function createApplicationView(): HTMLElement {
       workPlace: fdStr(fd, 'workPlace') || null,
       currentResidence: fdStr(fd, 'currentResidence'),
       permanentAddress: fdStr(fd, 'permanentAddress'),
-      housingStatus: fdStr(fd, 'housingStatus'),
+      housingStatus,
+      averageHousingAreaPerPerson,
       estimatedMonthlyIncome: parseFloat(fdStr(fd, 'estimatedMonthlyIncome')) || 0,
     }
     const data = await housingApplicationsApi.create(body)

@@ -195,20 +195,33 @@ export function profileView(): HTMLElement {
     roleInput,
   )
 
-  const nameField = field('Họ và tên', 'fullName')
-  const phoneField = field('Số điện thoại', 'phoneNumber', 'tel', {})
+  const nameField = field('Họ và tên (eKYC)', 'fullName')
+  const nameInput = nameField.querySelector('input')
+  if (nameInput) {
+    nameInput.readOnly = true
+    nameInput.title = 'Lấy từ eKYC — chỉ cập nhật số điện thoại'
+    nameInput.classList.add('is-readonly')
+  }
+  const citizenField = field('Số CCCD (eKYC)', 'citizenId', 'text', { readonly: 'true' })
+  const dobField = field('Ngày sinh (eKYC)', 'dateOfBirth', 'text', { readonly: 'true' })
+  const addressField = field('Địa chỉ thường trú (eKYC)', 'address', 'text', { readonly: 'true' })
+  addressField.classList.add('profile-full-row')
+  const phoneField = field('Số điện thoại (có thể cập nhật)', 'phoneNumber', 'tel', {})
   phoneField.classList.add('profile-full-row')
 
   const infoForm = el(
     'form',
     { class: 'form-card profile-form' },
-    el('p', { class: 'profile-section-label' }, 'Thông tin tài khoản'),
+    el('p', { class: 'profile-section-label' }, 'Thông tin tài khoản — định danh từ eKYC (chỉ đọc)'),
     emailRow,
     roleField,
     nameField,
+    citizenField,
+    dobField,
+    addressField,
     phoneField,
     el('div', { class: 'profile-form-actions' },
-      el('button', { type: 'submit', class: 'btn-primary' }, 'Lưu thay đổi'),
+      el('button', { type: 'submit', class: 'btn-primary' }, 'Lưu số điện thoại'),
     ),
   )
 
@@ -235,6 +248,15 @@ export function profileView(): HTMLElement {
         roleInput.value = roleLabel(role)
         setFieldValue(nameField, name)
         setFieldValue(phoneField, String(u.phoneNumber ?? u.PhoneNumber ?? ''))
+        setFieldValue(citizenField, String(u.citizenId ?? u.CitizenId ?? '') || 'Chưa xác minh')
+        const dobRaw = u.dateOfBirth ?? u.DateOfBirth
+        if (dobRaw) {
+          const d = new Date(String(dobRaw))
+          setFieldValue(dobField, Number.isNaN(d.getTime()) ? String(dobRaw) : d.toLocaleDateString('vi-VN'))
+        } else {
+          setFieldValue(dobField, '—')
+        }
+        setFieldValue(addressField, String(u.address ?? u.Address ?? '') || '—')
         updateAvatarFallback(name, email)
         const img = profileImageUrl(u)
         if (img) {
