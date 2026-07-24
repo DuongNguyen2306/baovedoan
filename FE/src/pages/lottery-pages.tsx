@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Calendar, Play, Send, Sparkles, Trophy, Users } from 'lucide-react'
 import {
   lotteryApi,
@@ -11,6 +11,7 @@ import {
   type LotteryResultDto,
   type LotteryScheduleDto,
 } from '@/api/lottery'
+import { connectLotteryHub, stopLotteryHub } from '@/api/lotteryHub'
 import { housingProjectsApi } from '@/api/housing-projects'
 import type { HousingProjectSummaryDto } from '@/types'
 import { Badge } from '@/components/ui/badge'
@@ -286,7 +287,9 @@ export function LotteryDetailPage() {
               <Button variant="outline" disabled={!!busy} onClick={() => {
                 const scheduledAt = prompt('Ngày giờ bốc thăm (ISO):', new Date(Date.now() + 86400000).toISOString())
                 if (!scheduledAt) return
-                const totalUnitsStr = prompt('Tổng số căn của dự án:', '10')
+                const location = prompt('Địa điểm / link Zoom:', schedule?.lotteryLocation || 'Zoom demo')
+                if (!location) return
+                const totalUnitsStr = prompt('Tổng số căn của phiên:', String(schedule?.totalUnits || 10))
                 if (!totalUnitsStr) return
                 const totalUnits = Number(totalUnitsStr)
                 if (Number.isNaN(totalUnits) || totalUnits <= 0) {
@@ -294,21 +297,68 @@ export function LotteryDetailPage() {
                   return
                 }
                 void action('Lên lịch', () =>
-                  lotteryApi.schedule(projectId, { scheduledAt, totalUnits }),
+                  lotteryApi.schedule(projectId, {
+                    lotteryDate: scheduledAt,
+                    lotteryLocation: location,
+                    lotteryType: 'ONLINE',
+                    totalUnits,
+                  }),
                 )
               }}>
                 <Calendar className="mr-1.5 h-4 w-4" /> Lên lịch bốc thăm
               </Button>
             )}
-            {status === 'SCHEDULED' && (
+            {(status === 'SCHEDULED' || status === 'AWAITING_APPROVAL') && (
               <span className="text-sm text-slate-600 dark:text-slate-300">
                 Đang chờ Sở Xây dựng phê duyệt lịch.
               </span>
             )}
-            {status === 'APPROVED' && (
-              <Button variant="accent" disabled={!!busy} onClick={() => action('Chạy bốc thăm', () => lotteryApi.runLottery(projectId))}>
-                <Sparkles className="mr-1.5 h-4 w-4" /> Chạy bốc thăm
-              </Button>
+            {(status === 'APPROVED' || status === 'RUNNING' || schedule?.sessionStatus) && isDev && (
+              <>
+                <Button variant="outline" disabled={!!busy} onClick={() => action('Mở sảnh', () => lotteryApi.openLobby(projectId))}>
+                  Mở sảnh chờ
+                </Button>
+                <Button variant="accent" disabled={!!busy} onClick={() => action('Bắt đầu Live', () => lotteryApi.startLive(projectId))}>
+                  <Play className="mr-1.5 h-4 w-4" /> Bắt đầu Live
+                </Button>
+                <Button variant="outline" disabled={!!busy} onClick={() => action('Kết thúc phiên', () => lotteryApi.finishSession(projectId))}>
+                  Kết thúc phiên
+                </Button>
+                <Button variant="outline" disabled={!!busy} onClick={() => action('Công bố', () => lotteryApi.publishSession(projectId))}>
+                  Công bố kết quả
+                </Button>
+                <Button variant="outline" disabled={!!busy} onClick={() => action('Chạy batch Đ38.2', () => lotteryApi.runLottery(projectId))}>
+                  <Sparkles className="mr-1.5 h-4 w-4" /> Batch run
+                </Button>
+                <Button variant="ghost" onClick={() => navigate('lottery-live')}>Màn giám sát Live</Button>
+                <Button variant="ghost" onClick={() => {
+                  const token = localStorage.getItem('accessToken')
+                  window.open(`${lotteryApi.minutesUrl(projectId)}?access_token=unused`, '_blank')
+                  // fetch blob with auth
+                  void (async () => {
+                    try {
+                      const res = await fetch(lotteryApi.minutesUrl(projectId), {
+                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                      })
+                      if (!res.ok) throw new Error(await res.text())
+                      const blob = await res.blob()
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `BienBan_${projectId}.pdf`
+                      a.click()
+                      URL.revokeObjectURL(url)
+                    } catch (e) {
+                      setMsg({ type: 'error', text: formatError(e) })
+                    }
+                  })()
+                }}>
+                  Tải biên bản PDF
+                </Button>
+              </>
+            )}
+            {schedule?.joinCode && (
+              <Alert variant="info">Mã OTP vào sảnh: <strong>{schedule.joinCode}</strong> · Phiên: {schedule.sessionStatus ?? status}</Alert>
             )}
             {status === 'FINISHED' && (
               <Button variant="outline" disabled={!!busy} onClick={() => navigate('projects')}>
@@ -318,10 +368,19 @@ export function LotteryDetailPage() {
           </div>
         )}
 
-        {isSxd && status === 'SCHEDULED' && (
+        {isSxd && (status === 'SCHEDULED' || status === 'AWAITING_APPROVAL') && (
           <div className="flex flex-wrap gap-2 rounded-xl border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-800 dark:bg-amber-950/30">
             <Button variant="accent" disabled={!!busy} onClick={() => action('Phê duyệt lịch', () => lotteryApi.approveSchedule(projectId))}>
               <Send className="mr-1.5 h-4 w-4" /> Phê duyệt lịch bốc thăm
+            </Button>
+          </div>
+        )}
+
+        {isSxd && schedule?.isLotteryApproved && (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => navigate('lottery-live')}>Màn giám sát Live</Button>
+            <Button variant="outline" disabled={!!busy} onClick={() => action('Công bố', () => lotteryApi.publishSession(projectId))}>
+              Công bố kết quả
             </Button>
           </div>
         )}
@@ -387,18 +446,71 @@ export function LotteryLobbyPage() {
   const projectId = loadProjectIdFromStorage()
   const role = getRole()
   const isApplicant = role === 'Applicant'
+  const isStaff = role === 'Housing Developer' || role === 'Department Of Construction'
+  const [otp, setOtp] = useState('')
+  const [joined, setJoined] = useState(false)
+  const [sessionStatus, setSessionStatus] = useState('')
+  const [lobbyCount, setLobbyCount] = useState(0)
   const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [msg, setMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null)
   const [drawResult, setDrawResult] = useState<unknown>(null)
+  const [ticker, setTicker] = useState<string[]>([])
+  const connectionRef = useRef<import('@microsoft/signalr').HubConnection | null>(null)
+
+  useEffect(() => {
+    return () => {
+      void stopLotteryHub(connectionRef.current)
+      connectionRef.current = null
+    }
+  }, [])
+
+  const join = async () => {
+    if (!projectId || busy) return
+    setBusy(true)
+    setMsg(null)
+    try {
+      if (isApplicant) {
+        const v = await lotteryApi.verifyOtp(projectId, otp)
+        const ok = (v as { success?: boolean }).success !== false
+        if (!ok && (v as { Success?: boolean }).Success === false) {
+          throw new Error((v as { message?: string }).message || 'OTP không hợp lệ')
+        }
+      }
+      await stopLotteryHub(connectionRef.current)
+      const conn = await connectLotteryHub(projectId, isStaff ? undefined : otp, {
+        onLobbyCount: (n) => setLobbyCount(n),
+        onStatus: (s) => setSessionStatus(s),
+        onDrawResult: (data) => {
+          setTicker((prev) => {
+            const o = data as Record<string, unknown>
+            const line = `${o.applicantName ?? o.ApplicantName ?? '?'}: ${o.result ?? o.Result ?? ''} ${o.slotCode ?? o.SlotCode ?? ''}`
+            return [line, ...prev].slice(0, 30)
+          })
+        },
+      })
+      connectionRef.current = conn
+      setJoined(true)
+      setMsg({ type: 'success', text: 'Đã vào sảnh realtime.' })
+    } catch (err) {
+      setMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const draw = async () => {
     if (!projectId || busy) return
     setBusy(true)
     setMsg(null)
     try {
-      const res = await lotteryApi.drawUnit(projectId)
-      setDrawResult(res)
-      setMsg({ type: 'success', text: 'Bốc thăm thành công. Xem kết quả bên dưới.' })
+      if (connectionRef.current) {
+        await connectionRef.current.invoke('DrawUnit', projectId)
+        setMsg({ type: 'success', text: 'Đã gửi lệnh bốc thăm qua Hub.' })
+      } else {
+        const res = await lotteryApi.drawUnit(projectId)
+        setDrawResult(res)
+        setMsg({ type: 'success', text: 'Bốc thăm REST thành công.' })
+      }
     } catch (err) {
       setMsg({ type: 'error', text: formatError(err) })
     } finally {
@@ -425,15 +537,58 @@ export function LotteryLobbyPage() {
       <PageHeader routeId="lottery-lobby" />
       <PageCard className="space-y-4 p-6">
         <Alert variant="info">
-          Bạn đang trong sảnh chờ bốc thăm. Khi chủ đầu tư mở phiên, bấm nút bên dưới để bốc căn của bạn.
+          Sảnh chờ realtime (SignalR). Applicant nhập OTP từ thông báo sau khi Sở duyệt lịch.
+          Staff giám sát không cần OTP. Chỉ bốc được khi phiên = <strong>Live</strong>.
         </Alert>
-        {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
-        {isApplicant ? (
-          <Button variant="accent" disabled={busy} onClick={() => void draw()}>
-            <Play className="mr-1.5 h-4 w-4" /> {busy ? 'Đang bốc...' : 'Bốc căn của tôi'}
-          </Button>
-        ) : (
-          <Alert variant="warning">Trang này chỉ dành cho Applicant.</Alert>
+        {msg && (
+          <Alert variant={msg.type === 'error' ? 'error' : msg.type === 'info' ? 'info' : 'success'}>
+            {msg.text}
+          </Alert>
+        )}
+        {!joined && (
+          <div className="flex flex-wrap items-end gap-2">
+            {isApplicant && (
+              <div>
+                <label className="mb-1 block text-xs text-slate-500">OTP 6 số</label>
+                <input
+                  className="rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
+                  value={otp}
+                  maxLength={6}
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="000000"
+                />
+              </div>
+            )}
+            <Button variant="accent" disabled={busy || (isApplicant && otp.length < 6)} onClick={() => void join()}>
+              {busy ? 'Đang vào...' : 'Vào sảnh'}
+            </Button>
+          </div>
+        )}
+        {joined && (
+          <>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <Badge variant="default">Phiên: {sessionStatus || '...'}</Badge>
+              <Badge variant="secondary">Online: {lobbyCount}</Badge>
+            </div>
+            {isApplicant && (
+              <Button variant="accent" disabled={busy || sessionStatus !== 'Live'} onClick={() => void draw()}>
+                <Play className="mr-1.5 h-4 w-4" /> {busy ? 'Đang bốc...' : 'Bốc căn của tôi'}
+              </Button>
+            )}
+            {sessionStatus && sessionStatus !== 'Live' && isApplicant && (
+              <Alert variant="warning">Nút bốc chỉ mở khi CĐT chuyển phiên sang Live.</Alert>
+            )}
+            {ticker.length > 0 && (
+              <div>
+                <h3 className="mb-2 font-semibold">Ticker realtime</h3>
+                <ul className="space-y-1 text-sm">
+                  {ticker.map((t, i) => (
+                    <li key={i} className="rounded bg-slate-50 px-2 py-1 dark:bg-slate-800/50">{t}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
         )}
         {drawResult != null && (
           <pre className="overflow-auto rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-800/50">
@@ -450,16 +605,22 @@ export function LotteryLivePage() {
   const [result, setResult] = useState<LotteryResultDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [lobbyCount, setLobbyCount] = useState(0)
+  const [sessionStatus, setSessionStatus] = useState('')
+  const [ticker, setTicker] = useState<string[]>([])
+  const connectionRef = useRef<import('@microsoft/signalr').HubConnection | null>(null)
 
   useEffect(() => {
     if (!projectId) return
     let cancelled = false
-    const tick = async () => {
+
+    const load = async () => {
       try {
         const data = await lotteryApi.getResult(projectId)
         if (!cancelled) {
           setResult(parseLotteryResult(data))
           setLoading(false)
+          setError('')
         }
       } catch (err) {
         if (!cancelled) {
@@ -467,10 +628,41 @@ export function LotteryLivePage() {
           setLoading(false)
         }
       }
+      try {
+        const sched = parseLotterySchedule(await lotteryApi.getSchedule(projectId))
+        if (!cancelled && sched?.sessionStatus) setSessionStatus(sched.sessionStatus)
+      } catch { /* ignore */ }
     }
-    void tick()
-    const t = setInterval(tick, 5000)
-    return () => { cancelled = true; clearInterval(t) }
+
+    void load()
+
+    void (async () => {
+      try {
+        const conn = await connectLotteryHub(projectId, undefined, {
+          onLobbyCount: (n) => setLobbyCount(n),
+          onStatus: (s) => setSessionStatus(s),
+          onDrawResult: (data) => {
+            const o = data as Record<string, unknown>
+            const line = `${o.applicantName ?? o.ApplicantName ?? '?'}: ${o.result ?? o.Result ?? ''} ${o.slotCode ?? ''}`
+            setTicker((prev) => [line, ...prev].slice(0, 40))
+            void load()
+          },
+        })
+        if (cancelled) {
+          await stopLotteryHub(conn)
+          return
+        }
+        connectionRef.current = conn
+      } catch {
+        /* staff hub may fail if not logged — page still polls */
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      void stopLotteryHub(connectionRef.current)
+      connectionRef.current = null
+    }
   }, [projectId])
 
   if (!projectId) {
@@ -487,17 +679,52 @@ export function LotteryLivePage() {
   return (
     <div>
       <PageHeader routeId="lottery-live" />
-      <PageCard className="p-6">
+      <PageCard className="space-y-4 p-6">
+        <div className="flex flex-wrap gap-3">
+          <Badge variant="default">Phiên: {sessionStatus || '...'}</Badge>
+          <Badge variant="secondary">Online: {lobbyCount}</Badge>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const token = localStorage.getItem('accessToken')
+              void (async () => {
+                const res = await fetch(lotteryApi.minutesUrl(projectId), {
+                  headers: token ? { Authorization: `Bearer ${token}` } : {},
+                })
+                if (!res.ok) {
+                  setError('Không tải được biên bản')
+                  return
+                }
+                const blob = await res.blob()
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `BienBan_${projectId}.pdf`
+                a.click()
+                URL.revokeObjectURL(url)
+              })()
+            }}
+          >
+            Tải biên bản PDF
+          </Button>
+        </div>
+        {ticker.length > 0 && (
+          <div>
+            <h3 className="mb-2 font-semibold">Ticker (không cần F5)</h3>
+            <ul className="max-h-48 space-y-1 overflow-auto text-sm">
+              {ticker.map((t, i) => (
+                <li key={i} className="rounded bg-emerald-50/80 px-2 py-1 dark:bg-emerald-950/30">{t}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {loading && <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>}
         {error && <Alert variant="error">{error}</Alert>}
         {!result && !loading && !error && (
-          <Alert variant="info">Chưa có kết quả bốc thăm cho dự án này.</Alert>
+          <Alert variant="info">Chưa có kết quả lưu (Finish phiên để tạo biên bản / LotteryDraw).</Alert>
         )}
         {result && (
           <div>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Cập nhật tự động mỗi 5 giây
-            </p>
             <h3 className="mt-3 font-semibold">Danh sách trúng ({result.winners.length})</h3>
             <div className="mt-2 grid gap-2">
               {result.winners.map((w, i) => (

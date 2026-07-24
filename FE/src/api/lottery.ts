@@ -2,17 +2,16 @@ import { request } from './http'
 import type { ApiResult } from '../types'
 
 /**
- * Module API cho Lottery (Bốc thăm nhà ở xã hội).
- *
- * BE cung cấp các endpoint dạng project-based (không có phiên riêng):
- *  - POST /api/projects/{projectId}/lottery/schedule          : CĐT lên lịch
- *  - POST /api/projects/{projectId}/lottery/schedule/approve  : Sở phê duyệt lịch
- *  - GET  /api/projects/{projectId}/lottery/schedule          : Public xem lịch
- *  - GET  /api/projects/{projectId}/lottery/eligible-participants : DS đủ điều kiện
- *  - POST /api/projects/{projectId}/lottery/draw-unit         : Applicant bốc realtime
- *  - POST /api/projects/{projectId}/lottery/run               : CĐT chạy bốc thăm hàng loạt
- *  - GET  /api/projects/{projectId}/lottery/result            : Xem kết quả mới nhất
+ * Lottery API — khớp BE project-based + FSM phiên live.
  */
+
+export type LotterySessionStatus =
+  | 'Scheduled'
+  | 'WaitingLobby'
+  | 'Live'
+  | 'Finished'
+  | 'Published'
+  | string
 
 export type LotteryScheduleStatus =
   | 'NOT_SCHEDULED'
@@ -21,22 +20,35 @@ export type LotteryScheduleStatus =
   | 'APPROVED'
   | 'RUNNING'
   | 'FINISHED'
+  | LotterySessionStatus
 
 export interface LotteryScheduleDto {
   projectId: string
   projectName?: string
   scheduledAt?: string | null
+  lotteryDate?: string | null
+  lotteryLocation?: string | null
+  lotteryType?: string | null
+  lotteryDescription?: string | null
   totalUnits?: number | null
+  availableUnits?: number | null
   status: LotteryScheduleStatus | string
+  sessionStatus?: string | null
+  joinCode?: string | null
+  isLotteryApproved?: boolean | null
   approvedAt?: string | null
-  approvedBy?: string | null
+  lotteryApprovedAt?: string | null
   notes?: string | null
+  totalEligibleParticipants?: number
 }
 
 export interface LotteryEligibleEntry {
   applicationId: string
+  applicantId?: string
   applicantName: string
   citizenId: string
+  priorityGroup?: string | null
+  applicationStatus?: string
   priorityScore?: number
   lotteryResult?: string | null
   slotCode?: string | null
@@ -45,40 +57,81 @@ export interface LotteryEligibleEntry {
 export interface LotteryResultDto {
   projectId: string
   projectName?: string
+  drawId?: string
   totalUnits?: number
   runAt?: string | null
+  drawnAt?: string | null
   winners: LotteryEligibleEntry[]
   losers?: LotteryEligibleEntry[]
   allEntries?: LotteryEligibleEntry[]
+  participants?: Array<{
+    applicationId: string
+    fullName?: string
+    citizenId?: string
+    result?: string
+    slotCode?: string | null
+  }>
   notes?: string | null
 }
 
 export interface ScheduleLotteryInput {
-  scheduledAt: string
+  lotteryDate: string
+  lotteryLocation: string
+  lotteryType?: string
+  lotteryDescription?: string
   totalUnits?: number
+  /** alias cũ FE */
+  scheduledAt?: string
   notes?: string
+}
+
+export interface LiveDrawEvent {
+  projectId?: string
+  applicationId?: string
+  applicantName?: string
+  citizenId?: string
+  result?: string
+  slotCode?: string | null
+  remainingUnits?: number
+  drawnAt?: string
+}
+
+function mapSessionToUiStatus(o: Record<string, unknown>): string {
+  const session = String(o.sessionStatus ?? o.SessionStatus ?? '')
+  const approved = o.isLotteryApproved ?? o.IsLotteryApproved
+  if (session === 'WaitingLobby' || session === 'Live') return session === 'Live' ? 'RUNNING' : 'APPROVED'
+  if (session === 'Finished' || session === 'Published') return 'FINISHED'
+  if (approved === true) return 'APPROVED'
+  if (approved === false && (o.lotteryDate || o.LotteryDate)) return 'SCHEDULED'
+  if (o.lotteryDate || o.LotteryDate) return 'AWAITING_APPROVAL'
+  return 'NOT_SCHEDULED'
 }
 
 export const lotteryApi = {
   schedule(projectId: string, body: ScheduleLotteryInput) {
-    return request<ApiResult>(
-      `/api/projects/${projectId}/lottery/schedule`,
-      { method: 'POST', body: JSON.stringify(body), auth: true },
-    )
+    const lotteryDate = body.lotteryDate || body.scheduledAt || ''
+    return request<ApiResult>(`/api/projects/${projectId}/lottery/schedule`, {
+      method: 'POST',
+      body: JSON.stringify({
+        lotteryDate,
+        lotteryLocation: body.lotteryLocation || body.notes || 'Hội trường / Zoom (demo)',
+        lotteryType: body.lotteryType || 'ONLINE',
+        lotteryDescription: body.lotteryDescription || body.notes || undefined,
+        totalUnits: body.totalUnits,
+      }),
+      auth: true,
+    })
   },
 
   approveSchedule(projectId: string) {
-    return request<ApiResult>(
-      `/api/projects/${projectId}/lottery/schedule/approve`,
-      { method: 'POST', auth: true },
-    )
+    return request<ApiResult>(`/api/projects/${projectId}/lottery/schedule/approve`, {
+      method: 'POST',
+      auth: true,
+    })
   },
 
   getSchedule(projectId: string) {
-    return request<LotteryScheduleDto>(
-      `/api/projects/${projectId}/lottery/schedule`,
-      { auth: false },
-    )
+    return request<LotteryScheduleDto>(`/api/projects/${projectId}/lottery/schedule`, { auth: false })
   },
 
   getEligibleParticipants(projectId: string) {
@@ -89,39 +142,81 @@ export const lotteryApi = {
   },
 
   drawUnit(projectId: string) {
-    return request<ApiResult>(
-      `/api/projects/${projectId}/lottery/draw-unit`,
-      { method: 'POST', auth: true },
-    )
+    return request<ApiResult>(`/api/projects/${projectId}/lottery/draw-unit`, {
+      method: 'POST',
+      auth: true,
+    })
   },
 
   runLottery(projectId: string, totalUnits?: number) {
-    return request<LotteryResultDto>(
-      `/api/projects/${projectId}/lottery/run`,
+    return request<LotteryResultDto>(`/api/projects/${projectId}/lottery/run`, {
+      method: 'POST',
+      body: JSON.stringify(totalUnits != null ? { totalUnits } : {}),
+      auth: true,
+    })
+  },
+
+  getResult(projectId: string) {
+    return request<LotteryResultDto>(`/api/projects/${projectId}/lottery/result`, { auth: true })
+  },
+
+  openLobby(projectId: string) {
+    return request<LotteryScheduleDto>(`/api/projects/${projectId}/lottery/session/open-lobby`, {
+      method: 'POST',
+      auth: true,
+    })
+  },
+
+  startLive(projectId: string) {
+    return request<LotteryScheduleDto>(`/api/projects/${projectId}/lottery/session/start`, {
+      method: 'POST',
+      auth: true,
+    })
+  },
+
+  finishSession(projectId: string) {
+    return request<LotteryScheduleDto>(`/api/projects/${projectId}/lottery/session/finish`, {
+      method: 'POST',
+      auth: true,
+    })
+  },
+
+  publishSession(projectId: string) {
+    return request<LotteryScheduleDto>(`/api/projects/${projectId}/lottery/session/publish`, {
+      method: 'POST',
+      auth: true,
+    })
+  },
+
+  verifyOtp(projectId: string, joinCode: string) {
+    return request<{ success: boolean; message: string; sessionStatus?: string }>(
+      `/api/projects/${projectId}/lottery/session/verify-otp`,
       {
         method: 'POST',
-        body: JSON.stringify(totalUnits != null ? { totalUnits } : {}),
+        body: JSON.stringify({ joinCode }),
         auth: true,
       },
     )
   },
 
-  getResult(projectId: string) {
-    return request<LotteryResultDto>(
-      `/api/projects/${projectId}/lottery/result`,
-      { auth: true },
-    )
+  minutesUrl(projectId: string) {
+    const base = import.meta.env.VITE_API_BASE_URL ?? ''
+    return `${base}/api/projects/${projectId}/lottery/minutes.pdf`
   },
 }
 
 export const LOTTERY_STATUS_LABEL: Record<string, string> = {
   NOT_SCHEDULED: 'Chưa lên lịch',
-  SCHEDULED: 'Đã lên lịch',
+  SCHEDULED: 'Đã lên lịch (chờ Sở)',
   AWAITING_APPROVAL: 'Chờ Sở phê duyệt',
-  APPROVED: 'Đã phê duyệt',
-  RUNNING: 'Đang chạy',
-  FINISHED: 'Đã có kết quả',
-  Published: 'Đã công bố',
+  APPROVED: 'Đã duyệt / Sảnh',
+  RUNNING: 'Đang Live',
+  FINISHED: 'Đã kết thúc / công bố',
+  Scheduled: 'Scheduled',
+  WaitingLobby: 'Sảnh chờ',
+  Live: 'Live',
+  Finished: 'Finished',
+  Published: 'Published',
 }
 
 export const LOTTERY_STATUS_TONE: Record<
@@ -134,23 +229,72 @@ export const LOTTERY_STATUS_TONE: Record<
   APPROVED: 'default',
   RUNNING: 'warning',
   FINISHED: 'success',
+  WaitingLobby: 'default',
+  Live: 'warning',
+  Finished: 'success',
   Published: 'success',
+  Scheduled: 'warning',
 }
 
 export function parseLotteryResult(data: unknown): LotteryResultDto | null {
   if (!data || typeof data !== 'object') return null
   const o = data as Record<string, unknown>
-  const nested = o.data ?? o.Data
-  if (nested && typeof nested === 'object') return nested as LotteryResultDto
-  return data as LotteryResultDto
+  const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
+  const src = nested && typeof nested === 'object' ? nested : o
+
+  const participants = (src.participants ?? src.Participants) as
+    | Array<Record<string, unknown>>
+    | undefined
+
+  if (Array.isArray(participants)) {
+    const mapped = participants.map((p) => ({
+      applicationId: String(p.applicationId ?? p.ApplicationId ?? ''),
+      applicantName: String(p.fullName ?? p.FullName ?? p.applicantName ?? ''),
+      citizenId: String(p.citizenId ?? p.CitizenId ?? ''),
+      lotteryResult: String(p.result ?? p.Result ?? ''),
+      slotCode: (p.slotCode ?? p.SlotCode) as string | null,
+    }))
+    return {
+      projectId: String(src.projectId ?? src.ProjectId ?? ''),
+      drawId: src.drawId ? String(src.drawId) : src.DrawId ? String(src.DrawId) : undefined,
+      drawnAt: (src.drawnAt ?? src.DrawnAt) as string | null,
+      totalUnits: Number(src.totalUnits ?? src.TotalUnits ?? 0),
+      winners: mapped.filter((m) => m.lotteryResult === 'WON' || m.lotteryResult === 'PRIORITY_WON'),
+      losers: mapped.filter((m) => m.lotteryResult === 'LOST'),
+      allEntries: mapped,
+      participants: participants as LotteryResultDto['participants'],
+    }
+  }
+
+  return src as unknown as LotteryResultDto
 }
 
 export function parseLotterySchedule(data: unknown): LotteryScheduleDto | null {
   if (!data || typeof data !== 'object') return null
-  const o = data as Record<string, unknown>
-  const nested = o.data ?? o.Data
-  if (nested && typeof nested === 'object') return nested as LotteryScheduleDto
-  return data as LotteryScheduleDto
+  const o0 = data as Record<string, unknown>
+  const nested = o0.data ?? o0.Data
+  const o = (nested && typeof nested === 'object' ? nested : o0) as Record<string, unknown>
+
+  const lotteryDate = (o.lotteryDate ?? o.LotteryDate ?? o.scheduledAt) as string | null
+  const availableUnits = Number(o.availableUnits ?? o.AvailableUnits ?? o.totalUnits ?? 0)
+  return {
+    projectId: String(o.projectId ?? o.ProjectId ?? ''),
+    projectName: (o.projectName ?? o.ProjectName) as string | undefined,
+    scheduledAt: lotteryDate,
+    lotteryDate,
+    lotteryLocation: (o.lotteryLocation ?? o.LotteryLocation) as string | null,
+    lotteryType: (o.lotteryType ?? o.LotteryType) as string | null,
+    lotteryDescription: (o.lotteryDescription ?? o.LotteryDescription) as string | null,
+    totalUnits: availableUnits,
+    availableUnits,
+    isLotteryApproved: (o.isLotteryApproved ?? o.IsLotteryApproved) as boolean | null,
+    approvedAt: (o.lotteryApprovedAt ?? o.LotteryApprovedAt ?? o.approvedAt) as string | null,
+    lotteryApprovedAt: (o.lotteryApprovedAt ?? o.LotteryApprovedAt) as string | null,
+    sessionStatus: (o.sessionStatus ?? o.SessionStatus) as string | null,
+    joinCode: (o.joinCode ?? o.JoinCode) as string | null,
+    totalEligibleParticipants: Number(o.totalEligibleParticipants ?? o.TotalEligibleParticipants ?? 0),
+    status: mapSessionToUiStatus(o),
+  }
 }
 
 export function parseEligibleList(data: unknown): LotteryEligibleEntry[] {
@@ -163,8 +307,7 @@ export function parseEligibleList(data: unknown): LotteryEligibleEntry[] {
   return []
 }
 
-// Giữ alias cũ để không phải sửa App.tsx hay các page khác có import
 export const parseLotterySession = parseLotteryResult
 export const parseLotterySessions = parseEligibleList
 export type LotterySessionDto = LotteryResultDto
-export type LotterySessionStatus = LotteryScheduleStatus | string
+export type LotterySessionStatusAlias = LotteryScheduleStatus | string
