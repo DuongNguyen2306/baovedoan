@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { housingProjectsApi } from '@/api/housing-projects'
+import { HCM_PROVINCE } from '@/lib/housing-search'
 import { extractProjects } from '@/lib/parsers'
 import { mapProjectToCard, type ProjectCard } from '@/lib/projects'
 import { FEATURED_HOUSES } from '@/lib/featured-houses'
@@ -33,7 +34,11 @@ export function useHousingProjects(pageSize = 12) {
     setLoading(true)
     setError('')
     try {
-      const data = await housingProjectsApi.list({ pageIndex: 1, pageSize })
+      const data = await housingProjectsApi.list({
+        pageIndex: 1,
+        pageSize,
+        province: HCM_PROVINCE,
+      })
       const items = extractProjects(data).map(mapProjectToCard)
       setProjects(items.length > 0 ? items : fallbackCards())
     } catch (err) {

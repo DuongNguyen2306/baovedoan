@@ -1,25 +1,38 @@
 import type { HousingProjectFilter } from '@/api/housing-projects'
 import type { HousingProjectDto } from '@/types'
 import type { RouteId } from '@/router'
+import { HCM_PROVINCE } from '@/lib/vn-provinces-v2'
+
+export { HCM_PROVINCE }
+
+export type HousingSortKey = 'default' | 'price_asc' | 'price_desc' | 'units_desc'
+
+export const HOUSING_SORT_OPTIONS: { key: HousingSortKey; label: string }[] = [
+  { key: 'default', label: 'Mặc định' },
+  { key: 'price_asc', label: 'Giá tăng' },
+  { key: 'price_desc', label: 'Giá giảm' },
+  { key: 'units_desc', label: 'Còn nhiều căn' },
+]
 
 export interface HousingSearchFilter {
   search: string
   province: string
-  district: string
+  /** Phường/xã (API v2). Giữ tên field district trên hash cũ `huyen` → map sang ward. */
+  ward: string
   minPriceMillion: string
   maxPriceMillion: string
   minArea: string
   maxArea: string
   minAvailable: string
   statusId: string
-  /** OPEN | UPCOMING | Open_For_Registration ... */
   statusCode: string
+  sort: HousingSortKey
 }
 
 export const EMPTY_HOUSING_SEARCH: HousingSearchFilter = {
   search: '',
-  province: '',
-  district: '',
+  province: HCM_PROVINCE,
+  ward: '',
   minPriceMillion: '',
   maxPriceMillion: '',
   minArea: '',
@@ -27,12 +40,13 @@ export const EMPTY_HOUSING_SEARCH: HousingSearchFilter = {
   minAvailable: '',
   statusId: '',
   statusCode: '',
+  sort: 'default',
 }
 
-const QUERY_KEYS: Record<keyof HousingSearchFilter, string> = {
+const QUERY_KEYS = {
   search: 'q',
   province: 'tinh',
-  district: 'huyen',
+  ward: 'phuong',
   minPriceMillion: 'giaTu',
   maxPriceMillion: 'giaDen',
   minArea: 'dtTu',
@@ -40,6 +54,12 @@ const QUERY_KEYS: Record<keyof HousingSearchFilter, string> = {
   minAvailable: 'can',
   statusId: 'trangThai',
   statusCode: 'maTrangThai',
+  sort: 'sapXep',
+} as const
+
+function normalizeSort(value: string): HousingSortKey {
+  if (value === 'price_asc' || value === 'price_desc' || value === 'units_desc') return value
+  return 'default'
 }
 
 export function parseHousingSearchFromHash(): HousingSearchFilter {
@@ -48,27 +68,32 @@ export function parseHousingSearchFromHash(): HousingSearchFilter {
   if (qIdx < 0) return { ...EMPTY_HOUSING_SEARCH }
 
   const params = new URLSearchParams(hash.slice(qIdx + 1))
-  const read = (key: keyof HousingSearchFilter) => params.get(QUERY_KEYS[key]) ?? ''
+  const read = (key: string) => params.get(key) ?? ''
 
   return {
-    search: read('search'),
-    province: read('province'),
-    district: read('district'),
-    minPriceMillion: read('minPriceMillion'),
-    maxPriceMillion: read('maxPriceMillion'),
-    minArea: read('minArea'),
-    maxArea: read('maxArea'),
-    minAvailable: read('minAvailable'),
-    statusId: read('statusId'),
-    statusCode: read('statusCode'),
+    search: read(QUERY_KEYS.search),
+    province: HCM_PROVINCE,
+    // Ưu tiên `phuong`, fallback `huyen` (URL cũ)
+    ward: read(QUERY_KEYS.ward) || read('huyen'),
+    minPriceMillion: read(QUERY_KEYS.minPriceMillion),
+    maxPriceMillion: read(QUERY_KEYS.maxPriceMillion),
+    minArea: read(QUERY_KEYS.minArea),
+    maxArea: read(QUERY_KEYS.maxArea),
+    minAvailable: read(QUERY_KEYS.minAvailable),
+    statusId: read(QUERY_KEYS.statusId),
+    statusCode: read(QUERY_KEYS.statusCode),
+    sort: normalizeSort(read(QUERY_KEYS.sort)),
   }
 }
 
 export function navigateToHousingSearch(filter: HousingSearchFilter, route: RouteId = 'tim-nha') {
   const params = new URLSearchParams()
-  for (const [field, key] of Object.entries(QUERY_KEYS) as [keyof HousingSearchFilter, string][]) {
-    const value = filter[field]?.trim()
-    if (value) params.set(key, value)
+  const locked: HousingSearchFilter = { ...filter, province: HCM_PROVINCE }
+  for (const [field, key] of Object.entries(QUERY_KEYS) as [keyof typeof QUERY_KEYS, string][]) {
+    if (field === 'province') continue
+    const value = String(locked[field] ?? '').trim()
+    if (!value || (field === 'sort' && value === 'default')) continue
+    params.set(key, value)
   }
   const qs = params.toString()
   location.hash = qs ? `#/${route}?${qs}` : `#/${route}`
@@ -86,8 +111,8 @@ export function toApiFilter(filter: HousingSearchFilter): HousingProjectFilter {
     pageIndex: 1,
     pageSize: 100,
     search: filter.search.trim() || undefined,
-    province: filter.province || undefined,
-    district: filter.district || undefined,
+    province: HCM_PROVINCE,
+    ward: filter.ward || undefined,
     minPrice: minM != null ? minM * 1_000_000 : undefined,
     maxPrice: maxM != null ? maxM * 1_000_000 : undefined,
     minArea: parseNum(filter.minArea),
@@ -97,6 +122,16 @@ export function toApiFilter(filter: HousingSearchFilter): HousingProjectFilter {
   }
 }
 
+function matchesOpenStatus(statusLabel: string): boolean {
+  const s = statusLabel.toLowerCase()
+  return (
+    /open|registration/.test(s) ||
+    s.includes('đang mở') ||
+    s.includes('mở đăng ký') ||
+    s.includes('mở bán')
+  )
+}
+
 export function applyClientFilters(projects: HousingProjectDto[], filter: HousingSearchFilter): HousingProjectDto[] {
   const minAvailable = parseNum(filter.minAvailable) ?? 0
   const minM = parseNum(filter.minPriceMillion)
@@ -104,14 +139,20 @@ export function applyClientFilters(projects: HousingProjectDto[], filter: Housin
   const minArea = parseNum(filter.minArea)
   const maxArea = parseNum(filter.maxArea)
   const q = filter.search.trim().toLowerCase()
+  const ward = filter.ward.trim().toLowerCase()
 
   return projects.filter((p) => {
     const name = (p.projectName || p.name || '').toLowerCase()
-    const loc = [p.district, p.province, p.address, p.location].filter(Boolean).join(' ').toLowerCase()
+    const loc = [p.district, p.ward, p.province, p.address, p.location].filter(Boolean).join(' ').toLowerCase()
     if (q && !name.includes(q) && !loc.includes(q) && !(p.description ?? '').toLowerCase().includes(q)) return false
 
-    if (filter.province && p.province !== filter.province) return false
-    if (filter.district && p.district !== filter.district) return false
+    if (p.province && p.province !== HCM_PROVINCE) return false
+    if (ward) {
+      const pw = (p.ward || '').toLowerCase()
+      const pd = (p.district || '').toLowerCase()
+      // Exact match — đồng bộ CRUD lưu District = Ward = tên phường v2
+      if (pw !== ward && pd !== ward) return false
+    }
 
     const price = p.maxPrice ?? p.minPrice ?? 0
     if (minM != null && price > 0 && price < minM * 1_000_000) return false
@@ -124,12 +165,17 @@ export function applyClientFilters(projects: HousingProjectDto[], filter: Housin
     if (p.availableUnits != null && p.availableUnits < minAvailable) return false
     if (filter.statusId && p.housingProjectStatusId !== filter.statusId) return false
     if (filter.statusCode) {
-      const code = String(p.status || '').toUpperCase()
+      const label = String(p.status || '')
       const want = filter.statusCode.toUpperCase()
       if (want === 'OPEN' || want === 'OPEN_FOR_REGISTRATION') {
-        if (!/OPEN|REGISTRATION/.test(code) && code) return false
-      } else if (code && !code.includes(want) && code !== want) {
-        return false
+        if (label && !matchesOpenStatus(label)) return false
+      } else if (want === 'UPCOMING') {
+        if (label && !/upcoming|sắp mở/i.test(label)) return false
+      } else if (want === 'CLOSED') {
+        if (label && !/closed|đã đóng|đóng đăng ký/i.test(label)) return false
+      } else if (label) {
+        const code = label.toUpperCase()
+        if (!code.includes(want) && code !== want) return false
       }
     }
 
@@ -137,6 +183,34 @@ export function applyClientFilters(projects: HousingProjectDto[], filter: Housin
   })
 }
 
+export function sortHousingProjects(
+  projects: HousingProjectDto[],
+  sort: HousingSortKey = 'default',
+): HousingProjectDto[] {
+  if (sort === 'default') return projects
+  const list = [...projects]
+  switch (sort) {
+    case 'price_asc':
+      return list.sort((a, b) => (a.minPrice ?? 0) - (b.minPrice ?? 0))
+    case 'price_desc':
+      return list.sort((a, b) => (b.minPrice ?? 0) - (a.minPrice ?? 0))
+    case 'units_desc':
+      return list.sort((a, b) => (b.availableUnits ?? 0) - (a.availableUnits ?? 0))
+    default:
+      return list
+  }
+}
+
 export function countActiveFilters(filter: HousingSearchFilter): number {
-  return Object.values(filter).filter((v) => v.trim()).length
+  let n = 0
+  if (filter.search.trim()) n++
+  if (filter.ward.trim()) n++
+  if (filter.minPriceMillion.trim()) n++
+  if (filter.maxPriceMillion.trim()) n++
+  if (filter.minArea.trim()) n++
+  if (filter.maxArea.trim()) n++
+  if (filter.minAvailable.trim()) n++
+  if (filter.statusId.trim() || filter.statusCode.trim()) n++
+  if (filter.sort && filter.sort !== 'default') n++
+  return n
 }

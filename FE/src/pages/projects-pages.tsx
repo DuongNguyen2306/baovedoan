@@ -27,6 +27,7 @@ import { getRole, isLoggedIn } from '@/router'
 import {
   applyClientFilters,
   EMPTY_HOUSING_SEARCH,
+  sortHousingProjects,
   toApiFilter,
   type HousingSearchFilter,
 } from '@/lib/housing-search'
@@ -47,7 +48,10 @@ export function ProjectsPage() {
     setError('')
     try {
       const data = await housingProjectsApi.list(toApiFilter(nextFilter))
-      const items = applyClientFilters(extractProjects(data), nextFilter)
+      const items = sortHousingProjects(
+        applyClientFilters(extractProjects(data), nextFilter),
+        nextFilter.sort,
+      )
       setAll(items)
     } catch (err) {
       setError(formatError(err))
@@ -111,7 +115,7 @@ export function ProjectsPage() {
           value={filter}
           onChange={setFilter}
           loading={loading}
-          onSubmit={() => { void load(filter) }}
+          onSubmit={(next) => { void load(next) }}
         />
 
         {error && <Alert variant="error">{error}</Alert>}
@@ -189,7 +193,7 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
         if (el) el.value = String(v)
       }
       setProvince(resolveProvinceName(p.province ?? ''))
-      setDistrict(p.district ?? '')
+      setDistrict(p.ward || p.district || '')
       setAddressDefault(p.address ?? '')
       setAddressKey(`addr-${projectId}`)
       set('projectName', p.projectName || p.name || '')
@@ -223,13 +227,16 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
 
   const readBody = (fd: FormData): CreateHousingProjectRequestDto => {
     const thumb = fd.get('thumbnailFile')
+    // LocationFields (v2): select phường/xã nằm ở name="district" — đồng bộ District = Ward
+    const wardName = String(fd.get('district') || fd.get('ward') || '').trim()
+    const provinceName = String(fd.get('province') || '').trim() || 'Thành phố Hồ Chí Minh'
     return {
       projectName: String(fd.get('projectName')),
       description,
-      province: String(fd.get('province')),
-      district: String(fd.get('district')),
+      province: provinceName,
+      district: wardName,
       street: String(fd.get('street')) || undefined,
-      ward: String(fd.get('ward')) || undefined,
+      ward: wardName,
       address: String(fd.get('address')),
       minPrice: parseFloat(String(fd.get('minPrice'))) || 0,
       maxPrice: parseFloat(String(fd.get('maxPrice'))) || 0,
@@ -293,14 +300,9 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
         addressDefaultValue={addressDefault}
         addressKey={addressKey}
       />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <FormField label="Phường/Xã" htmlFor="ward">
-          <Input id="ward" name="ward" placeholder="VD: Phường Phú Hòa" />
-        </FormField>
-        <FormField label="Đường/Số nhà" htmlFor="street">
-          <Input id="street" name="street" placeholder="VD: 123 Nguyễn Trãi" />
-        </FormField>
-      </div>
+      <FormField label="Đường/Số nhà" htmlFor="street">
+        <Input id="street" name="street" placeholder="VD: 123 Nguyễn Trãi" />
+      </FormField>
       <div className="grid gap-3 sm:grid-cols-2">
         <FormField label="Giá tối thiểu (VNĐ)" htmlFor="minPrice"><Input id="minPrice" name="minPrice" type="number" required /></FormField>
         <FormField label="Giá tối đa (VNĐ)" htmlFor="maxPrice"><Input id="maxPrice" name="maxPrice" type="number" required /></FormField>

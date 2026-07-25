@@ -1,7 +1,10 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { FormField } from '@/components/ui/label'
 import { Input, Select } from '@/components/ui/input'
-import { getDistrictsByProvince, VIETNAM_PROVINCES } from '@/lib/vietnam-locations'
+import {
+  ensureHcmLocationsLoaded,
+  HCM_PROVINCE,
+} from '@/lib/vietnam-locations'
 
 interface LocationFieldsProps {
   province: string
@@ -12,6 +15,10 @@ interface LocationFieldsProps {
   addressKey?: string
 }
 
+/**
+ * Khóa HCM + chọn Phường/Xã từ API v2.
+ * `district` prop dùng để lưu tên phường/xã (tương thích form cũ).
+ */
 export function LocationFields({
   province,
   district,
@@ -20,11 +27,21 @@ export function LocationFields({
   addressDefaultValue,
   addressKey,
 }: LocationFieldsProps) {
-  const districts = useMemo(() => getDistrictsByProvince(province), [province])
-  const districtOptions = useMemo(() => {
-    if (district && !districts.includes(district)) return [district, ...districts]
-    return districts
-  }, [district, districts])
+  const [wards, setWards] = useState<string[]>([])
+
+  useEffect(() => {
+    // Ép province = HCM
+    if (province !== HCM_PROVINCE) onProvinceChange(HCM_PROVINCE)
+    void ensureHcmLocationsLoaded()
+      .then(setWards)
+      .catch(() => setWards([]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ mount một lần
+  }, [])
+
+  const wardOptions = useMemo(() => {
+    if (district && !wards.includes(district)) return [district, ...wards]
+    return wards
+  }, [district, wards])
 
   return (
     <>
@@ -33,33 +50,29 @@ export function LocationFields({
           id="province"
           name="province"
           required
-          value={province}
-          onChange={(e) => {
-            onProvinceChange(e.target.value)
-            onDistrictChange('')
-          }}
+          value={HCM_PROVINCE}
+          disabled
+          onChange={() => onProvinceChange(HCM_PROVINCE)}
         >
-          <option value="">Chọn tỉnh/thành phố</option>
-          {VIETNAM_PROVINCES.map((p) => (
-            <option key={p.code} value={p.name}>{p.name}</option>
-          ))}
+          <option value={HCM_PROVINCE}>{HCM_PROVINCE}</option>
         </Select>
       </FormField>
 
-      <FormField label="Quận/Huyện" htmlFor="district">
+      <FormField label="Phường/Xã" htmlFor="district">
         <Select
           id="district"
           name="district"
           required
           value={district}
-          disabled={!province}
           onChange={(e) => onDistrictChange(e.target.value)}
         >
-          <option value="">{province ? 'Chọn quận/huyện' : 'Chọn tỉnh/thành trước'}</option>
-          {districtOptions.map((d) => (
+          <option value="">{wards.length ? 'Chọn phường/xã' : 'Đang tải phường/xã...'}</option>
+          {wardOptions.map((d) => (
             <option key={d} value={d}>{d}</option>
           ))}
         </Select>
+        {/* Đồng bộ CRUD: BE yêu cầu cả District + Ward — cùng tên phường v2 */}
+        <input type="hidden" name="ward" value={district} />
       </FormField>
 
       <FormField label="Địa chỉ cụ thể" htmlFor="address">
@@ -69,7 +82,7 @@ export function LocationFields({
           required
           key={addressKey}
           defaultValue={addressDefaultValue}
-          placeholder="Số nhà, tên đường, phường/xã..."
+          placeholder="Số nhà, tên đường..."
         />
       </FormField>
     </>

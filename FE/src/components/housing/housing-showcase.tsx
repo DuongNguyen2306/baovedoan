@@ -16,6 +16,11 @@ import { useHousingProjects } from '@/hooks/useHousingProjects'
 import { useWishlist } from '@/hooks/useWishlist'
 import type { ProjectCard } from '@/lib/projects'
 
+function goToProjectDetail(house: ProjectCard) {
+  sessionStorage.setItem('projectId', house.id)
+  navigate('project-detail')
+}
+
 // ─── PromoHero ────────────────────────────────────────────────────────────────
 const PromoHero = memo(function PromoHero({
   house,
@@ -80,7 +85,7 @@ const PromoHero = memo(function PromoHero({
           </div>
 
           <div className="mt-5 flex flex-wrap gap-3">
-            <Button onClick={() => navigate('projects')} size="sm">
+            <Button onClick={() => goToProjectDetail(house)} size="sm">
               Xem dự án <ArrowRight className="ml-1.5 h-4 w-4" />
             </Button>
             <Button
@@ -180,7 +185,7 @@ const PromoCard = memo(function PromoCard({
             variant="outline"
             size="sm"
             className="flex-1"
-            onClick={() => navigate('projects')}
+            onClick={() => goToProjectDetail(house)}
           >
             Chi tiết
           </Button>

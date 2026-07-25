@@ -42,7 +42,7 @@
 
 ### 1.2 Tài khoản demo BE seed (khuyến nghị test)
 
-Mật khẩu chung: **`Demo@123456`**
+Mật khẩu chung: **`123456`**
 
 | Vai trò | Email | Ghi chú |
 |---------|-------|---------|

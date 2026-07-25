@@ -96,6 +96,7 @@ export interface HousingProjectDto {
   description?: string
   province?: string
   district?: string
+  ward?: string
   address?: string
   location?: string
   minPrice?: number

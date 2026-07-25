@@ -43,6 +43,7 @@ function readProjectRow(p: Record<string, unknown>): HousingProjectDto {
 
   const province = String(p.province ?? p.Province ?? '')
   const district = String(p.district ?? p.District ?? '')
+  const ward = String(p.ward ?? p.Ward ?? '')
   const projectName = String(p.projectName ?? p.ProjectName ?? p.name ?? p.Name ?? '')
   const thumbnail = p.thumbnailUrl ?? p.ThumbnailUrl ?? firstImage
 
@@ -53,8 +54,9 @@ function readProjectRow(p: Record<string, unknown>): HousingProjectDto {
     description: p.description ? String(p.description ?? p.Description) : undefined,
     province: province || undefined,
     district: district || undefined,
+    ward: ward || undefined,
     address: p.address ? String(p.address ?? p.Address) : undefined,
-    location: [district, province].filter(Boolean).join(', ') || undefined,
+    location: [ward || district, province].filter(Boolean).join(', ') || undefined,
     minPrice: Number(p.minPrice ?? p.MinPrice ?? 0),
     maxPrice: Number(p.maxPrice ?? p.MaxPrice ?? 0),
     minArea: Number(p.minArea ?? p.MinArea ?? 0),

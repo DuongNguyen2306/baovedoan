@@ -7,6 +7,8 @@ export interface HousingProjectFilter {
   search?: string
   province?: string
   district?: string
+  /** Phường/xã — API địa giới v2 */
+  ward?: string
   minPrice?: number
   maxPrice?: number
   minArea?: number
@@ -57,6 +59,7 @@ function buildQuery(params?: HousingProjectFilter): string {
   if (params?.search) qs.set('search', params.search)
   if (params?.province) qs.set('province', params.province)
   if (params?.district) qs.set('district', params.district)
+  if (params?.ward) qs.set('ward', params.ward)
   if (params?.minPrice != null) qs.set('minPrice', String(params.minPrice))
   if (params?.maxPrice != null) qs.set('maxPrice', String(params.maxPrice))
   if (params?.minArea != null) qs.set('minArea', String(params.minArea))

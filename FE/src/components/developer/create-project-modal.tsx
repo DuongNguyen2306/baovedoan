@@ -4,7 +4,7 @@ import { housingProjectsApi } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
 import { Modal } from '@/components/ui/modal'
 import { Alert } from '@/components/ui/alert'
-import { VIETNAM_PROVINCES, getDistrictsByProvince } from '@/lib/vietnam-locations'
+import { ensureHcmLocationsLoaded, HCM_PROVINCE } from '@/lib/vietnam-locations'
 import { formatError } from '@/lib/format-error'
 import { navigate } from '@/hooks/useHashRoute'
 import type { CreateHousingProjectRequestDto } from '@/types'
@@ -22,10 +22,9 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
 
   const [projectName, setProjectName] = useState('')
   const [description, setDescription] = useState('')
-  const [province, setProvince] = useState('')
-  const [district, setDistrict] = useState('')
   const [ward, setWard] = useState('')
   const [street, setStreet] = useState('')
+  const [wards, setWards] = useState<string[]>([])
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
   const [minArea, setMinArea] = useState('')
@@ -47,8 +46,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     if (!open) {
       setProjectName('')
       setDescription('')
-      setProvince('')
-      setDistrict('')
       setWard('')
       setStreet('')
       setMinPrice('')
@@ -73,15 +70,15 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     void housingProjectStatusesApi.list()
       .then((data) => setStatuses(parseStatuses(data).map((s) => ({ id: s.id, label: s.label }))))
       .catch(() => setStatuses([]))
+    void ensureHcmLocationsLoaded()
+      .then(setWards)
+      .catch(() => setWards([]))
   }, [open])
-
-  const districts = getDistrictsByProvince(province)
 
   const validate = (): string | null => {
     if (!projectName.trim()) return 'Vui lòng nhập tên dự án.'
     if (projectName.trim().length < 5) return 'Tên dự án phải có ít nhất 5 ký tự.'
-    if (!province) return 'Vui lòng chọn tỉnh/thành.'
-    if (!district) return 'Vui lòng chọn quận/huyện.'
+    if (!ward) return 'Vui lòng chọn phường/xã.'
     if (!housingProjectStatusId) return 'Vui lòng chọn trạng thái dự án.'
     const mp = parseFloat(minPrice)
     const MaP = parseFloat(maxPrice)
@@ -111,11 +108,12 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       const body: CreateHousingProjectRequestDto = {
         projectName: projectName.trim(),
         description: description.trim(),
-        province,
-        district,
+        province: HCM_PROVINCE,
+        // Legacy district: lưu cùng tên phường/xã (v2 không còn quận)
+        district: ward.trim(),
         street: street.trim() || undefined,
         ward: ward.trim() || undefined,
-        address: [street.trim(), ward.trim(), district, province].filter(Boolean).join(', '),
+        address: [street.trim(), ward.trim(), HCM_PROVINCE].filter(Boolean).join(', '),
         minPrice: parseFloat(minPrice) || 0,
         maxPrice: parseFloat(maxPrice) || 0,
         minArea: parseFloat(minArea) || 0,
@@ -183,36 +181,30 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
                 <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">
                   Tỉnh/Thành phố <span className="text-red-500">*</span>
                 </label>
-                <select className="input w-full" value={province}
-                  onChange={(e) => { setProvince(e.target.value); setDistrict(''); setWard('') }}
-                  required disabled={submitting}>
-                  <option value="">-- Chọn tỉnh/thành --</option>
-                  {VIETNAM_PROVINCES.map((p) => <option key={p.code} value={p.name}>{p.name}</option>)}
+                <select className="input w-full cursor-not-allowed bg-slate-100" value={HCM_PROVINCE} disabled>
+                  <option value={HCM_PROVINCE}>{HCM_PROVINCE}</option>
                 </select>
               </div>
               <div>
                 <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  Quận/Huyện <span className="text-red-500">*</span>
+                  Phường/Xã <span className="text-red-500">*</span>
                 </label>
-                <select className="input w-full" value={district}
-                  onChange={(e) => { setDistrict(e.target.value); setWard('') }}
-                  required disabled={!province || submitting}>
-                  <option value="">-- Chọn quận/huyện --</option>
-                  {districts.map((d) => <option key={d} value={d}>{d}</option>)}
+                <select
+                  className="input w-full"
+                  value={ward}
+                  onChange={(e) => setWard(e.target.value)}
+                  required
+                  disabled={submitting || wards.length === 0}
+                >
+                  <option value="">{wards.length ? '-- Chọn phường/xã --' : 'Đang tải...'}</option>
+                  {wards.map((w) => <option key={w} value={w}>{w}</option>)}
                 </select>
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">Phường/Xã</label>
-                <input className="input w-full" value={ward} onChange={(e) => setWard(e.target.value)}
-                  placeholder="VD: Phường Phú Hòa" disabled={submitting} />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">Đường/Số nhà</label>
-                <input className="input w-full" value={street} onChange={(e) => setStreet(e.target.value)}
-                  placeholder="VD: 123 Nguyễn Trãi" disabled={submitting} />
-              </div>
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-slate-700 dark:text-slate-300">Đường/Số nhà</label>
+              <input className="input w-full" value={street} onChange={(e) => setStreet(e.target.value)}
+                placeholder="VD: 123 Nguyễn Trãi" disabled={submitting} />
             </div>
           </div>
         </div>

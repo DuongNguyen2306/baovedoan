@@ -16,6 +16,7 @@ import {
   EMPTY_HOUSING_SEARCH,
   navigateToHousingSearch,
   parseHousingSearchFromHash,
+  sortHousingProjects,
   toApiFilter,
   type HousingSearchFilter,
 } from '@/lib/housing-search'
@@ -58,11 +59,16 @@ export function HousingSearchPage() {
     setUsedFallback(false)
     try {
       const data = await housingProjectsApi.list(toApiFilter(nextFilter))
-      let items = extractProjects(data)
-      items = applyClientFilters(items, nextFilter)
+      let items = sortHousingProjects(
+        applyClientFilters(extractProjects(data), nextFilter),
+        nextFilter.sort,
+      )
 
       if (items.length === 0) {
-        const fallback = applyClientFilters(featuredAsProjects(), nextFilter)
+        const fallback = sortHousingProjects(
+          applyClientFilters(featuredAsProjects(), nextFilter),
+          nextFilter.sort,
+        )
         if (fallback.length > 0) {
           items = fallback
           setUsedFallback(true)
@@ -71,7 +77,10 @@ export function HousingSearchPage() {
 
       setResults(items)
     } catch (err) {
-      const fallback = applyClientFilters(featuredAsProjects(), nextFilter)
+      const fallback = sortHousingProjects(
+        applyClientFilters(featuredAsProjects(), nextFilter),
+        nextFilter.sort,
+      )
       setResults(fallback)
       setUsedFallback(true)
       if (fallback.length === 0) setError(formatError(err))
@@ -99,7 +108,7 @@ export function HousingSearchPage() {
       <GovHeroBanner
         badge="Tra cứu công khai"
         title="Tìm kiếm nhà ở xã hội"
-        subtitle="Tìm dự án theo tỉnh/thành, khoảng giá, diện tích và số căn còn trống."
+        subtitle="TP. Hồ Chí Minh — tìm theo tên dự án, phường/xã (API v2), giá, diện tích và sắp xếp."
         compact
       />
 
@@ -107,7 +116,7 @@ export function HousingSearchPage() {
         value={filter}
         onChange={setFilter}
         loading={loading}
-        onSubmit={() => navigateToHousingSearch(filter)}
+        onSubmit={(next) => navigateToHousingSearch(next)}
       />
 
       {error && <Alert variant="error">{error}</Alert>}
@@ -135,12 +144,13 @@ export function HousingSearchPage() {
       {!loading && cards.length === 0 && (
         <EmptyState
           title="Không tìm thấy dự án phù hợp"
-          description="Thử bỏ bớt bộ lọc hoặc chọn tỉnh/thành khác."
+          description="Thử bỏ bớt bộ lọc hoặc đổi từ khóa. Địa giới theo API v2 (phường/xã TP.HCM)."
           actionLabel="Xóa bộ lọc"
           onAction={() => {
-            setFilter({ ...EMPTY_HOUSING_SEARCH })
-            navigateToHousingSearch(EMPTY_HOUSING_SEARCH)
-            void runSearch(EMPTY_HOUSING_SEARCH)
+            const next = { ...EMPTY_HOUSING_SEARCH }
+            setFilter(next)
+            navigateToHousingSearch(next)
+            void runSearch(next)
           }}
         />
       )}
