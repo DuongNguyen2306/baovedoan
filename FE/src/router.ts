@@ -516,6 +516,11 @@ export function parsePaymentFromLocation(): PaymentNotice | null {
 export function consumePaymentNotice(): PaymentNotice | null {
   const fromUrl = parsePaymentFromLocation()
   if (!fromUrl) return null
+  const hash = location.hash.replace(/^#\/?/, '')
+  const qIdx = hash.indexOf('?')
+  const query = qIdx >= 0 ? hash.slice(qIdx + 1) : location.search.slice(1)
+  const orderId = new URLSearchParams(query).get('orderId')
+  if (orderId) sessionStorage.setItem('pendingPaymentOrderId', orderId)
   stripPaymentFromHash()
   return fromUrl
 }
@@ -679,7 +684,7 @@ const NAV_BY_ROLE: Record<string, RouteId[]> = {
   'System Administrator': ['admin-staff', 'admin-logs', 'admin-categories', 'notifications', 'profile'],
   'Housing Developer': ['home-developer', 'applications', 'projects', 'lottery-sessions', 'lottery-live', 'contracts', 'notifications', 'profile'],
   'Department Of Construction': ['home-sxd', 'applications', 'projects', 'lottery-sessions', 'lottery-live', 'contracts', 'audit-list', 'notifications', 'profile'],
-  Applicant: ['home-user', 'quan-tam', 'applications', 'projects', 'contracts', 'notifications', 'profile'],
+  Applicant: ['home-user', 'quan-tam', 'applications', 'projects', 'contracts', 'payments', 'notifications', 'profile'],
 }
 
 export function navRoutes(role: string): RouteId[] {

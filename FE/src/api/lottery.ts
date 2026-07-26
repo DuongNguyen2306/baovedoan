@@ -102,8 +102,12 @@ export interface LiveDrawEvent {
 function mapSessionToUiStatus(o: Record<string, unknown>): string {
   const session = String(o.sessionStatus ?? o.SessionStatus ?? '')
   const approved = o.isLotteryApproved ?? o.IsLotteryApproved
-  if (session === 'WaitingLobby' || session === 'Live') return session === 'Live' ? 'RUNNING' : 'APPROVED'
-  if (session === 'Finished' || session === 'Published') return 'FINISHED'
+  // Giữ session FSM rõ trên list (WaitingLobby ≠ generic APPROVED)
+  if (session === 'Live') return 'RUNNING'
+  if (session === 'WaitingLobby') return 'WaitingLobby'
+  if (session === 'Finished') return 'Finished'
+  if (session === 'Published') return 'Published'
+  if (session === 'Scheduled' && approved === true) return 'APPROVED'
   if (approved === true) return 'APPROVED'
   if (approved === false && (o.lotteryDate || o.LotteryDate)) return 'SCHEDULED'
   if (o.lotteryDate || o.LotteryDate) return 'AWAITING_APPROVAL'
@@ -212,14 +216,14 @@ export const LOTTERY_STATUS_LABEL: Record<string, string> = {
   NOT_SCHEDULED: 'Chưa lên lịch',
   SCHEDULED: 'Đã lên lịch (chờ Sở)',
   AWAITING_APPROVAL: 'Chờ Sở phê duyệt',
-  APPROVED: 'Đã duyệt / Sảnh',
+  APPROVED: 'Đã duyệt — chờ mở sảnh',
   RUNNING: 'Đang Live',
-  FINISHED: 'Đã kết thúc / công bố',
-  Scheduled: 'Scheduled',
+  FINISHED: 'Đã kết thúc',
+  Scheduled: 'Đã lên lịch',
   WaitingLobby: 'Sảnh chờ',
-  Live: 'Live',
-  Finished: 'Finished',
-  Published: 'Published',
+  Live: 'Đang Live',
+  Finished: 'Đã kết thúc — chờ công bố',
+  Published: 'Đã công bố',
 }
 
 export const LOTTERY_STATUS_TONE: Record<

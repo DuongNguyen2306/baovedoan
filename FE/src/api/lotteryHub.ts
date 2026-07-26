@@ -1,15 +1,21 @@
 import {
+  HttpTransportType,
   HubConnection,
   HubConnectionBuilder,
   HubConnectionState,
   LogLevel,
 } from '@microsoft/signalr'
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
+const apiBase = import.meta.env.VITE_API_BASE_URL ?? ''
 
-function hubBaseUrl(): string {
-  // VITE_API_BASE_URL thường kết thúc bằng /api → hub nằm ngoài /api
-  return baseUrl.replace(/\/api\/?$/, '')
+/**
+ * DEV: luôn `/hubs/lottery` (same-origin → Vite proxy → API).
+ * Prod: hub cùng host với VITE_API_BASE_URL.
+ */
+function hubUrl(): string {
+  if (import.meta.env.DEV) return '/hubs/lottery'
+  const base = String(apiBase).replace(/\/api\/?$/i, '').replace(/\/$/, '')
+  return base ? `${base}/hubs/lottery` : '/hubs/lottery'
 }
 
 export type LotteryHubHandlers = {
@@ -25,28 +31,53 @@ export async function connectLotteryHub(
   handlers: LotteryHubHandlers,
 ): Promise<HubConnection> {
   const token = localStorage.getItem('accessToken') ?? ''
+  if (!token) throw new Error('Chưa đăng nhập — không kết nối được sảnh realtime.')
+  if (!projectId) throw new Error('Thiếu mã dự án để vào sảnh.')
+
+  const url = hubUrl()
   const connection = new HubConnectionBuilder()
-    .withUrl(`${hubBaseUrl()}/hubs/lottery`, {
-      accessTokenFactory: () => token,
+    .withUrl(url, {
+      accessTokenFactory: () => localStorage.getItem('accessToken') ?? token,
+      transport:
+        HttpTransportType.WebSockets |
+        HttpTransportType.ServerSentEvents |
+        HttpTransportType.LongPolling,
     })
-    .withAutomaticReconnect()
-    .configureLogging(LogLevel.Warning)
+    .withAutomaticReconnect([0, 1000, 2000, 5000, 10000])
+    .configureLogging(LogLevel.Information)
     .build()
 
-  connection.on('ReceiveLobbyCount', (count: number) => handlers.onLobbyCount?.(count))
-  connection.on('ReceiveSxdSupervisorCount', (count: number) => handlers.onSxdSupervisorCount?.(count))
+  connection.on('ReceiveLobbyCount', (count: number) => handlers.onLobbyCount?.(Number(count) || 0))
+  connection.on('ReceiveSxdSupervisorCount', (count: number) =>
+    handlers.onSxdSupervisorCount?.(Number(count) || 0),
+  )
   connection.on('ReceiveDrawResult', (data: unknown) => handlers.onDrawResult?.(data))
-  connection.on('ReceiveLotteryStatus', (status: string) => handlers.onStatus?.(status))
+  connection.on('ReceiveLotteryStatus', (status: string) => handlers.onStatus?.(String(status ?? '')))
 
-  await connection.start()
-  await connection.invoke('JoinProjectLobby', projectId, joinCode ?? null)
+  const join = async () => {
+    await connection.invoke('JoinProjectLobby', projectId, joinCode ?? null)
+  }
+
+  connection.onreconnected(() => {
+    void join().catch((err) => console.warn('LotteryHub rejoin failed', err))
+  })
+
+  try {
+    await connection.start()
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(
+      `Hub ${url}: ${msg}. Kiểm tra API http://127.0.0.1:5112 đang chạy và mở FE tại http://127.0.0.1:5173`,
+    )
+  }
+  await join()
   return connection
 }
 
 export async function stopLotteryHub(connection: HubConnection | null) {
   if (!connection) return
   try {
-    if (connection.state === HubConnectionState.Connected) await connection.stop()
+    if (connection.state !== HubConnectionState.Disconnected) await connection.stop()
   } catch {
     /* ignore */
   }

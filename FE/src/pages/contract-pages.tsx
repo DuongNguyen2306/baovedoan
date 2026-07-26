@@ -20,7 +20,9 @@ import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
 import { getRole } from '@/router'
+import { extractOrderId, extractPaymentUrl } from '@/api/payment'
 import { housingApplicationsApi } from '@/api/housing-applications'
+import { openVnPayPopupAndWait, vnPayResultMessage } from '@/lib/vnpay-popup'
 import type { ApplicationSummaryDto } from '@/types'
 
 function persistApplicationId(id: string) {
@@ -184,9 +186,15 @@ function InstallmentRow({
     setMsg(null)
     try {
       const res = await contractApi.payInstallment(inst.installmentId)
-      const paymentUrl = (res && typeof res === 'object' && 'data' in res
-        ? (res as { data?: { paymentUrl?: string } }).data?.paymentUrl
-        : undefined)
+      const paymentUrl = extractPaymentUrl(res)
+      const orderId = extractOrderId(res)
+      if (paymentUrl && orderId) {
+        setMsg({ type: 'success', text: 'Đã mở cổng VNPay — đang chờ kết quả…' })
+        const result = await openVnPayPopupAndWait(paymentUrl, orderId)
+        setMsg(vnPayResultMessage(result))
+        if (result === 'success') onPaid()
+        return
+      }
       if (paymentUrl) {
         window.location.href = paymentUrl
         return

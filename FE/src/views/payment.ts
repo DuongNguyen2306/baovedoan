@@ -1,4 +1,4 @@
-import { paymentApi, startVnPayPayment } from '../api/payment'
+import { paymentApi } from '../api/payment'
 import { getRouteConfig, navigate } from '../router'
 import type { PaymentInfoDto } from '../types'
 import { el, fdStr, field, onFormSubmit, showResult } from '../ui/helpers'
@@ -114,12 +114,13 @@ export function createPaymentView(): HTMLElement {
   )
 
   onFormSubmit(form, result, async (fd) => {
-    const amount = parseFloat(fdStr(fd, 'amount')) || 0
-    const orderInfo = fdStr(fd, 'orderInfo')
-    const url = await startVnPayPayment(orderInfo, amount)
-    showResult(result, { success: true, message: 'Đang chuyển sang cổng VNPay...' })
-    window.location.href = url
-    return { success: true, data: { paymentUrl: url } }
+    void fd
+    void fdStr
+    showResult(result, {
+      success: false,
+      message: 'Form legacy đã ngừng dùng. Vào #/create-payment (React) và nhập Application ID.',
+    })
+    return { success: false, message: 'Legacy create-payment deprecated' }
   })
 
   return el(

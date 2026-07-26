@@ -103,7 +103,8 @@ export const housingApplicationsApi = {
   cancel: (id: string, reason?: string) =>
     request<ApiResult>(`/api/housing-applications/${id}/cancel`, {
       method: 'PATCH',
-      body: JSON.stringify({ reason: reason ?? null }),
+      // BE: CancelApplicationRequestDto.CancelReason (bắt buộc)
+      body: JSON.stringify({ cancelReason: reason?.trim() ?? '' }),
       auth: true,
     }),
 

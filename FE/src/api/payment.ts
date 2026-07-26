@@ -24,13 +24,15 @@ export function extractOrderId(data: unknown): string | null {
     const id = n.orderId ?? n.OrderId
     if (typeof id === 'string' && id) return id
   }
+  const top = o.orderId ?? o.OrderId
+  if (typeof top === 'string' && top) return top
   return null
 }
 
 export async function startVnPayPayment(
   applicationId: string,
   orderInfo?: string,
-): Promise<string> {
+): Promise<{ url: string; orderId: string }> {
   const response = await paymentApi.createPaymentUrl({
     ApplicationId: applicationId,
     OrderInfo: orderInfo,
@@ -39,7 +41,8 @@ export async function startVnPayPayment(
   const orderId = extractOrderId(response)
   if (orderId) sessionStorage.setItem('pendingPaymentOrderId', orderId)
   if (!url) throw new Error('Không nhận được URL thanh toán từ máy chủ.')
-  return url
+  if (!orderId) throw new Error('Không nhận được mã đơn hàng từ máy chủ.')
+  return { url, orderId }
 }
 
 export const paymentApi = {

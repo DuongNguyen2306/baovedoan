@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { paymentApi, startVnPayPayment } from '@/api/payment'
+import { openVnPayPopupAndWait, vnPayResultMessage } from '@/lib/vnpay-popup'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -88,14 +89,16 @@ export function CreatePaymentPage() {
           setMsg(null)
           const fd = new FormData(e.currentTarget)
           try {
-            const url = await startVnPayPayment(
+            const { url, orderId } = await startVnPayPayment(
               String(fd.get('applicationId')).trim(),
               String(fd.get('orderInfo') || ''),
             )
-            setMsg({ type: 'success', text: 'Đang chuyển sang cổng VNPay...' })
-            window.location.href = url
+            setMsg({ type: 'success', text: 'Đã mở cổng VNPay — đang chờ kết quả…' })
+            const result = await openVnPayPopupAndWait(url, orderId)
+            setMsg(vnPayResultMessage(result))
           } catch (err) {
             setMsg({ type: 'error', text: formatError(err) })
+          } finally {
             setLoading(false)
           }
         }}>

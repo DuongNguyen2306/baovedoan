@@ -12,11 +12,14 @@ import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/label'
 import { Input, Select, Textarea } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
+import { startVnPayPayment } from '@/api/payment'
+import { openVnPayPopupAndWait, vnPayResultMessage } from '@/lib/vnpay-popup'
 import { navigate } from '@/hooks/useHashRoute'
 import { labelApplicationStatus } from '@/lib/labels'
 import { APPLICATION_STATUS, DOC_TYPE_LABELS, HOUSING_STATUS_LABELS } from '@/lib/constants'
 import { formatError } from '@/lib/format-error'
 import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
+import { formatDepositCountdown } from '@/lib/deposit-deadline'
 import { formatSxdCountdown } from '@/lib/sxd-deadline'
 import { getRole } from '@/router'
 import type { ApplicationDetailDto, ApplicationSummaryDto } from '@/types'
@@ -47,10 +50,11 @@ export function ApplicationsPage() {
   const [, setTick] = useState(0)
 
   useEffect(() => {
-    if (!isSxd) return
-    const id = window.setInterval(() => setTick((t) => t + 1), 60_000)
+    if (!isSxd && !isApplicant) return
+    const ms = isApplicant ? 1_000 : 60_000
+    const id = window.setInterval(() => setTick((t) => t + 1), ms)
     return () => window.clearInterval(id)
-  }, [isSxd])
+  }, [isSxd, isApplicant])
 
   const load = async (filter?: { search?: string; status?: string }) => {
     setLoading(true)
@@ -276,7 +280,9 @@ export function ApplicationsPage() {
           </div>
         ) : (
           <div className="grid gap-3">
-            {apps.map((app) => (
+            {apps.map((app) => {
+              const depositCd = formatDepositCountdown(app.applicationStatus, app.finalDecisionDate)
+              return (
               <button
                 key={app.applicationId}
                 type="button"
@@ -292,8 +298,15 @@ export function ApplicationsPage() {
                 </div>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{app.applicantFullName} · CCCD: {app.citizenId}</p>
                 <p className="text-xs text-slate-400 dark:text-slate-500">{app.documentCount} tài liệu · {new Date(app.createdAt).toLocaleDateString('vi-VN')}</p>
+                {depositCd && (
+                  <p className={`mt-1 text-xs font-semibold ${depositCd.isOverdue ? 'text-rose-600' : 'text-amber-700'}`}>
+                    Hạn đặt cọc ({depositCd.hoursLimit}h từ duyệt): {depositCd.label}
+                    {' · '}đến {depositCd.deadline.toLocaleString('vi-VN')}
+                  </p>
+                )}
               </button>
-            ))}
+              )
+            })}
           </div>
         )}
       </PageCard>
@@ -380,8 +393,12 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
   }, [appId])
 
   useEffect(() => {
-    if (app?.applicationStatus !== 'PENDING_SXD_REVIEW') return
-    const id = window.setInterval(() => setTick((t) => t + 1), 60_000)
+    const status = app?.applicationStatus
+    if (!status) return
+    const depositActive = status === 'APPROVED' || status === 'APPROVED_BY_TIMEOUT'
+    if (status !== 'PENDING_SXD_REVIEW' && !depositActive) return
+    const ms = depositActive ? 1_000 : 60_000
+    const id = window.setInterval(() => setTick((t) => t + 1), ms)
     return () => window.clearInterval(id)
   }, [app?.applicationStatus])
 
@@ -430,9 +447,11 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
       return
     }
     setActing('cancel')
+    setMsg(null)
     try {
       await housingApplicationsApi.cancel(appId, withdrawReason.trim())
       setWithdrawOpen(false)
+      setWithdrawReason('')
       await refresh()
       setMsg({ type: 'success', text: 'Đã rút hồ sơ.' })
     } catch (err) {
@@ -453,6 +472,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
     app.applicationStatus === 'PENDING_SXD_REVIEW'
       ? formatSxdCountdown(app.submittedAt || app.createdAt)
       : null
+  const depositCountdown = formatDepositCountdown(app.applicationStatus, app.finalDecisionDate)
   const pdfDoc = (app.documents ?? []).find((d) => d.fileUrl?.toLowerCase().includes('.pdf') || d.fileName?.toLowerCase().endsWith('.pdf'))
   const isStaff = role === 'Housing Developer' || role === 'Department Of Construction'
 
@@ -461,6 +481,37 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
       {(app.isViolation || app.violationReason) && (
         <Alert variant="error">
           <strong>Cảnh báo vi phạm:</strong> {app.violationReason || 'Hồ sơ bị đánh dấu vi phạm (trùng CCCD / đã có nhà đất).'}
+        </Alert>
+      )}
+      {role === 'Applicant' && ['APPROVED', 'APPROVED_BY_TIMEOUT'].includes(app.applicationStatus) && (
+        <Alert variant="info">
+          <strong>Hồ sơ đã được Sở duyệt.</strong> Tiếp theo cần qua bốc thăm / chốt danh sách → ký{' '}
+          <strong>hợp đồng nguyên tắc</strong> → rồi mới đặt cọc VNPay. Trạng thái cần để thanh toán:{' '}
+          <code>CONTRACT_SIGNED</code>.
+        </Alert>
+      )}
+      {role === 'Applicant' && depositCountdown && (
+        <Alert variant={depositCountdown.isOverdue ? 'error' : 'warning'}>
+          <strong>Hạn xử lý sau duyệt ({depositCountdown.hoursLimit} giờ).</strong>{' '}
+          {depositCountdown.isOverdue
+            ? <>Đã quá hạn theo mốc duyệt — tải lại trang để xem trạng thái mới nhất từ hệ thống.</>
+            : <>Còn lại: <strong>{depositCountdown.label}</strong></>}
+          {' · '}đến {depositCountdown.deadline.toLocaleString('vi-VN')}
+          {app.finalDecisionDate && (
+            <> · duyệt lúc {new Date(app.finalDecisionDate).toLocaleString('vi-VN')}</>
+          )}
+        </Alert>
+      )}
+      {role === 'Applicant' && app.applicationStatus === 'CONTRACT_PENDING' && (
+        <Alert variant="info">
+          <strong>Chờ ký hợp đồng nguyên tắc.</strong> Vào mục <strong>Hợp đồng</strong> để xem và ký,
+          sau đó mới đặt cọc được.
+        </Alert>
+      )}
+      {role === 'Applicant' && app.applicationStatus === 'CONTRACT_SIGNED' && (
+        <Alert variant="info">
+          <strong>Đã ký hợp đồng nguyên tắc.</strong> Vui lòng đặt cọc qua VNPay.
+          Thẻ sandbox: NCB · <code>9704198526191432198</code> · hết hạn <code>07/15</code> · OTP <code>123456</code>.
         </Alert>
       )}
       {role === 'Applicant' && app.applicationStatus === 'NEED_MORE_DOCUMENTS' && (
@@ -494,6 +545,9 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
         <DetailRow label="Thu nhập/tháng" value={`${Number(app.estimatedMonthlyIncome).toLocaleString('vi-VN')} VNĐ`} />
         <DetailRow label="Ngày tạo" value={new Date(app.createdAt).toLocaleString('vi-VN')} />
         {app.submittedAt && <DetailRow label="Ngày nộp" value={new Date(app.submittedAt).toLocaleString('vi-VN')} />}
+        {app.finalDecisionDate && (
+          <DetailRow label="Ngày duyệt" value={new Date(app.finalDecisionDate).toLocaleString('vi-VN')} />
+        )}
         {app.officerFullName && <DetailRow label="Cán bộ thẩm định" value={app.officerFullName} />}
       </div>
 
@@ -638,7 +692,45 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             }
           }}>{acting === 'submit' ? 'Đang nộp…' : 'Nộp lại sau bổ sung'}</Button>
         )}
-        {role === 'Applicant' && !['APPROVED', 'APPROVED_BY_TIMEOUT', 'DEPOSIT_PAID', 'CONTRACT_SIGNED', 'REJECTED', 'CANCELED', 'EXPIRED', 'LOTTERY_LOST'].includes(app.applicationStatus) && (
+        {role === 'Applicant' && app.applicationStatus === 'CONTRACT_PENDING' && (
+          <Button variant="accent" onClick={() => navigate('contracts')}>
+            Xem &amp; ký hợp đồng nguyên tắc
+          </Button>
+        )}
+        {role === 'Applicant' && app.applicationStatus === 'CONTRACT_SIGNED' && (
+          <Button
+            variant="accent"
+            disabled={acting === 'pay'}
+            onClick={async () => {
+              if (acting) return
+              setActing('pay')
+              setMsg(null)
+              try {
+                const { url, orderId } = await startVnPayPayment(
+                  app.applicationId,
+                  `Dat coc ho so ${app.applicationId.slice(0, 8)}`,
+                )
+                setMsg({ type: 'success', text: 'Đã mở cổng VNPay — đang chờ kết quả…' })
+                const result = await openVnPayPopupAndWait(url, orderId)
+                const notice = vnPayResultMessage(result)
+                setMsg(notice)
+                if (result === 'success') await refresh()
+              } catch (err) {
+                setMsg({ type: 'error', text: formatError(err) })
+              } finally {
+                setActing('')
+              }
+            }}
+          >
+            {acting === 'pay' ? 'Đang chờ thanh toán…' : 'Đặt cọc / Tiếp tục VNPay'}
+          </Button>
+        )}
+        {role === 'Applicant' && app.applicationStatus === 'DEPOSIT_PAID' && (
+          <Button variant="outline" onClick={() => navigate('payments')}>
+            Xem lịch sử thanh toán
+          </Button>
+        )}
+        {role === 'Applicant' && !['APPROVED', 'APPROVED_BY_TIMEOUT', 'DEPOSIT_PAID', 'CONTRACT_SIGNED', 'CONTRACT_PENDING', 'REJECTED', 'CANCELED', 'EXPIRED', 'LOTTERY_LOST'].includes(app.applicationStatus) && (
           <Button variant="outline" className="text-red-600" disabled={acting === 'cancel'} onClick={() => setWithdrawOpen(true)}>
             Rút hồ sơ
           </Button>
@@ -693,10 +785,13 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
 
       <Modal
         open={withdrawOpen}
-        onClose={() => setWithdrawOpen(false)}
+        onClose={() => { if (acting !== 'cancel') setWithdrawOpen(false) }}
         title="Rút hồ sơ đã nộp"
         description="Hành động này không thể hoàn tác. Vui lòng nêu rõ lý do."
       >
+        {msg?.type === 'error' && (
+          <Alert variant="error" className="mb-3">{msg.text}</Alert>
+        )}
         <FormField label="Lý do rút hồ sơ *" htmlFor="withdraw-reason">
           <Textarea
             id="withdraw-reason"
@@ -704,10 +799,11 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             value={withdrawReason}
             onChange={(e) => setWithdrawReason(e.target.value)}
             placeholder="Ví dụ: Không còn nhu cầu mua nữa"
+            disabled={acting === 'cancel'}
           />
         </FormField>
         <div className="mt-4 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setWithdrawOpen(false)}>Huỷ</Button>
+          <Button variant="outline" disabled={acting === 'cancel'} onClick={() => setWithdrawOpen(false)}>Huỷ</Button>
           <Button variant="accent" className="bg-red-600 hover:bg-red-700" disabled={acting === 'cancel'} onClick={() => void confirmWithdraw()}>
             {acting === 'cancel' ? 'Đang rút…' : 'Xác nhận rút hồ sơ'}
           </Button>
