@@ -9,13 +9,17 @@ import {
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? ''
 
 /**
- * DEV: luôn `/hubs/lottery` (same-origin → Vite proxy → API).
- * Prod: hub cùng host với VITE_API_BASE_URL.
+ * Tính URL SignalR Hub:
+ *  1. Nếu VITE_API_BASE_URL được set (test trỏ BE thật / staging / production):
+ *     dùng `<base>/hubs/lottery`. Áp dụng cho cả dev và prod để tránh lệch hành vi
+ *     khi dev muốn test với BE deploy (proxy local không đỡ được hub nếu BE không chạy local).
+ *  2. Nếu thiếu env: dev local dùng `/hubs/lottery` để Vite proxy forward về 127.0.0.1:5112;
+ *     prod (FE static) cũng để relative `/hubs/lottery` cho web server (Nginx) reverse-proxy.
  */
 function hubUrl(): string {
-  if (import.meta.env.DEV) return '/hubs/lottery'
   const base = String(apiBase).replace(/\/api\/?$/i, '').replace(/\/$/, '')
-  return base ? `${base}/hubs/lottery` : '/hubs/lottery'
+  if (base) return `${base}/hubs/lottery`
+  return '/hubs/lottery'
 }
 
 export type LotteryHubHandlers = {
@@ -66,9 +70,10 @@ export async function connectLotteryHub(
     await connection.start()
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    throw new Error(
-      `Hub ${url}: ${msg}. Kiểm tra API http://127.0.0.1:5112 đang chạy và mở FE tại http://127.0.0.1:5173`,
-    )
+    const hint = apiBase
+      ? `Kiểm tra BE tại ${apiBase} có endpoint /hubs/lottery và CORS cho phép ${location.origin}.`
+      : `Kiểm tra API http://127.0.0.1:5112 đang chạy và mở FE tại http://127.0.0.1:5173.`
+    throw new Error(`Hub ${url}: ${msg}. ${hint}`)
   }
   await join()
   return connection
