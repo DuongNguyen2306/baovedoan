@@ -45,10 +45,10 @@ const STEPS: WorkflowStep[] = [
 
 export function developerHomeView(): HTMLElement {
   const statsHost = el('div', { class: 'role-stats-inner' },
-    statCard('—', 'Chờ nhận', 'Đã nộp'),
-    statCard('—', 'Đang thẩm định', 'Đang xử lý'),
-    statCard('—', 'Cần bổ sung', 'Yêu cầu thêm'),
-    statCard('—', 'Dự án', 'Tham chiếu'),
+    statCard('—', 'Chờ nhận', 'Đã nộp', { route: 'applications', params: { status: 'SUBMITTED' } }),
+    statCard('—', 'Đang thẩm định', 'Đang xử lý', { route: 'applications', params: { status: 'REVIEWING' } }),
+    statCard('—', 'Cần bổ sung', 'Yêu cầu thêm', { route: 'applications', params: { status: 'NEED_MORE_DOCUMENTS' } }),
+    statCard('—', 'Dự án', 'Tham chiếu', { route: 'projects' }),
   )
 
   const queueRows = el('div', { class: 'role-activity-list' })
@@ -87,10 +87,10 @@ export function developerHomeView(): HTMLElement {
     }
 
     statsHost.replaceChildren(
-      statCard(submitted.status === 'fulfilled' ? countFromPaged(submitted.value) : 0, 'Chờ nhận', 'Đã nộp'),
-      statCard(reviewing.status === 'fulfilled' ? countFromPaged(reviewing.value) : 0, 'Đang thẩm định', 'Đang xử lý'),
-      statCard(needMore.status === 'fulfilled' ? countFromPaged(needMore.value) : 0, 'Cần bổ sung', 'Yêu cầu thêm'),
-      statCard(projects.status === 'fulfilled' ? countFromPaged(projects.value) : 0, 'Dự án', 'Tham chiếu'),
+      statCard(submitted.status === 'fulfilled' ? countFromPaged(submitted.value) : 0, 'Chờ nhận', 'Đã nộp', { route: 'applications', params: { status: 'SUBMITTED' } }),
+      statCard(reviewing.status === 'fulfilled' ? countFromPaged(reviewing.value) : 0, 'Đang thẩm định', 'Đang xử lý', { route: 'applications', params: { status: 'REVIEWING' } }),
+      statCard(needMore.status === 'fulfilled' ? countFromPaged(needMore.value) : 0, 'Cần bổ sung', 'Yêu cầu thêm', { route: 'applications', params: { status: 'NEED_MORE_DOCUMENTS' } }),
+      statCard(projects.status === 'fulfilled' ? countFromPaged(projects.value) : 0, 'Dự án', 'Tham chiếu', { route: 'projects' }),
     )
 
     if (queue.status === 'fulfilled') {

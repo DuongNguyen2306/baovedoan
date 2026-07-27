@@ -29,10 +29,10 @@ const ACTIONS: QuickAction[] = [
 
 export function adminHomeView(): HTMLElement {
   const statsHost = el('div', { class: 'role-stats-inner' },
-    statCard('—', 'Cán bộ', 'Đang tải'),
-    statCard('—', 'Dự án', 'Đang tải'),
-    statCard('—', 'Hồ sơ', 'Đang tải'),
-    statCard('—', 'Thanh toán', 'Đang tải'),
+    statCard('—', 'Cán bộ', 'Đang tải', { route: 'admin-staff' }),
+    statCard('—', 'Dự án', 'Đang tải', { route: 'projects' }),
+    statCard('—', 'Hồ sơ', 'Đang tải', { route: 'applications' }),
+    statCard('—', 'Thanh toán', 'Đang tải', { route: 'payments' }),
   )
 
   const staffRows = el('div', { class: 'role-activity-list' })
@@ -71,10 +71,10 @@ export function adminHomeView(): HTMLElement {
     const payCount = payments.status === 'fulfilled' ? countFromPaged(payments.value) : 0
 
     statsHost.replaceChildren(
-      statCard(staffCount, 'Cán bộ', 'Trong hệ thống'),
-      statCard(projectCount, 'Dự án', 'Đang quản lý'),
-      statCard(appCount, 'Hồ sơ', 'Tổng đăng ký'),
-      statCard(payCount, 'Thanh toán', 'Giao dịch của bạn'),
+      statCard(staffCount, 'Cán bộ', 'Trong hệ thống', { route: 'admin-staff' }),
+      statCard(projectCount, 'Dự án', 'Đang quản lý', { route: 'projects' }),
+      statCard(appCount, 'Hồ sơ', 'Tổng đăng ký', { route: 'applications' }),
+      statCard(payCount, 'Thanh toán', 'Giao dịch của bạn', { route: 'payments' }),
     )
 
     if (staff.status === 'fulfilled') {

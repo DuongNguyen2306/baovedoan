@@ -42,7 +42,14 @@ export function ApplicationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
-  const [status, setStatus] = useState(isDeveloper ? 'SUBMITTED' : '')
+  const [status, setStatus] = useState<string>(() => {
+    if (typeof window === 'undefined') return isDeveloper ? 'SUBMITTED' : ''
+    const hash = window.location.hash.replace(/^#\/?/, '')
+    const qIdx = hash.indexOf('?')
+    if (qIdx < 0) return isDeveloper ? 'SUBMITTED' : ''
+    const params = new URLSearchParams(hash.slice(qIdx + 1))
+    return params.get('status') ?? (isDeveloper ? 'SUBMITTED' : '')
+  })
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkSending, setBulkSending] = useState(false)
   const [bulkMsg, setBulkMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)

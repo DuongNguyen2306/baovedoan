@@ -1,4 +1,4 @@
-import { Building2, FileText, FileSignature, Heart, Home, User } from 'lucide-react'
+import { Building2, FileText, FileSignature, Gavel, Heart, Home, User } from 'lucide-react'
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
 import { type RouteId } from '@/router'
 import { ROLE_THEMES } from '@/lib/role-theme'
@@ -15,6 +15,7 @@ interface NavItem {
 const ITEMS: NavItem[] = [
   { route: 'home-user', label: 'Trang chủ', icon: Home },
   { route: 'applications', label: 'Hồ sơ', icon: FileText, aliases: ['application-detail', 'create-application'] },
+  { route: 'my-lottery', label: 'Bốc thăm', icon: Gavel, aliases: ['lottery-lobby', 'lottery-live'] },
   { route: 'contracts', label: 'Hợp đồng', icon: FileSignature, aliases: ['contract-detail'] },
   { route: 'quan-tam', label: 'Quan tâm', icon: Heart },
   { route: 'projects', label: 'Dự án', icon: Building2, aliases: ['project-detail', 'create-project'] },
@@ -38,8 +39,9 @@ export const APPLICANT_SUB_NAV_ROUTES: RouteId[] = [
   'notifications',
   'lottery-lobby',
   'lottery-live',
+  'my-lottery',
   'report-issue',
-]
+] 
 
 function isActive(current: RouteId, item: NavItem): boolean {
   if (current === item.route) return true
@@ -52,7 +54,7 @@ export function ApplicantSubNav() {
 
   return (
     <nav className={`${THEME.navBg}`} aria-label="Điều hướng người dùng">
-      <div className="mx-auto flex max-w-7xl items-center overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-center overflow-x-auto px-4 lg:px-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {ITEMS.map((item) => {
           const active = isActive(route, item)
           const Icon = item.icon
@@ -62,7 +64,7 @@ export function ApplicantSubNav() {
               type="button"
               onClick={() => navigate(item.route)}
               data-active={active}
-              className={`relative inline-flex shrink-0 items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
+              className={`relative inline-flex flex-1 items-center justify-center gap-2 px-5 py-3 text-sm font-medium transition-colors min-w-[110px] ${
                 active
                   ? `${THEME.navActiveBg} ${THEME.navActiveTextColor}`
                   : `${THEME.navTextColor} ${THEME.navBgHover}`

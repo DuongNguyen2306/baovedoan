@@ -39,10 +39,10 @@ const STEPS: WorkflowStep[] = [
 
 export function verifierHomeView(): HTMLElement {
   const statsHost = el('div', { class: 'role-stats-inner' },
-    statCard('—', 'Chờ nhận', 'Đã nộp'),
-    statCard('—', 'Đang thẩm định', 'Hồ sơ đang xử lý'),
-    statCard('—', 'Cần bổ sung', 'Yêu cầu thêm'),
-    statCard('—', 'Dự án', 'Tham chiếu'),
+    statCard('—', 'Chờ nhận', 'Đã nộp', { route: 'applications', params: { status: 'SUBMITTED' } }),
+    statCard('—', 'Đang thẩm định', 'Hồ sơ đang xử lý', { route: 'applications', params: { status: 'UNDER_REVIEW' } }),
+    statCard('—', 'Cần bổ sung', 'Yêu cầu thêm', { route: 'applications', params: { status: 'NEED_MORE_DOCUMENTS' } }),
+    statCard('—', 'Dự án', 'Tham chiếu', { route: 'projects' }),
   )
 
   const queueRows = el('div', { class: 'role-activity-list' })
@@ -77,10 +77,10 @@ export function verifierHomeView(): HTMLElement {
     }
 
     statsHost.replaceChildren(
-      statCard(submitted.status === 'fulfilled' ? countFromPaged(submitted.value) : 0, 'Chờ nhận', 'Đã nộp'),
-      statCard(underReview.status === 'fulfilled' ? countFromPaged(underReview.value) : 0, 'Đang thẩm định', 'Hồ sơ đang xử lý'),
-      statCard(needMore.status === 'fulfilled' ? countFromPaged(needMore.value) : 0, 'Cần bổ sung', 'Yêu cầu thêm'),
-      statCard(projects.status === 'fulfilled' ? countFromPaged(projects.value) : 0, 'Dự án', 'Tham chiếu'),
+      statCard(submitted.status === 'fulfilled' ? countFromPaged(submitted.value) : 0, 'Chờ nhận', 'Đã nộp', { route: 'applications', params: { status: 'SUBMITTED' } }),
+      statCard(underReview.status === 'fulfilled' ? countFromPaged(underReview.value) : 0, 'Đang thẩm định', 'Hồ sơ đang xử lý', { route: 'applications', params: { status: 'UNDER_REVIEW' } }),
+      statCard(needMore.status === 'fulfilled' ? countFromPaged(needMore.value) : 0, 'Cần bổ sung', 'Yêu cầu thêm', { route: 'applications', params: { status: 'NEED_MORE_DOCUMENTS' } }),
+      statCard(projects.status === 'fulfilled' ? countFromPaged(projects.value) : 0, 'Dự án', 'Tham chiếu', { route: 'projects' }),
     )
 
     if (queue.status === 'fulfilled') {

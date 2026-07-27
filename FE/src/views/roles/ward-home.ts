@@ -41,10 +41,10 @@ const STEPS: WorkflowStep[] = [
 
 export function wardHomeView(): HTMLElement {
   const statsHost = el('div', { class: 'role-stats-inner' },
-    statCard('—', 'Chờ duyệt', 'Đang thẩm định'),
-    statCard('—', 'Đã nộp', 'Hồ sơ mới'),
-    statCard('—', 'Dự án', 'Trên địa bàn'),
-    statCard('—', 'Thanh toán', 'Giao dịch'),
+    statCard('—', 'Chờ duyệt', 'Đang thẩm định', { route: 'applications', params: { status: 'UNDER_REVIEW' } }),
+    statCard('—', 'Đã nộp', 'Hồ sơ mới', { route: 'applications', params: { status: 'SUBMITTED' } }),
+    statCard('—', 'Dự án', 'Trên địa bàn', { route: 'projects' }),
+    statCard('—', 'Thanh toán', 'Giao dịch', { route: 'payments' }),
   )
 
   const appRows = el('div', { class: 'role-activity-list' })
@@ -83,21 +83,25 @@ export function wardHomeView(): HTMLElement {
         underReview.status === 'fulfilled' ? countFromPaged(underReview.value) : 0,
         'Chờ duyệt',
         'Đang thẩm định',
+        { route: 'applications', params: { status: 'UNDER_REVIEW' } },
       ),
       statCard(
         submitted.status === 'fulfilled' ? countFromPaged(submitted.value) : 0,
         'Đã nộp',
         'Chờ nhận hồ sơ',
+        { route: 'applications', params: { status: 'SUBMITTED' } },
       ),
       statCard(
         projects.status === 'fulfilled' ? countFromPaged(projects.value) : 0,
         'Dự án',
         'Trên địa bàn',
+        { route: 'projects' },
       ),
       statCard(
         payments.status === 'fulfilled' ? countFromPaged(payments.value) : 0,
         'Thanh toán',
         'Giao dịch',
+        { route: 'payments' },
       ),
     )
 

@@ -61,14 +61,46 @@ export function extractList(data: unknown): unknown[] {
   return []
 }
 
-export function statCard(value: string | number, label: string, hint?: string): HTMLElement {
-  return el(
-    'div',
-    { class: 'role-stat' },
+export interface StatCardOptions {
+  route?: RouteId
+  params?: Record<string, string>
+}
+
+export function statCard(
+  value: string | number,
+  label: string,
+  hint?: string,
+  options: StatCardOptions = {},
+): HTMLElement {
+  const { route, params } = options
+  const content = [
     el('span', { class: 'role-stat-value' }, String(value)),
     el('span', { class: 'role-stat-label' }, label),
     hint ? el('span', { class: 'role-stat-hint' }, hint) : el('span'),
+  ]
+
+  if (!route) {
+    return el('div', { class: 'role-stat' }, ...content)
+  }
+
+  const card = el(
+    'button',
+    {
+      type: 'button',
+      class: 'role-stat role-stat-clickable',
+      'aria-label': `Mở ${label}`,
+    },
+    ...content,
   )
+  card.addEventListener('click', () => {
+    if (params && Object.keys(params).length) {
+      const query = new URLSearchParams(params).toString()
+      navigate(`${route}?${query}` as RouteId)
+    } else {
+      navigate(route)
+    }
+  })
+  return card
 }
 
 export function quickActionCard(action: QuickAction): HTMLElement {

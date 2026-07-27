@@ -40,7 +40,7 @@ function HeaderNavLink({ id, active, activeBar, textColor, hoverColor }: { id: R
       type="button"
       onClick={() => navigate(id)}
       className={cn(
-        'group relative flex items-center gap-1.5 whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-all duration-150',
+        'group relative flex items-center justify-center gap-1.5 whitespace-nowrap px-5 py-2.5 text-sm font-medium transition-all duration-150',
         active
           ? textColor
           : cn(hoverColor, 'hover:opacity-80'),
@@ -51,10 +51,10 @@ function HeaderNavLink({ id, active, activeBar, textColor, hoverColor }: { id: R
           {Icon}
         </span>
       )}
-      {cfg.label}
+      <span>{cfg.label}</span>
       <span
         className={cn(
-          'absolute inset-x-0 bottom-0 h-0.5 rounded-full transition-all duration-200',
+          'absolute inset-x-2 bottom-0 h-0.5 rounded-full transition-all duration-200',
           active ? activeBar : 'scale-x-0 group-hover:scale-x-100 group-hover:bg-white/30',
         )}
       />
@@ -213,7 +213,7 @@ function InternalHeader({ logged, role }: { logged: boolean; role: string }) {
           <div className="relative">
             <div className={`h-0.5 w-full ${theme.brandAccent}`} aria-hidden />
             <nav className={`${theme.navBg} ${theme.navTextColor}`} aria-label="Menu chính">
-              <div className="mx-auto flex max-w-7xl items-stretch justify-center overflow-x-auto gap-1 px-4 lg:px-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="mx-auto flex w-full max-w-7xl items-stretch justify-center overflow-x-auto gap-2 px-4 lg:gap-6 lg:px-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {visibleNavIds.map((id) => <HeaderNavLink key={id} id={id} active={route === id} activeBar={theme.activeBar} textColor={theme.navActiveTextColor} hoverColor={theme.navTextColor} />)}
               </div>
             </nav>

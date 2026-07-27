@@ -37,6 +37,7 @@ export type RouteId =
   | 'lottery-detail'
   | 'lottery-lobby'
   | 'lottery-live'
+  | 'my-lottery'
   // Contracts (mock)
   | 'contracts'
   | 'contract-create'
@@ -405,6 +406,16 @@ export const routes: RouteConfig[] = [
     subtitle: 'Theo dõi tiến độ realtime: biểu đồ căn đã bốc và live log người trúng.',
     cta: '',
   },
+  {
+    id: 'my-lottery',
+    label: 'Bốc thăm của tôi',
+    group: 'workspace',
+    auth: true,
+    roles: ['Applicant'],
+    title: 'Bốc thăm của tôi',
+    subtitle: 'Các dự án có hồ sơ được duyệt — vào sảnh chờ, bốc căn và xem kết quả trực tiếp.',
+    cta: '',
+  },
   // ====== Contracts (mock cho BE chưa có) ======
   {
     id: 'contracts',
@@ -545,9 +556,10 @@ function stripPaymentFromHash(): void {
   if (found) location.hash = `#/${found.id}`
 }
 
-export function navigate(id: RouteId): void {
+export function navigate(id: RouteId | string): void {
   window.scrollTo({ top: 0, behavior: 'instant' })
-  location.hash = `#/${id}`
+  const hash = String(id).startsWith('#') ? String(id) : `#/${id}`
+  location.hash = hash
 }
 
 export function onRouteChange(cb: (id: RouteId) => void): void {
@@ -650,6 +662,7 @@ const ROLE_ACCESS: Record<string, RouteId[]> = {
     'change-password',
     'lottery-lobby',
     'lottery-live',
+    'my-lottery',
     'contracts',
     'contract-detail',
     'report-issue',
@@ -684,7 +697,7 @@ const NAV_BY_ROLE: Record<string, RouteId[]> = {
   'System Administrator': ['admin-staff', 'admin-logs', 'admin-categories', 'notifications', 'profile'],
   'Housing Developer': ['home-developer', 'applications', 'projects', 'lottery-sessions', 'lottery-live', 'contracts', 'notifications', 'profile'],
   'Department Of Construction': ['home-sxd', 'applications', 'projects', 'lottery-sessions', 'lottery-live', 'contracts', 'audit-list', 'notifications', 'profile'],
-  Applicant: ['home-user', 'quan-tam', 'applications', 'projects', 'contracts', 'payments', 'notifications', 'profile'],
+  Applicant: ['home-user', 'quan-tam', 'applications', 'projects', 'my-lottery', 'contracts', 'payments', 'notifications', 'profile'],
 }
 
 export function navRoutes(role: string): RouteId[] {

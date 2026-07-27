@@ -130,18 +130,74 @@ export function createProjectView(): HTMLElement {
   const m = getRouteConfig('create-project')
   const result = el('div', { class: 'panel-result', 'aria-live': 'polite' })
 
+  const headerCard = el(
+    'div',
+    { class: 'card card-lead-card' },
+    el('h2', { class: 'card-lead-title' }, 'Thông tin dự án nhà ở'),
+    el(
+      'p',
+      { class: 'card-lead-desc' },
+      'Điền các thông tin bên dưới để tạo một dự án nhà ở mới. Các trường đánh dấu ',
+      el('span', { class: 'required-mark' }, '*'),
+      ' là bắt buộc.',
+    ),
+  )
+
+  const basicSection = el(
+    'section',
+    { class: 'form-section' },
+    sectionHeader('1', 'Thông tin cơ bản', 'Tên và địa điểm của dự án'),
+    field('Tên dự án', 'name', 'text', { placeholder: 'VD: Khu đô thị Xanh Bách Việt', required: 'true' }),
+    field('Địa điểm', 'location', 'text', { placeholder: 'VD: Quận 9, TP.HCM', required: 'true' }),
+  )
+
+  const planningSection = el(
+    'section',
+    { class: 'form-section' },
+    sectionHeader('2', 'Quy hoạch dự án', 'Số lượng đơn vị và giá bán'),
+    el(
+      'div',
+      { class: 'row-2col' },
+      field('Tổng số đơn vị', 'totalUnits', 'number', { min: '0', placeholder: '0', required: 'true' }),
+      field('Số đơn vị có sẵn', 'availableUnits', 'number', { min: '0', placeholder: '0', required: 'true' }),
+    ),
+    fieldWithHint('Giá mỗi đơn vị (VNĐ)', 'pricePerUnit', 'number', { min: '0', placeholder: '0', step: '1000', required: 'true' }, 'Đơn vị: VNĐ / 1 căn hộ hoặc lô đất'),
+  )
+
+  const timelineSection = el(
+    'section',
+    { class: 'form-section' },
+    sectionHeader('3', 'Tiến độ thi công', 'Khoảng thời gian dự kiến'),
+    el(
+      'div',
+      { class: 'row-2col' },
+      field('Ngày bắt đầu xây dựng', 'constructionStartDate', 'date', {}),
+      field('Ngày dự kiến hoàn thành', 'expectedCompletionDate', 'date', {}),
+    ),
+  )
+
+  const descSection = el(
+    'section',
+    { class: 'form-section' },
+    sectionHeader('4', 'Mô tả chi tiết', 'Giúp người mua hiểu rõ hơn về dự án'),
+    fieldTextarea('Mô tả dự án', 'description', { placeholder: 'Mô tả tổng quan, tiện ích, vị trí, pháp lý…', rows: '4' }),
+  )
+
+  const footerActions = el(
+    'div',
+    { class: 'form-actions' },
+    el('button', { type: 'button', class: 'btn-ghost', onclick: 'return false;' }, 'Huỷ'),
+    el('button', { type: 'submit', class: 'btn-primary btn-primary-lg' }, m.cta),
+  )
+
   const form = el(
     'form',
-    { class: 'form-card' },
-    field('Tên dự án', 'name'),
-    field('Địa điểm', 'location'),
-    field('Mô tả', 'description', 'text', {}),
-    field('Tổng số đơn vị', 'totalUnits', 'number'),
-    field('Số đơn vị có sẵn', 'availableUnits', 'number'),
-    field('Giá mỗi đơn vị', 'pricePerUnit', 'number'),
-    field('Ngày bắt đầu xây dựng', 'constructionStartDate', 'date', {}),
-    field('Ngày dự kiến hoàn thành', 'expectedCompletionDate', 'date', {}),
-    el('button', { type: 'submit', class: 'btn-primary' }, m.cta),
+    { class: 'form-card form-card-pro', novalidate: 'true' },
+    basicSection,
+    planningSection,
+    timelineSection,
+    descSection,
+    footerActions,
   )
 
   onFormSubmit(form, result, async (fd) =>
@@ -163,7 +219,60 @@ export function createProjectView(): HTMLElement {
     }
   })
 
-  return pageWithContent(m, form, result)
+  const cancelBtn = form.querySelector<HTMLButtonElement>('button.btn-ghost')
+  cancelBtn?.addEventListener('click', () => navigate('projects'))
+
+  return el('article', { class: 'page page-pro' }, pageHeader(m), headerCard, form, result)
+}
+
+function sectionHeader(step: string, title: string, subtitle: string): HTMLElement {
+  return el(
+    'header',
+    { class: 'section-header' },
+    el('span', { class: 'section-step' }, step),
+    el(
+      'div',
+      { class: 'section-titles' },
+      el('h3', { class: 'section-title' }, title),
+      el('p', { class: 'section-subtitle' }, subtitle),
+    ),
+  )
+}
+
+function fieldWithHint(
+  label: string,
+  name: string,
+  type = 'text',
+  extra: Record<string, string> = {},
+  hint: string,
+): HTMLDivElement {
+  const id = name
+  return el(
+    'div',
+    { class: 'form-field form-field-with-hint' },
+    el(
+      'div',
+      { class: 'label-row' },
+      el('label', { for: id }, label),
+      el('span', { class: 'required-mark' }, '*'),
+    ),
+    el('input', { type, name, id, ...extra }),
+    el('small', { class: 'field-hint' }, hint),
+  )
+}
+
+function fieldTextarea(
+  label: string,
+  name: string,
+  extra: Record<string, string> = {},
+): HTMLDivElement {
+  const id = name
+  return el(
+    'div',
+    { class: 'form-field' },
+    el('label', { for: id }, label),
+    el('textarea', { name, id, class: 'form-textarea', ...extra }),
+  )
 }
 
 export function projectDetailView(): HTMLElement {

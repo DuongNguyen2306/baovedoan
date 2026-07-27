@@ -43,10 +43,10 @@ const STEPS: WorkflowStep[] = [
 
 export function sxdHomeView(): HTMLElement {
   const statsHost = el('div', { class: 'role-stats-inner' },
-    statCard('—', 'Chờ duyệt', 'CĐT gửi lên'),
-    statCard('—', 'Đã phê duyệt', 'Hồ sơ được duyệt'),
-    statCard('—', 'Dự án', 'Được cấp phép'),
-    statCard('—', 'Từ chối', 'Bị từ chối'),
+    statCard('—', 'Chờ duyệt', 'CĐT gửi lên', { route: 'applications', params: { status: 'PENDING_SXD_REVIEW' } }),
+    statCard('—', 'Đã phê duyệt', 'Hồ sơ được duyệt', { route: 'applications', params: { status: 'APPROVED' } }),
+    statCard('—', 'Dự án', 'Được cấp phép', { route: 'projects' }),
+    statCard('—', 'Từ chối', 'Bị từ chối', { route: 'applications', params: { status: 'REJECTED' } }),
   )
 
   const appRows = el('div', { class: 'role-activity-list' })
@@ -80,9 +80,10 @@ export function sxdHomeView(): HTMLElement {
     }
 
     statsHost.replaceChildren(
-      statCard(pendingSxd.status === 'fulfilled' ? countFromPaged(pendingSxd.value) : 0, 'Chờ duyệt', 'CĐT gửi lên'),
-      statCard(approved.status === 'fulfilled' ? countFromPaged(approved.value) : 0, 'Đã phê duyệt', 'Hồ sơ được duyệt'),
-      statCard(projects.status === 'fulfilled' ? countFromPaged(projects.value) : 0, 'Dự án', 'Được cấp phép'),
+      statCard(pendingSxd.status === 'fulfilled' ? countFromPaged(pendingSxd.value) : 0, 'Chờ duyệt', 'CĐT gửi lên', { route: 'applications', params: { status: 'PENDING_SXD_REVIEW' } }),
+      statCard(approved.status === 'fulfilled' ? countFromPaged(approved.value) : 0, 'Đã phê duyệt', 'Hồ sơ được duyệt', { route: 'applications', params: { status: 'APPROVED' } }),
+      statCard(projects.status === 'fulfilled' ? countFromPaged(projects.value) : 0, 'Dự án', 'Được cấp phép', { route: 'projects' }),
+      statCard(0, 'Từ chối', 'Bị từ chối', { route: 'applications', params: { status: 'REJECTED' } }),
     )
 
     if (recent.status === 'fulfilled') {

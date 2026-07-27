@@ -105,10 +105,11 @@ const FAV_KEY = 'favoriteHouses'
 
 const ACTIONS: QuickAction[] = [
   { title: 'Hồ sơ của tôi', desc: 'Theo dõi trạng thái hồ sơ đã nộp.', route: 'applications' },
+  { title: 'Bốc thăm của tôi', desc: 'Vào sảnh và bốc căn khi dự án mở Live.', route: 'my-lottery' },
   { title: 'Dự án quan tâm', desc: 'Xem các dự án bạn đã lưu.', route: 'quan-tam' },
   { title: 'Danh sách dự án', desc: 'Khám phá tất cả dự án trên hệ thống.', route: 'projects' },
   { title: 'Hồ sơ cá nhân', desc: 'Cập nhật thông tin và ảnh đại diện.', route: 'profile' },
-]
+] 
 
 const STEPS: WorkflowStep[] = [
   { num: '1', title: 'Khám phá dự án', desc: 'Tìm nhà ở phù hợp và lưu quan tâm.' },

@@ -2142,6 +2142,32 @@ button:disabled {
   box-shadow: 0 2px 10px rgb(0 48 73 / 5%);
 }
 
+button.role-stat-clickable {
+  appearance: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+button.role-stat-clickable:hover {
+  transform: translateY(-2px);
+  border-color: var(--gov-blue, #1d4e89);
+  box-shadow: 0 8px 20px rgb(0 48 73 / 12%);
+  background: linear-gradient(135deg, rgba(29, 78, 137, 0.06), rgba(29, 78, 137, 0.02));
+}
+
+button.role-stat-clickable:focus-visible {
+  outline: 2px solid var(--gov-blue, #1d4e89);
+  outline-offset: 2px;
+}
+
+button.role-stat-clickable:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgb(0 48 73 / 8%);
+}
+
 .role-stat-value {
   font-size: 1.65rem;
   font-weight: 800;
@@ -2729,4 +2755,239 @@ button:disabled {
   display: block;
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+
+/* ============================================================
+   Create-project view (khu đô thị mới)
+   ============================================================ */
+
+.page-pro {
+  max-width: 880px;
+  margin: 0 auto;
+}
+
+.card-lead-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1.25rem 1.75rem;
+  margin-bottom: 1.25rem;
+  border-top: 4px solid var(--gov-blue);
+  background: linear-gradient(180deg, #ffffff 0%, #f5fbff 100%);
+}
+
+.card-lead-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--gov-blue-dark);
+}
+
+.card-lead-desc {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.required-mark {
+  color: #d93838;
+  font-weight: 700;
+  margin-left: 0.15rem;
+}
+
+.form-card-pro {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 100%;
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem 1.75rem;
+  box-shadow: var(--shadow);
+  border-top: 4px solid var(--gov-blue);
+}
+
+.form-card-pro .form-field {
+  border-bottom: 1px dashed rgb(200 217 235 / 60%);
+  padding: 0.85rem 0;
+}
+
+.form-card-pro .form-field:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.form-section:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding-bottom: 0.85rem;
+  margin-bottom: 0.35rem;
+  border-bottom: 1px solid rgb(200 217 235 / 50%);
+}
+
+.section-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: var(--gov-blue);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  box-shadow: 0 2px 6px rgb(27 86 160 / 25%);
+  flex-shrink: 0;
+}
+
+.section-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--gov-blue-dark);
+}
+
+.section-subtitle {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.row-2col > .form-field {
+  border-bottom: none;
+  padding: 0.85rem 0;
+}
+
+.label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  width: 100%;
+}
+
+.form-field-with-hint .field-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.form-textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 0.65rem 0.85rem;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  font: inherit;
+  background: #fff;
+  resize: vertical;
+  min-height: 6rem;
+  line-height: 1.5;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--gov-teal);
+  box-shadow: 0 0 0 3px rgb(0 180 216 / 22%);
+}
+
+.form-textarea::placeholder {
+  color: #8a9bab;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.btn-primary-lg {
+  padding: 0.85rem 1.6rem;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 10px rgb(27 86 160 / 22%);
+}
+
+.btn-primary-lg:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgb(27 86 160 / 28%);
+}
+
+.btn-ghost {
+  padding: 0.7rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--secondary);
+  color: var(--gov-blue-dark);
+  border-color: var(--gov-blue);
+}
+
+@media (max-width: 640px) {
+  .form-card-pro {
+    padding: 1.1rem 1rem;
+  }
+  .row-2col {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .section-header {
+    gap: 0.6rem;
+  }
+  .section-step {
+    width: 1.75rem;
+    height: 1.75rem;
+    font-size: 0.85rem;
+  }
+  .form-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .form-actions .btn-primary-lg,
+  .form-actions .btn-ghost {
+    width: 100%;
+  }
 }

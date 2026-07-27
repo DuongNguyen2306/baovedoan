@@ -9,3 +9,6 @@ FE/.env
 *.log
 .DS_Store
 Thumbs.db
+
+# Script SQL nội bộ (chứa email admin/lệnh DB cục bộ — không commit)
+scripts/*.sql

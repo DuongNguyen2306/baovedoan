@@ -1149,7 +1149,13 @@ export function CreateApplicationWizard() {
 
                 <div className="flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
                   <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep(4)}>← Quay lại</Button>
-                  <Button type="button" variant="accent" disabled={!commitment || !allDocsUploaded || (draftStatus !== 'DRAFT' && draftStatus !== 'NEED_MORE_DOCUMENTS') || isBusy} onClick={() => void handleSubmit()}>
+                  <Button
+                    type="button"
+                    variant="accent"
+                    className="bg-emerald-500 hover:bg-emerald-600 shadow-[0_4px_14px_-2px_rgba(16,185,129,0.45)] dark:bg-emerald-600 dark:hover:bg-emerald-700"
+                    disabled={!commitment || !allDocsUploaded || (draftStatus !== 'DRAFT' && draftStatus !== 'NEED_MORE_DOCUMENTS') || isBusy}
+                    onClick={() => void handleSubmit()}
+                  >
                     {busy === 'submit' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang nộp…</> : 'Nộp hồ sơ'}
                   </Button>
                 </div>

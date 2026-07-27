@@ -37,6 +37,7 @@ import {
   LotteryLobbyPage,
   LotterySessionsPage,
 } from '@/pages/lottery-pages'
+import { MyLotteryPage } from '@/pages/my-lottery-page'
 import {
   ContractCreatePage,
   ContractDetailPage,
@@ -104,6 +105,7 @@ function RouteView({ route }: { route: RouteId }) {
     case 'lottery-detail': return <LotteryDetailPage />
     case 'lottery-lobby': return <LotteryLobbyPage />
     case 'lottery-live': return <LotteryLivePage />
+    case 'my-lottery': return <MyLotteryPage />
     case 'contracts': return <ContractsPage />
     case 'contract-create': return <ContractCreatePage />
     case 'contract-detail': return <ContractDetailPage />

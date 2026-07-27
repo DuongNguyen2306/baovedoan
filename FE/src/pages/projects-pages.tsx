@@ -21,6 +21,7 @@ import { extractProjects, extractSingleProject } from '@/lib/parsers'
 import { formatError, formatSuccess } from '@/lib/format-error'
 import { resolveProvinceName } from '@/lib/vietnam-locations'
 import { mapProjectToCard } from '@/lib/projects'
+import { matchesOpenStatus } from '@/lib/housing-search'
 import { FLASH_CREATE_PROJECT_KEY } from '@/lib/constants'
 import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
 import { getRole, isLoggedIn } from '@/router'
@@ -479,8 +480,14 @@ function ProjectDetailView({ projectId }: { projectId: string }) {
   const wishlisted = isWishlisted(projectId)
   const openDate = project.applicationOpenDate
   const closeDate = project.applicationCloseDate
-  const statusCode = String(project.status || '').toUpperCase()
-  const canApply = /OPEN|REGISTRATION/.test(statusCode) || !project.status
+  const statusLabel = String(project.status || '')
+  const now = new Date()
+  const openAt = openDate ? new Date(openDate) : null
+  const closeAt = closeDate ? new Date(closeDate) : null
+  const inOpenWindow =
+    (!openAt || Number.isNaN(openAt.getTime()) || now >= openAt) &&
+    (!closeAt || Number.isNaN(closeAt.getTime()) || now <= closeAt)
+  const canApply = matchesOpenStatus(statusLabel) && inOpenWindow
 
   const handleWishlist = async () => {
     if (!logged) {

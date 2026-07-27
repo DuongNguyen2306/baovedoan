@@ -122,7 +122,7 @@ export function toApiFilter(filter: HousingSearchFilter): HousingProjectFilter {
   }
 }
 
-function matchesOpenStatus(statusLabel: string): boolean {
+export function matchesOpenStatus(statusLabel: string): boolean {
   const s = statusLabel.toLowerCase()
   return (
     /open|registration/.test(s) ||
