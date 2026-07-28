@@ -1,5 +1,5 @@
 import { labelProjectStatus } from '@/lib/labels'
-import type { ApplicationSummaryDto, HousingProjectDto, WishlistItemDto } from '@/types'
+import type { ApartmentDto, ApplicationSummaryDto, HousingProjectDto, WishlistItemDto } from '@/types'
 
 export function countFromPaged(data: unknown): number {
   if (!data || typeof data !== 'object') return 0
@@ -66,6 +66,21 @@ function readProjectRow(p: Record<string, unknown>): HousingProjectDto {
       p.housingProjectStatusId ?? p.HousingProjectStatusId ?? '',
     ) || undefined,
     thumbnailUrl: thumbnail ? String(thumbnail) : undefined,
+    apartments: (() => {
+      const raw = p.apartments ?? p.Apartments
+      if (!Array.isArray(raw)) return undefined
+      return raw.map((it) => {
+        const x = (it ?? {}) as Record<string, unknown>
+        return {
+          id: String(x.id ?? x.Id ?? ''),
+          unitName: String(x.unitName ?? x.UnitName ?? ''),
+          area: Number(x.area ?? x.Area ?? 0),
+          price: Number(x.price ?? x.Price ?? 0),
+          status: String(x.status ?? x.Status ?? 'AVAILABLE'),
+          description: (x.description ?? x.Description) as string | null | undefined,
+        } satisfies ApartmentDto
+      })
+    })(),
     status: (() => {
       const raw =
         p.status ?? p.Status ??

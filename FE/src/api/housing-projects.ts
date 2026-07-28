@@ -1,5 +1,5 @@
 import { request } from './http'
-import type { ApiResult, CreateHousingProjectRequestDto } from '../types'
+import type { ApiResult, ApartmentDto, CreateHousingProjectRequestDto } from '../types'
 
 export interface HousingProjectFilter {
   pageIndex?: number
@@ -97,7 +97,33 @@ function toFormData(body: CreateHousingProjectRequestDto): FormData {
   if (body.imagesFiles) {
     for (const file of body.imagesFiles) fd.append('ImageFiles', file)
   }
+  // ASP.NET [FromForm] list binding: Apartments[i].UnitName / Area / Price
+  if (body.apartments?.length) {
+    body.apartments.forEach((apt, i) => {
+      fd.append(`Apartments[${i}].UnitName`, apt.unitName)
+      fd.append(`Apartments[${i}].Area`, String(apt.area))
+      fd.append(`Apartments[${i}].Price`, String(apt.price))
+      if (apt.description) fd.append(`Apartments[${i}].Description`, apt.description)
+    })
+  }
   return fd
+}
+
+export function parseApartments(data: unknown): ApartmentDto[] {
+  const o = asRecord(data)
+  const raw = (o?.apartments ?? o?.Apartments ?? data) as unknown
+  if (!Array.isArray(raw)) return []
+  return raw.map((it) => {
+    const x = (it ?? {}) as Record<string, unknown>
+    return {
+      id: String(x.id ?? x.Id ?? ''),
+      unitName: String(x.unitName ?? x.UnitName ?? ''),
+      area: Number(x.area ?? x.Area ?? 0),
+      price: Number(x.price ?? x.Price ?? 0),
+      status: String(x.status ?? x.Status ?? 'AVAILABLE'),
+      description: (x.description ?? x.Description) as string | null | undefined,
+    }
+  })
 }
 
 function asRecord(data: unknown): Record<string, unknown> | null {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FileText, Printer, Send } from 'lucide-react'
 import { housingApplicationsApi, parseApplicationDetail, parsePagedApplications } from '@/api/housing-applications'
+import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { reportsApi } from '@/api/reports'
 import { CreateApplicationWizard } from '@/components/ekyc/create-application-wizard'
 import { ApplicationTimeline } from '@/components/shared/application-timeline'
@@ -22,7 +23,7 @@ import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
 import { formatDepositCountdown } from '@/lib/deposit-deadline'
 import { formatSxdCountdown } from '@/lib/sxd-deadline'
 import { getRole } from '@/router'
-import type { ApplicationDetailDto, ApplicationSummaryDto } from '@/types'
+import type { ApartmentDto, ApplicationDetailDto, ApplicationSummaryDto } from '@/types'
 
 function DetailRow({ label, value, danger }: { label: string; value: string; danger?: boolean }) {
   return (
@@ -378,6 +379,9 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
   const [docType, setDocType] = useState(Object.keys(DOC_TYPE_LABELS)[0] ?? '')
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [, setTick] = useState(0)
+  const [apartments, setApartments] = useState<ApartmentDto[]>([])
+  const [selectedApartmentId, setSelectedApartmentId] = useState('')
+  const [assigningApt, setAssigningApt] = useState(false)
 
   const refresh = async () => {
     const data = await housingApplicationsApi.getById(appId)
@@ -408,6 +412,54 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
     const id = window.setInterval(() => setTick((t) => t + 1), ms)
     return () => window.clearInterval(id)
   }, [app?.applicationStatus])
+
+  // Load căn AVAILABLE của dự án khi CĐT/SXD mở hồ sơ đủ điều kiện bàn giao
+  useEffect(() => {
+    const roleNow = getRole()
+    const isStaffRole =
+      roleNow === 'Housing Developer' || roleNow === 'Department Of Construction'
+    if (!isStaffRole || !app?.projectId) return
+    const canAssign =
+      !app.apartmentId &&
+      (['CONTRACT_PENDING', 'CONTRACT_SIGNED', 'DEPOSIT_PAID', 'FULLY_PAID'].includes(app.applicationStatus) ||
+        app.lotteryResult === 'WON' ||
+        app.lotteryResult === 'PRIORITY_WON')
+    if (!canAssign && !app.apartmentId) return
+    let cancelled = false
+    void housingProjectsApi
+      .getById(app.projectId)
+      .then((data) => {
+        if (cancelled) return
+        setApartments(
+          parseApartments(data).filter(
+            (t) =>
+              String(t.status).toUpperCase() === 'AVAILABLE' || t.id === app.apartmentId,
+          ),
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setApartments([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [app?.projectId, app?.applicationStatus, app?.apartmentId, app?.lotteryResult])
+
+  const assignApartment = async () => {
+    if (!selectedApartmentId || assigningApt) return
+    setAssigningApt(true)
+    setMsg(null)
+    try {
+      await housingApplicationsApi.assignApartment(appId, selectedApartmentId)
+      await refresh()
+      setSelectedApartmentId('')
+      setMsg({ type: 'success', text: 'Đã bàn giao căn và sinh lịch thanh toán theo đợt.' })
+    } catch (err) {
+      setMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setAssigningApt(false)
+    }
+  }
 
   const review = async (action: string, needNote = false) => {
     if (acting) return
@@ -493,7 +545,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
       {role === 'Applicant' && ['APPROVED', 'APPROVED_BY_TIMEOUT'].includes(app.applicationStatus) && (
         <Alert variant="info">
           <strong>Hồ sơ đã được Sở duyệt.</strong> Tiếp theo cần qua bốc thăm / chốt danh sách → ký{' '}
-          <strong>hợp đồng nguyên tắc</strong> → rồi mới đặt cọc VNPay. Trạng thái cần để thanh toán:{' '}
+          <strong>hợp đồng mua bán nhà ở xã hội</strong> → rồi mới đặt cọc VNPay. Trạng thái cần để thanh toán:{' '}
           <code>CONTRACT_SIGNED</code>.
         </Alert>
       )}
@@ -508,13 +560,13 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
       )}
       {role === 'Applicant' && app.applicationStatus === 'CONTRACT_PENDING' && (
         <Alert variant="info">
-          <strong>Chờ ký hợp đồng nguyên tắc.</strong> Vào mục <strong>Hợp đồng</strong> để xem và ký,
+          <strong>Chờ ký hợp đồng mua bán nhà ở xã hội.</strong> Vào mục <strong>Hợp đồng</strong> để xem và ký,
           sau đó mới đặt cọc được.
         </Alert>
       )}
       {role === 'Applicant' && app.applicationStatus === 'CONTRACT_SIGNED' && (
         <Alert variant="info">
-          <strong>Đã ký hợp đồng nguyên tắc.</strong> Vui lòng đặt cọc qua VNPay.
+          <strong>Đã ký hợp đồng mua bán nhà ở xã hội.</strong> Vui lòng đặt cọc qua VNPay.
           Thẻ sandbox: NCB · <code>9704198526191432198</code> · hết hạn <code>07/15</code> · OTP <code>123456</code>.
         </Alert>
       )}
@@ -553,7 +605,77 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
           <DetailRow label="Ngày duyệt" value={new Date(app.finalDecisionDate).toLocaleString('vi-VN')} />
         )}
         {app.officerFullName && <DetailRow label="Cán bộ thẩm định" value={app.officerFullName} />}
+        {app.slotCode && <DetailRow label="Mã suất" value={app.slotCode} />}
+        {app.lotteryResult && <DetailRow label="Kết quả bốc thăm" value={app.lotteryResult} />}
       </div>
+
+      {(isStaff || app.apartmentId) && (
+        <div className="glass-card space-y-3 p-4">
+          <h3 className="font-semibold">Căn được bàn giao</h3>
+          {app.apartmentId ? (
+            <>
+              <DetailRow label="Tên căn" value={app.apartmentUnitName || '—'} />
+              <DetailRow
+                label="Diện tích"
+                value={app.apartmentArea != null ? `${app.apartmentArea} m²` : '—'}
+              />
+              <DetailRow
+                label="Giá"
+                value={
+                  app.apartmentPrice != null
+                    ? `${Number(app.apartmentPrice).toLocaleString('vi-VN')} VNĐ`
+                    : '—'
+                }
+              />
+              <DetailRow
+                label="Trạng thái căn"
+                value={
+                  String(app.apartmentStatus || '').toUpperCase() === 'ASSIGNED'
+                    ? 'Đã bàn giao'
+                    : app.apartmentStatus || '—'
+                }
+              />
+            </>
+          ) : isStaff &&
+            (['CONTRACT_PENDING', 'CONTRACT_SIGNED', 'DEPOSIT_PAID', 'FULLY_PAID'].includes(
+              app.applicationStatus,
+            ) ||
+              app.lotteryResult === 'WON' ||
+              app.lotteryResult === 'PRIORITY_WON') ? (
+            <>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Chọn căn còn trống trong dự án để chốt giá và sinh lịch thanh toán đợt 1/2.
+              </p>
+              <FormField label="Căn hộ" htmlFor="assign-apartment">
+                <Select
+                  id="assign-apartment"
+                  value={selectedApartmentId}
+                  onChange={(e) => setSelectedApartmentId(e.target.value)}
+                  disabled={assigningApt || apartments.length === 0}
+                >
+                  <option value="">
+                    {apartments.length ? 'Chọn căn…' : 'Dự án chưa có căn trống'}
+                  </option>
+                  {apartments.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.unitName} · {t.area}m² · {Number(t.price).toLocaleString('vi-VN')}đ
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+              <Button
+                variant="accent"
+                disabled={!selectedApartmentId || assigningApt}
+                onClick={() => void assignApartment()}
+              >
+                {assigningApt ? 'Đang bàn giao…' : 'Bàn giao căn'}
+              </Button>
+            </>
+          ) : (
+            <p className="text-sm text-slate-500 dark:text-slate-400">Chưa bàn giao căn.</p>
+          )}
+        </div>
+      )}
 
       <div className="glass-card p-4">
         <h3 className="mb-2 font-semibold">Tài liệu đính kèm</h3>
@@ -698,7 +820,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
         )}
         {role === 'Applicant' && app.applicationStatus === 'CONTRACT_PENDING' && (
           <Button variant="accent" onClick={() => navigate('contracts')}>
-            Xem &amp; ký hợp đồng nguyên tắc
+            Xem &amp; ký hợp đồng mua bán NOXH
           </Button>
         )}
         {role === 'Applicant' && app.applicationStatus === 'CONTRACT_SIGNED' && (

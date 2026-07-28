@@ -165,8 +165,8 @@ export function ContractCreatePage() {
         <Alert variant="info">
           <p className="font-semibold">Hợp đồng được tạo tự động từ hồ sơ trúng</p>
           <p className="mt-1 text-sm">
-            Hệ thống sinh hợp đồng nguyên tắc khi hồ sơ đạt trạng thái Đặt cọc.
-            Để xem hợp đồng, mở mục <strong>Hợp đồng</strong> và chọn hồ sơ tương ứng.
+            Hệ thống sinh Hợp đồng mua bán nhà ở xã hội (Mẫu số 01 – TT 05/2024/TT-BXD)
+            khi hồ sơ được chốt suất. Mở mục <strong>Hợp đồng</strong> và chọn hồ sơ để xem / ký.
           </p>
           <Button className="mt-3" variant="accent" onClick={() => navigate('contracts')}>
             Đi tới danh sách hợp đồng
@@ -363,7 +363,7 @@ export function ContractDetailPage() {
         {/* Ký hợp đồng */}
         {canSign && (
           <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-800 dark:bg-amber-950/30">
-            <h4 className="mb-2 font-semibold">Bạn cần đồng ý điều khoản hợp đồng nguyên tắc</h4>
+            <h4 className="mb-2 font-semibold">Bạn cần đồng ý điều khoản hợp đồng mua bán nhà ở xã hội</h4>
             <p className="mb-3 text-sm text-slate-700 dark:text-slate-300">
               Bằng việc bấm «Đồng ý», bạn xác nhận đã đọc và đồng ý với các điều khoản mua bán nhà ở xã hội.
             </p>

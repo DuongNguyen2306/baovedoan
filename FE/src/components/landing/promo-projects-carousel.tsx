@@ -219,7 +219,7 @@ export function PromoProjectsCarousel() {
                   <p className="mt-0.5 font-bold text-[#003D7A] dark:text-white">{project.type}</p>
                 </div>
                 <div className="rounded-xl bg-primary/5 px-3 py-2 dark:bg-accent/10">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Diện tích</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Số căn</p>
                   <p className="mt-0.5 font-bold text-[#003D7A] dark:text-white">{project.area}</p>
                 </div>
               </div>

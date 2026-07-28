@@ -12,6 +12,8 @@ import {
   ArrowLeft,
   ArrowRight,
   X,
+  Plus,
+  Trash2,
 } from 'lucide-react'
 import { housingProjectsApi } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
@@ -20,7 +22,7 @@ import { Alert } from '@/components/ui/alert'
 import { ensureHcmLocationsLoaded, HCM_PROVINCE } from '@/lib/vietnam-locations'
 import { formatError } from '@/lib/format-error'
 import { navigate } from '@/hooks/useHashRoute'
-import type { CreateHousingProjectRequestDto } from '@/types'
+import type { CreateApartmentDto, CreateHousingProjectRequestDto } from '@/types'
 
 interface CreateProjectModalProps {
   open: boolean
@@ -52,11 +54,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
   const [ward, setWard] = useState('')
   const [street, setStreet] = useState('')
   const [wards, setWards] = useState<string[]>([])
-  const [minPrice, setMinPrice] = useState('')
-  const [maxPrice, setMaxPrice] = useState('')
-  const [minArea, setMinArea] = useState('')
-  const [maxArea, setMaxArea] = useState('')
-  const [availableUnits, setAvailableUnits] = useState('')
   const [decisionNumber, setDecisionNumber] = useState('')
   const [approvalDate, setApprovalDate] = useState('')
   const [depositAmount, setDepositAmount] = useState('')
@@ -68,6 +65,9 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
   const [isConfirmed, setIsConfirmed] = useState(false)
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
   const [imagesFiles, setImagesFiles] = useState<File[]>([])
+  const [apartments, setApartments] = useState<
+    { unitName: string; area: string; price: string }[]
+  >([{ unitName: '', area: '', price: '' }])
 
   useEffect(() => {
     if (!open) {
@@ -75,11 +75,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       setDescription('')
       setWard('')
       setStreet('')
-      setMinPrice('')
-      setMaxPrice('')
-      setMinArea('')
-      setMaxArea('')
-      setAvailableUnits('')
       setDecisionNumber('')
       setApprovalDate('')
       setDepositAmount('')
@@ -91,6 +86,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       setIsConfirmed(false)
       setThumbnailFile(null)
       setImagesFiles([])
+      setApartments([{ unitName: '', area: '', price: '' }])
       setError('')
       setStep('basic')
       return
@@ -121,18 +117,39 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     if (projectName.trim().length < 5) return 'Tên dự án phải có ít nhất 5 ký tự.'
     if (!ward) return 'Vui lòng chọn phường/xã.'
     if (!housingProjectStatusId) return 'Vui lòng chọn trạng thái dự án.'
-    const mp = parseFloat(minPrice)
-    const MaP = parseFloat(maxPrice)
-    if (minPrice && isNaN(mp)) return 'Giá tối thiểu phải là số.'
-    if (maxPrice && isNaN(MaP)) return 'Giá tối đa phải là số.'
-    if (minPrice && maxPrice && mp > MaP) return 'Giá tối thiểu không được lớn hơn giá tối đa.'
-    const miA = parseFloat(minArea)
-    const MaA = parseFloat(maxArea)
-    if (minArea && isNaN(miA)) return 'Diện tích tối thiểu phải là số.'
-    if (maxArea && isNaN(MaA)) return 'Diện tích tối đa phải là số.'
-    if (minArea && maxArea && miA > MaA) return 'Diện tích tối thiểu không được lớn hơn diện tích tối đa.'
-    if (availableUnits && isNaN(parseInt(availableUnits, 10))) return 'Số căn phải là số.'
+
+    const filled = apartments.filter(
+      (r) => r.unitName.trim() || r.area.trim() || r.price.trim(),
+    )
+    if (filled.length === 0) {
+      return 'Vui lòng thêm ít nhất 1 căn (tên, diện tích, giá).'
+    }
+    for (let i = 0; i < filled.length; i++) {
+      const r = filled[i]
+      if (!r.unitName.trim()) return `Căn #${i + 1}: thiếu tên căn.`
+      if (!r.area.trim() || isNaN(parseFloat(r.area)) || parseFloat(r.area) <= 0)
+        return `Căn #${i + 1}: diện tích không hợp lệ.`
+      if (!r.price.trim() || isNaN(parseFloat(r.price)) || parseFloat(r.price) <= 0)
+        return `Căn #${i + 1}: giá không hợp lệ.`
+    }
     return null
+  }
+
+  const buildApartmentsPayload = (): CreateApartmentDto[] =>
+    apartments
+      .filter((r) => r.unitName.trim())
+      .map((r) => ({
+        unitName: r.unitName.trim(),
+        area: parseFloat(r.area) || 0,
+        price: parseFloat(r.price) || 0,
+      }))
+
+  const updateAptRow = (
+    index: number,
+    field: 'unitName' | 'area' | 'price',
+    value: string,
+  ) => {
+    setApartments((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -146,20 +163,22 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     setError('')
     setSubmitting(true)
     try {
+      const aptPayload = buildApartmentsPayload()
+      const areas = aptPayload.map((a) => a.area)
+      const prices = aptPayload.map((a) => a.price)
       const body: CreateHousingProjectRequestDto = {
         projectName: projectName.trim(),
         description: description.trim(),
         province: HCM_PROVINCE,
-        // Legacy district: lưu cùng tên phường/xã (v2 không còn quận)
         district: ward.trim(),
         street: street.trim() || undefined,
         ward: ward.trim() || undefined,
         address: [street.trim(), ward.trim(), HCM_PROVINCE].filter(Boolean).join(', '),
-        minPrice: parseFloat(minPrice) || 0,
-        maxPrice: parseFloat(maxPrice) || 0,
-        minArea: parseFloat(minArea) || 0,
-        maxArea: parseFloat(maxArea) || 0,
-        availableUnits: parseInt(availableUnits, 10) || 0,
+        minPrice: prices.length ? Math.min(...prices) : 0,
+        maxPrice: prices.length ? Math.max(...prices) : 0,
+        minArea: areas.length ? Math.min(...areas) : 0,
+        maxArea: areas.length ? Math.max(...areas) : 0,
+        availableUnits: aptPayload.length,
         decisionNumber: decisionNumber.trim() || undefined,
         approvalDate: approvalDate || undefined,
         depositAmount: depositAmount ? parseFloat(depositAmount) : undefined,
@@ -171,6 +190,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
         housingProjectStatusId,
         thumbnailFile: thumbnailFile ?? undefined,
         imagesFiles: imagesFiles.length > 0 ? imagesFiles : undefined,
+        apartments: aptPayload,
       }
       await housingProjectsApi.create(body)
       await onCreated?.()
@@ -339,75 +359,90 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
           {step === 'pricing' && (
             <>
               <SectionCard
-                icon={Banknote}
-                title="Giá & Diện tích"
-                subtitle="Khoảng giá và khoảng diện tích dự kiến"
+                icon={Home}
+                title="Danh sách căn"
+                subtitle="Mỗi dòng = một căn cụ thể (tên, diện tích, giá). Giá / số căn trống được tính từ danh sách này."
               >
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <Field label="Giá tối thiểu" suffix="VNĐ">
-                    <input
-                      className={`${inputClass} pr-12`}
-                      type="number"
-                      min="0"
-                      value={minPrice}
-                      onChange={(e) => setMinPrice(e.target.value)}
-                      placeholder="0"
-                      disabled={submitting}
-                    />
-                  </Field>
-                  <Field label="Giá tối đa" suffix="VNĐ">
-                    <input
-                      className={`${inputClass} pr-12`}
-                      type="number"
-                      min="0"
-                      value={maxPrice}
-                      onChange={(e) => setMaxPrice(e.target.value)}
-                      placeholder="0"
-                      disabled={submitting}
-                    />
-                  </Field>
-                  <Field label="Diện tích min" suffix="m²">
-                    <input
-                      className={`${inputClass} pr-10`}
-                      type="number"
-                      min="0"
-                      value={minArea}
-                      onChange={(e) => setMinArea(e.target.value)}
-                      placeholder="0"
-                      disabled={submitting}
-                    />
-                  </Field>
-                  <Field label="Diện tích max" suffix="m²">
-                    <input
-                      className={`${inputClass} pr-10`}
-                      type="number"
-                      min="0"
-                      value={maxArea}
-                      onChange={(e) => setMaxArea(e.target.value)}
-                      placeholder="0"
-                      disabled={submitting}
-                    />
-                  </Field>
+                <div className="space-y-3">
+                  {apartments.map((row, idx) => (
+                    <div
+                      key={idx}
+                      className="grid gap-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700 sm:grid-cols-12"
+                    >
+                      <div className="sm:col-span-4">
+                        <label className="mb-1 block text-xs font-medium text-slate-500">Tên căn</label>
+                        <input
+                          className={inputClass}
+                          value={row.unitName}
+                          onChange={(e) => updateAptRow(idx, 'unitName', e.target.value)}
+                          placeholder="VD: A-101"
+                          disabled={submitting}
+                        />
+                      </div>
+                      <div className="sm:col-span-3">
+                        <label className="mb-1 block text-xs font-medium text-slate-500">Diện tích (m²)</label>
+                        <input
+                          className={inputClass}
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={row.area}
+                          onChange={(e) => updateAptRow(idx, 'area', e.target.value)}
+                          placeholder="38.5"
+                          disabled={submitting}
+                        />
+                      </div>
+                      <div className="sm:col-span-3">
+                        <label className="mb-1 block text-xs font-medium text-slate-500">Giá (VNĐ)</label>
+                        <input
+                          className={inputClass}
+                          type="number"
+                          min="0"
+                          value={row.price}
+                          onChange={(e) => updateAptRow(idx, 'price', e.target.value)}
+                          placeholder="720000000"
+                          disabled={submitting}
+                        />
+                      </div>
+                      <div className="flex items-end sm:col-span-2">
+                        <button
+                          type="button"
+                          className="inline-flex w-full items-center justify-center gap-1 rounded-xl border border-rose-200 px-3 py-2.5 text-sm text-rose-600 hover:bg-rose-50 disabled:opacity-40 dark:border-rose-900 dark:hover:bg-rose-950/40"
+                          disabled={submitting || apartments.length <= 1}
+                          onClick={() =>
+                            setApartments((prev) => prev.filter((_, i) => i !== idx))
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" /> Xóa
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                    disabled={submitting}
+                    onClick={() =>
+                      setApartments((prev) => [
+                        ...prev,
+                        { unitName: '', area: '', price: '' },
+                      ])
+                    }
+                  >
+                    <Plus className="h-4 w-4" /> Thêm căn
+                  </button>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Số căn: <strong>{apartments.filter((r) => r.unitName.trim()).length}</strong>
+                  </p>
                 </div>
               </SectionCard>
 
               <SectionCard
                 icon={FileText}
                 title="Thông tin hồ sơ"
-                subtitle="Số căn, tiền cọc và trạng thái pháp lý"
+                subtitle="Tiền cọc và trạng thái pháp lý"
               >
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <Field label="Số căn còn trống">
-                    <input
-                      className={inputClass}
-                      type="number"
-                      min="0"
-                      value={availableUnits}
-                      onChange={(e) => setAvailableUnits(e.target.value)}
-                      placeholder="0"
-                      disabled={submitting}
-                    />
-                  </Field>
+                <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Tiền đặt cọc" suffix="VNĐ">
                     <input
                       className={`${inputClass} pr-12`}

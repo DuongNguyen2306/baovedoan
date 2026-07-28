@@ -113,6 +113,24 @@ export interface HousingProjectDto {
   createdAt?: string
   updatedAt?: string
   images?: { id: string; imageUrl: string; displayOrder: number }[]
+  apartments?: ApartmentDto[]
+}
+
+export interface CreateApartmentDto {
+  unitName: string
+  area: number
+  price: number
+  description?: string
+}
+
+export interface ApartmentDto {
+  id: string
+  unitName: string
+  area: number
+  price: number
+  /** AVAILABLE | ASSIGNED */
+  status: string
+  description?: string | null
 }
 
 export interface CreateHousingProjectRequestDto {
@@ -140,6 +158,8 @@ export interface CreateHousingProjectRequestDto {
   applicationOpenDate?: string
   applicationCloseDate?: string
   housingProjectStatusId: string
+  /** Danh sách căn cụ thể (tên / diện tích / giá) */
+  apartments?: CreateApartmentDto[]
 }
 
 export interface ProjectFilterDto {
@@ -291,6 +311,13 @@ export interface ApplicationDetailDto {
   receiptUrl?: string | null
   isViolation?: boolean
   violationReason?: string | null
+  slotCode?: string | null
+  lotteryResult?: string | null
+  apartmentId?: string | null
+  apartmentUnitName?: string | null
+  apartmentArea?: number | null
+  apartmentPrice?: number | null
+  apartmentStatus?: string | null
 }
 
 export interface ReviewRequestDto {

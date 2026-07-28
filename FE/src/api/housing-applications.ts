@@ -31,7 +31,34 @@ export function parsePagedApplications(data: unknown): ApplicationSummaryDto[] {
 
 export function parseApplicationDetail(data: unknown): ApplicationDetailDto | null {
   if (!data || typeof data !== 'object') return null
-  return data as ApplicationDetailDto
+  const root = data as Record<string, unknown>
+  const nested = root.data ?? root.Data
+  const o =
+    nested && typeof nested === 'object' && !Array.isArray(nested)
+      ? (nested as Record<string, unknown>)
+      : root
+  const app = o as unknown as ApplicationDetailDto
+  // Normalize apartment / lottery fields (camelCase + PascalCase)
+  const aptId = o.apartmentId ?? o.ApartmentId
+  const aptName = o.apartmentUnitName ?? o.ApartmentUnitName
+  const aptArea = o.apartmentArea ?? o.ApartmentArea
+  const aptPrice = o.apartmentPrice ?? o.ApartmentPrice
+  const aptStatus = o.apartmentStatus ?? o.ApartmentStatus
+  const slot = o.slotCode ?? o.SlotCode
+  const lottery = o.lotteryResult ?? o.LotteryResult
+  return {
+    ...app,
+    applicationId: String(o.applicationId ?? o.ApplicationId ?? app.applicationId ?? ''),
+    projectId: String(o.projectId ?? o.ProjectId ?? app.projectId ?? ''),
+    applicationStatus: String(o.applicationStatus ?? o.ApplicationStatus ?? app.applicationStatus ?? ''),
+    slotCode: slot != null ? String(slot) : app.slotCode,
+    lotteryResult: lottery != null ? String(lottery) : app.lotteryResult,
+    apartmentId: aptId != null && String(aptId) ? String(aptId) : null,
+    apartmentUnitName: aptName != null ? String(aptName) : null,
+    apartmentArea: aptArea != null && aptArea !== '' ? Number(aptArea) : null,
+    apartmentPrice: aptPrice != null && aptPrice !== '' ? Number(aptPrice) : null,
+    apartmentStatus: aptStatus != null ? String(aptStatus) : null,
+  }
 }
 
 export const housingApplicationsApi = {
@@ -120,6 +147,14 @@ export const housingApplicationsApi = {
   assign: (id: string) =>
     request<ApiResult>(`/api/housing-applications/${id}/assign`, {
       method: 'PATCH',
+      auth: true,
+    }),
+
+  /** CĐT/SXD bàn giao căn cụ thể → sinh lịch thanh toán đợt */
+  assignApartment: (id: string, apartmentId: string) =>
+    request<ApiResult>(`/api/housing-applications/${id}/assign-apartment`, {
+      method: 'POST',
+      body: JSON.stringify({ apartmentId }),
       auth: true,
     }),
 

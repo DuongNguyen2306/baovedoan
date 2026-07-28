@@ -56,8 +56,6 @@ export function depositAmount(minPrice: number): number {
 export function mapProjectToCard(p: HousingProjectDto): ProjectCard {
   const minPrice = p.minPrice ?? 0
   const maxPrice = p.maxPrice ?? minPrice
-  const minArea = p.minArea ?? 0
-  const maxArea = p.maxArea ?? minArea
   const location =
     p.location ||
     [p.district, p.province].filter(Boolean).join(', ') ||
@@ -71,7 +69,7 @@ export function mapProjectToCard(p: HousingProjectDto): ProjectCard {
     price: formatPriceRange(minPrice, maxPrice),
     units: `Còn ${p.availableUnits ?? 0} căn`,
     type: 'Nhà ở xã hội',
-    area: formatAreaRange(minArea, maxArea),
+    area: `${p.availableUnits ?? 0} căn`,
     status: labelProjectStatus(p.status),
     description: p.description || '',
     paymentAmount: depositAmount(minPrice),

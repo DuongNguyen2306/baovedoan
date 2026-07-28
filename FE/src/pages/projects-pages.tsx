@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Heart, MapPin, Plus, X } from 'lucide-react'
-import { housingProjectsApi } from '@/api/housing-projects'
+import { CheckCircle2, Heart, MapPin, Plus, Trash2, X } from 'lucide-react'
+import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
 import { CreateProjectModal } from '@/components/developer/create-project-modal'
 import { DeveloperDecisionPanel } from '@/components/developer-decision-panel'
@@ -32,7 +32,7 @@ import {
   toApiFilter,
   type HousingSearchFilter,
 } from '@/lib/housing-search'
-import type { CreateHousingProjectRequestDto, HousingProjectDto } from '@/types'
+import type { CreateApartmentDto, CreateHousingProjectRequestDto, HousingProjectDto } from '@/types'
 
 export function ProjectsPage() {
   const [all, setAll] = useState<HousingProjectDto[]>([])
@@ -172,6 +172,9 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
   const [submitting, setSubmitting] = useState(false)
   const [description, setDescription] = useState('')
   const [imagesFiles, setImagesFiles] = useState<File[]>([])
+  const [apartments, setApartments] = useState<
+    { unitName: string; area: string; price: string }[]
+  >([{ unitName: '', area: '', price: '' }])
 
   useEffect(() => {
     void housingProjectStatusesApi.list()
@@ -201,8 +204,6 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
       setDescription(p.description ?? '')
       set('minPrice', p.minPrice ?? 0)
       set('maxPrice', p.maxPrice ?? 0)
-      set('minArea', p.minArea ?? 0)
-      set('maxArea', p.maxArea ?? 0)
       set('availableUnits', p.availableUnits ?? 0)
       if (p.housingProjectStatusId) set('housingProjectStatusId', p.housingProjectStatusId)
       // load thêm các field mới
@@ -223,14 +224,33 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
         formEl.applicationOpenDate.value = String((p as Record<string, unknown>).applicationOpenDate).replace('Z', '')
       if (formEl.applicationCloseDate && (p as Record<string, unknown>).applicationCloseDate)
         formEl.applicationCloseDate.value = String((p as Record<string, unknown>).applicationCloseDate).replace('Z', '')
+
+      const units = parseApartments(data)
+      if (units.length > 0) {
+        setApartments(
+          units.map((t) => ({
+            unitName: t.unitName,
+            area: String(t.area || ''),
+            price: String(t.price || ''),
+          })),
+        )
+      }
     }).catch((err) => setMsg({ type: 'error', text: formatError(err) })).finally(() => setLoading(false))
   }, [projectId])
 
   const readBody = (fd: FormData): CreateHousingProjectRequestDto => {
     const thumb = fd.get('thumbnailFile')
-    // LocationFields (v2): select phường/xã nằm ở name="district" — đồng bộ District = Ward
     const wardName = String(fd.get('district') || fd.get('ward') || '').trim()
     const provinceName = String(fd.get('province') || '').trim() || 'Thành phố Hồ Chí Minh'
+    const aptPayload: CreateApartmentDto[] = apartments
+      .filter((r) => r.unitName.trim())
+      .map((r) => ({
+        unitName: r.unitName.trim(),
+        area: parseFloat(r.area) || 0,
+        price: parseFloat(r.price) || 0,
+      }))
+    const areas = aptPayload.map((a) => a.area)
+    const prices = aptPayload.map((a) => a.price)
     return {
       projectName: String(fd.get('projectName')),
       description,
@@ -239,11 +259,11 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
       street: String(fd.get('street')) || undefined,
       ward: wardName,
       address: String(fd.get('address')),
-      minPrice: parseFloat(String(fd.get('minPrice'))) || 0,
-      maxPrice: parseFloat(String(fd.get('maxPrice'))) || 0,
-      minArea: parseFloat(String(fd.get('minArea'))) || 0,
-      maxArea: parseFloat(String(fd.get('maxArea'))) || 0,
-      availableUnits: parseInt(String(fd.get('availableUnits')), 10) || 0,
+      minPrice: prices.length ? Math.min(...prices) : parseFloat(String(fd.get('minPrice'))) || 0,
+      maxPrice: prices.length ? Math.max(...prices) : parseFloat(String(fd.get('maxPrice'))) || 0,
+      minArea: areas.length ? Math.min(...areas) : 0,
+      maxArea: areas.length ? Math.max(...areas) : 0,
+      availableUnits: aptPayload.length || parseInt(String(fd.get('availableUnits')), 10) || 0,
       decisionNumber: String(fd.get('decisionNumber')) || undefined,
       approvalDate: String(fd.get('approvalDate')) || undefined,
       isConfirmed: fd.get('isConfirmed') === 'on',
@@ -255,6 +275,7 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
       housingProjectStatusId: String(fd.get('housingProjectStatusId')),
       thumbnailFile: thumb instanceof File && thumb.size > 0 ? thumb : undefined,
       imagesFiles: imagesFiles.length > 0 ? imagesFiles : undefined,
+      apartments: aptPayload.length > 0 ? aptPayload : undefined,
     }
   }
 
@@ -305,15 +326,84 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
         <Input id="street" name="street" placeholder="VD: 123 Nguyễn Trãi" />
       </FormField>
       <div className="grid gap-3 sm:grid-cols-2">
-        <FormField label="Giá tối thiểu (VNĐ)" htmlFor="minPrice"><Input id="minPrice" name="minPrice" type="number" required /></FormField>
-        <FormField label="Giá tối đa (VNĐ)" htmlFor="maxPrice"><Input id="maxPrice" name="maxPrice" type="number" required /></FormField>
-        <FormField label="Diện tích min (m²)" htmlFor="minArea"><Input id="minArea" name="minArea" type="number" required /></FormField>
-        <FormField label="Diện tích max (m²)" htmlFor="maxArea"><Input id="maxArea" name="maxArea" type="number" required /></FormField>
+        <FormField label="Giá tối thiểu (VNĐ)" htmlFor="minPrice"><Input id="minPrice" name="minPrice" type="number" /></FormField>
+        <FormField label="Giá tối đa (VNĐ)" htmlFor="maxPrice"><Input id="maxPrice" name="maxPrice" type="number" /></FormField>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <FormField label="Số căn còn trống" htmlFor="availableUnits"><Input id="availableUnits" name="availableUnits" type="number" required /></FormField>
+        <FormField label="Số căn còn trống" htmlFor="availableUnits"><Input id="availableUnits" name="availableUnits" type="number" /></FormField>
         <FormField label="Tiền đặt cọc (VNĐ)" htmlFor="depositAmount"><Input id="depositAmount" name="depositAmount" type="number" /></FormField>
       </div>
+
+      <div className="space-y-2 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Danh sách căn</h3>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setApartments((prev) => [
+                ...prev,
+                { unitName: '', area: '', price: '' },
+              ])
+            }
+          >
+            <Plus className="mr-1 h-3.5 w-3.5" /> Thêm căn
+          </Button>
+        </div>
+        <p className="text-xs text-slate-500">Tên căn · diện tích (m²) · giá (VNĐ). Cập nhật thay các căn còn trống; căn đã bàn giao được giữ.</p>
+        {apartments.map((row, idx) => (
+          <div key={idx} className="grid gap-2 sm:grid-cols-12">
+            <div className="sm:col-span-4">
+              <Input
+                placeholder="Tên căn (A-101)"
+                value={row.unitName}
+                onChange={(e) =>
+                  setApartments((prev) =>
+                    prev.map((r, i) => (i === idx ? { ...r, unitName: e.target.value } : r)),
+                  )
+                }
+              />
+            </div>
+            <div className="sm:col-span-3">
+              <Input
+                type="number"
+                placeholder="m²"
+                value={row.area}
+                onChange={(e) =>
+                  setApartments((prev) =>
+                    prev.map((r, i) => (i === idx ? { ...r, area: e.target.value } : r)),
+                  )
+                }
+              />
+            </div>
+            <div className="sm:col-span-3">
+              <Input
+                type="number"
+                placeholder="Giá VNĐ"
+                value={row.price}
+                onChange={(e) =>
+                  setApartments((prev) =>
+                    prev.map((r, i) => (i === idx ? { ...r, price: e.target.value } : r)),
+                  )
+                }
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-rose-600"
+                disabled={apartments.length <= 1}
+                onClick={() => setApartments((prev) => prev.filter((_, i) => i !== idx))}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <FormField label="Trạng thái dự án" htmlFor="housingProjectStatusId">
         <Select id="housingProjectStatusId" name="housingProjectStatusId" required>
           <option value="">{statuses.length ? 'Chọn trạng thái' : 'Đang tải...'}</option>
@@ -580,11 +670,42 @@ function ProjectDetailView({ projectId }: { projectId: string }) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <InfoItem label="Giá đề xuất (tối thiểu)" value={formatPrice(project.minPrice)} />
         <InfoItem label="Giá đề xuất (tối đa)" value={formatPrice(project.maxPrice)} />
-        <InfoItem label="Diện tích" value={`${project.minArea ?? 0} – ${project.maxArea ?? 0} m²`} />
         <InfoItem label="Số căn hộ trống" value={`${project.availableUnits ?? 0} căn`} />
         <InfoItem label="Mở thu nhận hồ sơ" value={formatWhen(openDate)} />
         <InfoItem label="Kết thúc thu nhận" value={formatWhen(closeDate)} />
       </div>
+
+      {(project.apartments?.length ?? 0) > 0 && (
+        <div>
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Danh sách căn
+          </h3>
+          <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">Tên căn</th>
+                  <th className="px-3 py-2 font-semibold">Diện tích</th>
+                  <th className="px-3 py-2 font-semibold">Giá</th>
+                  <th className="px-3 py-2 font-semibold">Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                {project.apartments!.map((apt) => (
+                  <tr key={apt.id} className="border-t border-slate-100 dark:border-slate-800">
+                    <td className="px-3 py-2 font-medium">{apt.unitName}</td>
+                    <td className="px-3 py-2">{apt.area} m²</td>
+                    <td className="px-3 py-2">{Number(apt.price).toLocaleString('vi-VN')} VNĐ</td>
+                    <td className="px-3 py-2">
+                      {String(apt.status).toUpperCase() === 'ASSIGNED' ? 'Đã bàn giao' : 'Còn trống'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {project.description && (
         <div>
