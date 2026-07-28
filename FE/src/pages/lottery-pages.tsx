@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Calendar, Play, Send, Sparkles, Trophy, Users } from 'lucide-react'
+import { Calendar, Play, Send, Trophy, Users } from 'lucide-react'
 import {
   lotteryApi,
   LOTTERY_STATUS_LABEL,
@@ -466,17 +466,25 @@ export function LotteryDetailPage() {
 
             {phase === 'not_scheduled' && (
               <>
-                <Alert variant="info">Bước 1: tạo lịch bốc thăm cho dự án. Sau đó chờ Sở phê duyệt.</Alert>
+                <Alert variant="info">
+                  Chỉ đề xuất lịch <strong>sau khi CĐT chốt vượt số căn</strong>. Nhập ngày giờ ONLINE cụ thể;
+                  Sở phê duyệt rồi hệ thống mới thông báo cho người dân.
+                </Alert>
                 <Button variant="accent" disabled={!!busy} onClick={openScheduleModal}>
-                  <Calendar className="mr-1.5 h-4 w-4" /> Lên lịch bốc thăm
+                  <Calendar className="mr-1.5 h-4 w-4" /> Đề xuất lịch bốc thăm
                 </Button>
               </>
             )}
 
             {phase === 'awaiting_approval' && (
-              <Alert variant="warning">
-                Đã gửi lịch — đang chờ <strong>Sở Xây dựng phê duyệt</strong>. CĐT không thao tác thêm ở bước này.
-              </Alert>
+              <>
+                <Alert variant="warning">
+                  Đã đề xuất lịch — đang chờ <strong>Sở phê duyệt</strong>. Có thể chỉnh lại trước khi Sở duyệt.
+                </Alert>
+                <Button variant="outline" disabled={!!busy} onClick={openScheduleModal}>
+                  <Calendar className="mr-1.5 h-4 w-4" /> Sửa đề xuất lịch
+                </Button>
+              </>
             )}
 
             {phase === 'ready_open_lobby' && (
@@ -550,21 +558,7 @@ export function LotteryDetailPage() {
               </>
             )}
 
-            {/* Batch chỉ khi đã duyệt — thu vào để không làm rối demo */}
-            {(phase === 'ready_open_lobby' || phase === 'waiting_lobby' || phase === 'live') && (
-              <details className="rounded-lg border border-dashed border-slate-300 p-2 text-sm dark:border-slate-600">
-                <summary className="cursor-pointer text-slate-500">Nâng cao (batch Đ38.2 — không dùng cho demo Live)</summary>
-                <Button
-                  className="mt-2"
-                  size="sm"
-                  variant="outline"
-                  disabled={!!busy}
-                  onClick={() => action('Chạy batch Đ38.2', () => lotteryApi.runLottery(projectId))}
-                >
-                  <Sparkles className="mr-1.5 h-4 w-4" /> Chạy batch
-                </Button>
-              </details>
-            )}
+            {/* Batch Đ38.2 đã khóa khỏi UI demo — chỉ dùng luồng Live sau khi Sở duyệt lịch. */}
           </div>
         )}
 
@@ -576,7 +570,7 @@ export function LotteryDetailPage() {
             </p>
 
             {phase === 'not_scheduled' && (
-              <Alert variant="info">Chưa có lịch — chờ Chủ đầu tư lên lịch bốc thăm.</Alert>
+              <Alert variant="info">Chưa có lịch — chờ Chủ đầu tư đề xuất lịch ONLINE sau khi chốt vượt số căn.</Alert>
             )}
 
             {phase === 'awaiting_approval' && (

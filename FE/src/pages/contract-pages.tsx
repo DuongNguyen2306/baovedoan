@@ -88,9 +88,18 @@ export function ContractsPage() {
           ? (res as { items: ApplicationSummaryDto[] }).items
           : []
       }
-      // Lọc hồ sơ đã DEPOSIT_PAID/CONTRACT_SIGNED trở đi
+      // Hồ sơ từ chờ ký → đã ký → đã đặt cọc (và các trạng thái thanh toán tiếp theo)
       const eligible = data.filter((a) =>
-        ['DEPOSIT_PAID', 'CONTRACT_SIGNED', 'CONTRACTING', 'PARTIALLY_PAID', 'PAID', 'FINALIZED'].includes(a.applicationStatus),
+        [
+          'CONTRACT_PENDING',
+          'CONTRACT_SIGNED',
+          'DEPOSIT_PAID',
+          'CONTRACTING',
+          'PARTIALLY_PAID',
+          'PAID',
+          'FINALIZED',
+          'FULLY_PAID',
+        ].includes(a.applicationStatus),
       )
       setApplications(eligible)
     } catch (err) {
@@ -107,12 +116,13 @@ export function ContractsPage() {
       <PageHeader routeId="contracts" />
       <PageCard className="p-6">
         <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
-          {loading ? 'Đang tải...' : `${applications.length} hồ sơ đủ điều kiện có hợp đồng`}
+          {loading ? 'Đang tải...' : `${applications.length} hồ sơ có hợp đồng (chờ ký / đã ký / đã đặt cọc)`}
         </p>
         {error && <Alert variant="error">{error}</Alert>}
         {!loading && applications.length === 0 && (
           <Alert variant="info">
-            Chưa có hồ sơ nào đủ điều kiện ký hợp đồng. Hồ sơ phải đạt trạng thái <strong>Đã đặt cọc</strong> trở đi.
+            Chưa có hồ sơ nào ở bước hợp đồng. Hồ sơ xuất hiện khi CĐT chốt suất hoặc trúng bốc thăm
+            (<strong> chờ ký</strong> → ký → đặt cọc).
           </Alert>
         )}
         <div className="grid gap-3">

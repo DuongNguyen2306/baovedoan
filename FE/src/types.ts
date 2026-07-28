@@ -233,6 +233,7 @@ export interface ApplicationSummaryDto {
   applicationStatus: string
   createdAt: string
   submittedAt: string
+  updatedAt?: string | null
   finalDecisionDate?: string | null
   housingStatus: string
   estimatedMonthlyIncome: number

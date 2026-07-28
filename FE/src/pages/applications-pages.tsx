@@ -288,7 +288,7 @@ export function ApplicationsPage() {
         ) : (
           <div className="grid gap-3">
             {apps.map((app) => {
-              const depositCd = formatDepositCountdown(app.applicationStatus, app.finalDecisionDate)
+              const depositCd = formatDepositCountdown(app.applicationStatus, app.updatedAt)
               return (
               <button
                 key={app.applicationId}
@@ -479,7 +479,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
     app.applicationStatus === 'PENDING_SXD_REVIEW'
       ? formatSxdCountdown(app.submittedAt || app.createdAt)
       : null
-  const depositCountdown = formatDepositCountdown(app.applicationStatus, app.finalDecisionDate)
+  const depositCountdown = formatDepositCountdown(app.applicationStatus, app.updatedAt)
   const pdfDoc = (app.documents ?? []).find((d) => d.fileUrl?.toLowerCase().includes('.pdf') || d.fileName?.toLowerCase().endsWith('.pdf'))
   const isStaff = role === 'Housing Developer' || role === 'Department Of Construction'
 
@@ -499,14 +499,11 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
       )}
       {role === 'Applicant' && depositCountdown && (
         <Alert variant={depositCountdown.isOverdue ? 'error' : 'warning'}>
-          <strong>Hạn xử lý sau duyệt ({depositCountdown.hoursLimit} giờ).</strong>{' '}
+          <strong>Hạn đặt cọc ({depositCountdown.daysLimit} ngày sau khi ký).</strong>{' '}
           {depositCountdown.isOverdue
-            ? <>Đã quá hạn theo mốc duyệt — tải lại trang để xem trạng thái mới nhất từ hệ thống.</>
+            ? <>Đã quá hạn đặt cọc — tải lại trang để xem trạng thái mới nhất từ hệ thống.</>
             : <>Còn lại: <strong>{depositCountdown.label}</strong></>}
           {' · '}đến {depositCountdown.deadline.toLocaleString('vi-VN')}
-          {app.finalDecisionDate && (
-            <> · duyệt lúc {new Date(app.finalDecisionDate).toLocaleString('vi-VN')}</>
-          )}
         </Alert>
       )}
       {role === 'Applicant' && app.applicationStatus === 'CONTRACT_PENDING' && (

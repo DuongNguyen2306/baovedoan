@@ -115,8 +115,12 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
       } else {
         setMsg({
           type: 'success',
-          text: 'Đã duyệt ưu tiên sang ký hợp đồng. Hồ sơ còn lại sẵn sàng cho bốc thăm.',
+          text: 'Đã duyệt ưu tiên sang ký hợp đồng. Hồ sơ còn lại sẵn sàng cho bốc thăm — chuyển sang đề xuất lịch.',
         })
+        sessionStorage.setItem('lotteryProjectId', projectId)
+        sessionStorage.setItem('projectId', projectId)
+        window.setTimeout(() => navigate('lottery-detail'), 800)
+        return
       }
       await load()
     } catch (err) {
