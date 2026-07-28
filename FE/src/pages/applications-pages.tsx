@@ -44,12 +44,12 @@ export function ApplicationsPage() {
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<string>(() => {
-    if (typeof window === 'undefined') return isDeveloper ? 'SUBMITTED' : ''
+    if (typeof window === 'undefined') return ''
     const hash = window.location.hash.replace(/^#\/?/, '')
     const qIdx = hash.indexOf('?')
-    if (qIdx < 0) return isDeveloper ? 'SUBMITTED' : ''
+    if (qIdx < 0) return ''
     const params = new URLSearchParams(hash.slice(qIdx + 1))
-    return params.get('status') ?? (isDeveloper ? 'SUBMITTED' : '')
+    return params.get('status') ?? ''
   })
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkSending, setBulkSending] = useState(false)
@@ -269,16 +269,33 @@ export function ApplicationsPage() {
                         </td>
                       )}
                       <td className="px-3 py-2 text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            sessionStorage.setItem('applicationId', app.applicationId)
-                            navigate('application-detail')
-                          }}
-                        >
-                          Chi tiết
-                        </Button>
+                        <div className="flex flex-wrap items-center justify-end gap-1">
+                          {isDeveloper &&
+                            (app.applicationStatus === 'APPROVED' ||
+                              app.applicationStatus === 'APPROVED_BY_TIMEOUT') &&
+                            app.projectId && (
+                              <Button
+                                size="sm"
+                                variant="accent"
+                                onClick={() => {
+                                  sessionStorage.setItem('projectId', app.projectId)
+                                  navigate('project-detail')
+                                }}
+                              >
+                                Cấp căn
+                              </Button>
+                            )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              sessionStorage.setItem('applicationId', app.applicationId)
+                              navigate('application-detail')
+                            }}
+                          >
+                            Chi tiết
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   )

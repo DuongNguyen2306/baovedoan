@@ -22,11 +22,45 @@ function buildQuery(filter: ApplicationFilterDto = {}): string {
   return q ? `?${q}` : ''
 }
 
+function str(v: unknown): string {
+  return v == null ? '' : String(v)
+}
+
+/** Normalize list/dashboard items so web always gets applicantFullName + citizenId. */
 export function parsePagedApplications(data: unknown): ApplicationSummaryDto[] {
   if (!data || typeof data !== 'object') return []
   const o = data as Record<string, unknown>
   const items = o.items ?? o.Items
-  return Array.isArray(items) ? (items as ApplicationSummaryDto[]) : []
+  if (!Array.isArray(items)) return []
+  return items.map((raw) => {
+    const x = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+    const fullName =
+      str(x.applicantFullName) ||
+      str(x.ApplicantFullName) ||
+      str(x.applicantName) ||
+      str(x.ApplicantName) ||
+      str(x.fullName) ||
+      str(x.FullName)
+    return {
+      ...(x as unknown as ApplicationSummaryDto),
+      applicationId: str(x.applicationId ?? x.ApplicationId),
+      projectId: str(x.projectId ?? x.ProjectId),
+      projectName: str(x.projectName ?? x.ProjectName),
+      applicantId: str(x.applicantId ?? x.ApplicantId),
+      applicantFullName: fullName,
+      citizenId: str(x.citizenId ?? x.CitizenId),
+      applicationStatus: str(x.applicationStatus ?? x.ApplicationStatus),
+      createdAt: str(x.createdAt ?? x.CreatedAt),
+      submittedAt: str(x.submittedAt ?? x.SubmittedAt),
+      updatedAt: (x.updatedAt ?? x.UpdatedAt) as string | null | undefined,
+      housingStatus: str(x.housingStatus ?? x.HousingStatus),
+      estimatedMonthlyIncome: Number(x.estimatedMonthlyIncome ?? x.EstimatedMonthlyIncome ?? 0),
+      documentCount: Number(x.documentCount ?? x.DocumentCount ?? 0),
+      receiptUrl: (x.receiptUrl ?? x.ReceiptUrl) as string | null | undefined,
+      isViolation: Boolean(x.isViolation ?? x.IsViolation ?? false),
+      violationReason: (x.violationReason ?? x.ViolationReason) as string | null | undefined,
+    }
+  })
 }
 
 export function parseApplicationDetail(data: unknown): ApplicationDetailDto | null {

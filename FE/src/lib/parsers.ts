@@ -1,3 +1,4 @@
+import { parsePagedApplications } from '@/api/housing-applications'
 import { labelProjectStatus } from '@/lib/labels'
 import type { ApartmentDto, ApplicationSummaryDto, HousingProjectDto, WishlistItemDto } from '@/types'
 
@@ -140,8 +141,6 @@ export function parseProfile(data: unknown): Record<string, unknown> | null {
 }
 
 export function appSummaries(data: unknown): ApplicationSummaryDto[] {
-  if (!data || typeof data !== 'object') return []
-  const o = data as Record<string, unknown>
-  const items = o.items ?? o.Items
-  return Array.isArray(items) ? (items as ApplicationSummaryDto[]) : []
+  // Reuse dashboard-aware parser (applicantName → applicantFullName, citizenId, …)
+  return parsePagedApplications(data)
 }
