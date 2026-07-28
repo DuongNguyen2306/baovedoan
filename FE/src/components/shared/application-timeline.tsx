@@ -6,23 +6,28 @@ const PIPELINE = [
   'REVIEWING',
   'PENDING_SXD_REVIEW',
   'APPROVED',
+  'CONTRACT_PENDING',
+  'CONTRACT_SIGNED',
+  'DEPOSIT_PAID',
 ] as const
 
 const TERMINAL_FAIL = new Set(['REJECTED', 'CANCELED', 'EXPIRED', 'LOTTERY_LOST'])
-const APPROVED_ALIASES = new Set(['APPROVED', 'APPROVED_BY_TIMEOUT', 'DEPOSIT_PAID', 'CONTRACT_SIGNED'])
+/** Trạng thái đã hoàn tất toàn bộ pipeline (đánh dấu hết bước ✓). */
+const TERMINAL_SUCCESS = new Set(['DEPOSIT_PAID', 'FULLY_PAID'])
+/** Map alias → bước pipeline tương ứng. */
+const STATUS_ALIAS: Record<string, (typeof PIPELINE)[number]> = {
+  NEED_MORE_DOCUMENTS: 'SUBMITTED',
+  APPROVED_BY_TIMEOUT: 'APPROVED',
+  FULLY_PAID: 'DEPOSIT_PAID',
+}
 
 function stepLabel(code: string) {
   return APPLICATION_STATUS[code]?.label ?? code
 }
 
 function resolveIndex(status: string): number {
-  if (status === 'NEED_MORE_DOCUMENTS') return 1 // back near SUBMITTED
-  if (APPROVED_ALIASES.has(status)) return PIPELINE.indexOf('APPROVED')
-  if (TERMINAL_FAIL.has(status)) {
-    const i = PIPELINE.indexOf(status as (typeof PIPELINE)[number])
-    return i >= 0 ? i : Math.max(0, PIPELINE.indexOf('SUBMITTED'))
-  }
-  const idx = PIPELINE.indexOf(status as (typeof PIPELINE)[number])
+  const mapped = STATUS_ALIAS[status] ?? status
+  const idx = PIPELINE.indexOf(mapped as (typeof PIPELINE)[number])
   return idx >= 0 ? idx : 0
 }
 
@@ -35,7 +40,7 @@ export function ApplicationTimeline({
   const currentIdx = resolveIndex(currentStatus)
   const isNeedMore = currentStatus === 'NEED_MORE_DOCUMENTS'
   const isFailed = TERMINAL_FAIL.has(currentStatus)
-  const isApproved = APPROVED_ALIASES.has(currentStatus)
+  const isComplete = TERMINAL_SUCCESS.has(currentStatus)
 
   return (
     <div className="space-y-3">
@@ -52,8 +57,8 @@ export function ApplicationTimeline({
 
       <ol className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-1">
         {PIPELINE.map((code, idx) => {
-          const done = !isFailed && (isApproved ? true : idx < currentIdx)
-          const active = !isFailed && !isApproved && idx === currentIdx
+          const done = !isFailed && (idx < currentIdx || (isComplete && idx <= currentIdx))
+          const active = !isFailed && !isComplete && idx === currentIdx
           const muted = isFailed || (!done && !active)
 
           return (
