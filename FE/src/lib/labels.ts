@@ -83,7 +83,7 @@ export const REVIEW_ACTION_VI: Record<string, string> = {
   SUBMIT: 'Nộp hồ sơ',
   SAVE_DRAFT: 'Lưu nháp',
   PAYMENT_TIMEOUT: 'Hết hạn thanh toán',
-  DEPOSIT_PAYMENT: 'Thanh toán đặt cọc',
+  DEPOSIT_PAYMENT: 'Thanh toán Đợt 1',
   CANCEL: 'Tự hủy',
   SUBMIT_TO_DEPARTMENT: 'Gửi Sở Xây dựng',
   TACIT_APPROVAL: 'Tự động phê duyệt (20 ngày)',

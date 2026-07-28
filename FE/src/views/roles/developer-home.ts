@@ -23,7 +23,7 @@ const STATUS: Record<string, string> = {
   NEED_MORE_DOCUMENTS: 'Cần bổ sung',
   PENDING_SXD_REVIEW: 'Chờ Sở Xây dựng',
   APPROVED: 'Đã phê duyệt',
-  DEPOSIT_PAID: 'Đã đặt cọc',
+  DEPOSIT_PAID: 'Đã TT Đợt 1',
   REJECTED: 'Từ chối',
   CANCELED: 'Đã hủy',
   EXPIRED: 'Hết hạn',

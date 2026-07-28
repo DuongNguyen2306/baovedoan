@@ -226,14 +226,19 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
         formEl.applicationCloseDate.value = String((p as Record<string, unknown>).applicationCloseDate).replace('Z', '')
 
       const units = parseApartments(data)
-      if (units.length > 0) {
+      const availableOnly = units.filter(
+        (t) => String(t.status || 'AVAILABLE').toUpperCase() === 'AVAILABLE',
+      )
+      if (availableOnly.length > 0) {
         setApartments(
-          units.map((t) => ({
+          availableOnly.map((t) => ({
             unitName: t.unitName,
             area: String(t.area || ''),
             price: String(t.price || ''),
           })),
         )
+      } else {
+        setApartments([{ unitName: '', area: '', price: '' }])
       }
     }).catch((err) => setMsg({ type: 'error', text: formatError(err) })).finally(() => setLoading(false))
   }, [projectId])
@@ -331,7 +336,7 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <FormField label="Số căn còn trống" htmlFor="availableUnits"><Input id="availableUnits" name="availableUnits" type="number" /></FormField>
-        <FormField label="Tiền đặt cọc (VNĐ)" htmlFor="depositAmount"><Input id="depositAmount" name="depositAmount" type="number" /></FormField>
+        <FormField label="Số tiền Đợt 1 (VNĐ)" htmlFor="depositAmount"><Input id="depositAmount" name="depositAmount" type="number" /></FormField>
       </div>
 
       <div className="space-y-2 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
@@ -351,7 +356,10 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
             <Plus className="mr-1 h-3.5 w-3.5" /> Thêm căn
           </Button>
         </div>
-        <p className="text-xs text-slate-500">Tên căn · diện tích (m²) · giá (VNĐ). Cập nhật thay các căn còn trống; căn đã bàn giao được giữ.</p>
+        <p className="text-xs text-slate-500">
+          Tên căn · diện tích (m²) · giá (VNĐ). Chỉ sửa căn còn trống; căn đã cấp (ASSIGNED) được giữ và không hiện ở đây.
+          Tổng suất chốt/bốc thăm = số căn trống (AVAILABLE).
+        </p>
         {apartments.map((row, idx) => (
           <div key={idx} className="grid gap-2 sm:grid-cols-12">
             <div className="sm:col-span-4">

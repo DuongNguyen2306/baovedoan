@@ -7,7 +7,7 @@ export const APPLICATION_STATUS: Record<string, { label: string; variant: 'defau
   APPROVED: { label: 'Đã phê duyệt', variant: 'success' },
   APPROVED_BY_TIMEOUT: { label: 'Duyệt quá hạn', variant: 'success' },
   CONTRACT_SIGNED: { label: 'Đã ký hợp đồng', variant: 'success' },
-  DEPOSIT_PAID: { label: 'Đã đặt cọc', variant: 'success' },
+  DEPOSIT_PAID: { label: 'Đã thanh toán Đợt 1', variant: 'success' },
   REJECTED: { label: 'Từ chối', variant: 'danger' },
   CANCELED: { label: 'Đã hủy', variant: 'secondary' },
   EXPIRED: { label: 'Hết hạn', variant: 'danger' },

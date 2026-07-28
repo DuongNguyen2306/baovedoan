@@ -308,7 +308,7 @@ export function ApplicationsPage() {
                 <p className="text-xs text-slate-400 dark:text-slate-500">{app.documentCount} tài liệu · {new Date(app.createdAt).toLocaleDateString('vi-VN')}</p>
                 {depositCd && (
                   <p className={`mt-1 text-xs font-semibold ${depositCd.isOverdue ? 'text-rose-600' : 'text-amber-700'}`}>
-                    Hạn đặt cọc ({depositCd.hoursLimit}h từ duyệt): {depositCd.label}
+                    Hạn Đợt 1 ({depositCd.hoursLimit}h từ duyệt): {depositCd.label}
                     {' · '}đến {depositCd.deadline.toLocaleString('vi-VN')}
                   </p>
                 )}
@@ -545,15 +545,15 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
       {role === 'Applicant' && ['APPROVED', 'APPROVED_BY_TIMEOUT'].includes(app.applicationStatus) && (
         <Alert variant="info">
           <strong>Hồ sơ đã được Sở duyệt.</strong> Tiếp theo cần qua bốc thăm / chốt danh sách → ký{' '}
-          <strong>hợp đồng mua bán nhà ở xã hội</strong> → rồi mới đặt cọc VNPay. Trạng thái cần để thanh toán:{' '}
+          <strong>hợp đồng mua bán nhà ở xã hội</strong> → rồi thanh toán Đợt 1 qua VNPay. Trạng thái cần để thanh toán:{' '}
           <code>CONTRACT_SIGNED</code>.
         </Alert>
       )}
       {role === 'Applicant' && depositCountdown && (
         <Alert variant={depositCountdown.isOverdue ? 'error' : 'warning'}>
-          <strong>Hạn đặt cọc ({depositCountdown.daysLimit} ngày sau khi ký).</strong>{' '}
+          <strong>Hạn thanh toán Đợt 1 ({depositCountdown.daysLimit} ngày sau khi ký).</strong>{' '}
           {depositCountdown.isOverdue
-            ? <>Đã quá hạn đặt cọc — tải lại trang để xem trạng thái mới nhất từ hệ thống.</>
+            ? <>Đã quá hạn Đợt 1 — tải lại trang để xem trạng thái mới nhất từ hệ thống.</>
             : <>Còn lại: <strong>{depositCountdown.label}</strong></>}
           {' · '}đến {depositCountdown.deadline.toLocaleString('vi-VN')}
         </Alert>
@@ -561,12 +561,12 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
       {role === 'Applicant' && app.applicationStatus === 'CONTRACT_PENDING' && (
         <Alert variant="info">
           <strong>Chờ ký hợp đồng mua bán nhà ở xã hội.</strong> Vào mục <strong>Hợp đồng</strong> để xem và ký,
-          sau đó mới đặt cọc được.
+          sau đó mới thanh toán Đợt 1 được.
         </Alert>
       )}
       {role === 'Applicant' && app.applicationStatus === 'CONTRACT_SIGNED' && (
         <Alert variant="info">
-          <strong>Đã ký hợp đồng mua bán nhà ở xã hội.</strong> Vui lòng đặt cọc qua VNPay.
+          <strong>Đã ký hợp đồng mua bán nhà ở xã hội.</strong> Vui lòng thanh toán Đợt 1 qua VNPay.
           Thẻ sandbox: NCB · <code>9704198526191432198</code> · hết hạn <code>07/15</code> · OTP <code>123456</code>.
         </Alert>
       )}
@@ -611,7 +611,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
 
       {(isStaff || app.apartmentId) && (
         <div className="glass-card space-y-3 p-4">
-          <h3 className="font-semibold">Căn được bàn giao</h3>
+          <h3 className="font-semibold">Căn được cấp (trước khi ký HĐ)</h3>
           {app.apartmentId ? (
             <>
               <DetailRow label="Tên căn" value={app.apartmentUnitName || '—'} />
@@ -631,7 +631,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                 label="Trạng thái căn"
                 value={
                   String(app.apartmentStatus || '').toUpperCase() === 'ASSIGNED'
-                    ? 'Đã bàn giao'
+                    ? 'Đã cấp / bàn giao trên hệ thống'
                     : app.apartmentStatus || '—'
                 }
               />
@@ -644,7 +644,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
               app.lotteryResult === 'PRIORITY_WON') ? (
             <>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Chọn căn còn trống trong dự án để chốt giá và sinh lịch thanh toán đợt 1/2.
+                Hồ sơ đã trúng / chờ ký nhưng chưa có căn — chọn căn trống để người dân ký HĐ đủ thông tin.
               </p>
               <FormField label="Căn hộ" htmlFor="assign-apartment">
                 <Select
@@ -848,7 +848,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
               }
             }}
           >
-            {acting === 'pay' ? 'Đang chờ thanh toán…' : 'Đặt cọc / Tiếp tục VNPay'}
+            {acting === 'pay' ? 'Đang chờ thanh toán…' : 'Thanh toán Đợt 1 / VNPay'}
           </Button>
         )}
         {role === 'Applicant' && app.applicationStatus === 'DEPOSIT_PAID' && (

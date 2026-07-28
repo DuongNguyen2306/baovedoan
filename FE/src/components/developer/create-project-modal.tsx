@@ -440,20 +440,23 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
               <SectionCard
                 icon={FileText}
                 title="Thông tin hồ sơ"
-                subtitle="Tiền cọc và trạng thái pháp lý"
+                subtitle="Đợt 1 sau ký HĐ và trạng thái pháp lý"
               >
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Tiền đặt cọc" suffix="VNĐ">
+                  <Field label="Số tiền Đợt 1" suffix="VNĐ">
                     <input
                       className={`${inputClass} pr-12`}
                       type="number"
                       min="0"
                       value={depositAmount}
                       onChange={(e) => setDepositAmount(e.target.value)}
-                      placeholder="0"
+                      placeholder="50000000"
                       disabled={submitting}
                     />
                   </Field>
+                  <p className="sm:col-span-2 text-xs text-slate-500 dark:text-slate-400">
+                    Đợt 1 là lần thanh toán cố định sau khi ký HĐ (API field DepositAmount). Đợt 2/3 theo % giá căn.
+                  </p>
                   <Field label="Trạng thái" required>
                     <select
                       className={inputClass}

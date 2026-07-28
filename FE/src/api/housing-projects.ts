@@ -26,6 +26,8 @@ export type DeveloperDecisionType =
 export interface DeveloperWorkflowDecisionRequestDto {
   decisionType: DeveloperDecisionType
   selectedPriorityApplicationIds?: string[]
+  /** Gán căn khi chốt / duyệt ưu tiên — bắt buộc với CLOSE_AND_SIGN & PROCESS_PRIORITY_AND_LOTTERY */
+  apartmentAssignments?: { applicationId: string; apartmentId: string }[]
   closeProject?: boolean
 }
 

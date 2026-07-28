@@ -116,13 +116,13 @@ export function ContractsPage() {
       <PageHeader routeId="contracts" />
       <PageCard className="p-6">
         <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
-          {loading ? 'Đang tải...' : `${applications.length} hồ sơ có hợp đồng (chờ ký / đã ký / đã đặt cọc)`}
+          {loading ? 'Đang tải...' : `${applications.length} hồ sơ có hợp đồng (chờ ký / đã ký / đã TT Đợt 1)`}
         </p>
         {error && <Alert variant="error">{error}</Alert>}
         {!loading && applications.length === 0 && (
           <Alert variant="info">
             Chưa có hồ sơ nào ở bước hợp đồng. Hồ sơ xuất hiện khi CĐT chốt suất hoặc trúng bốc thăm
-            (<strong> chờ ký</strong> → ký → đặt cọc).
+            (<strong> chờ ký</strong> → ký → thanh toán Đợt 1).
           </Alert>
         )}
         <div className="grid gap-3">

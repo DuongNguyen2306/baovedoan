@@ -74,7 +74,7 @@ function statusLabel(s: string): string {
     NEED_MORE_DOCUMENTS: 'Cần bổ sung',
     PENDING_SXD_REVIEW: 'Chờ SXD',
     APPROVED: 'Đã duyệt',
-    DEPOSIT_PAID: 'Đã cọc',
+    DEPOSIT_PAID: 'Đã TT Đợt 1',
     REJECTED: 'Từ chối',
     CANCELED: 'Đã hủy',
     EXPIRED: 'Hết hạn',
