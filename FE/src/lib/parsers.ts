@@ -62,6 +62,7 @@ function readProjectRow(p: Record<string, unknown>): HousingProjectDto {
     minArea: Number(p.minArea ?? p.MinArea ?? 0),
     maxArea: Number(p.maxArea ?? p.MaxArea ?? 0),
     availableUnits: Number(p.availableUnits ?? p.AvailableUnits ?? 0),
+    phase1Percentage: Number(p.phase1Percentage ?? p.Phase1Percentage ?? 0) || undefined,
     housingProjectStatusId: String(
       p.housingProjectStatusId ?? p.HousingProjectStatusId ?? '',
     ) || undefined,

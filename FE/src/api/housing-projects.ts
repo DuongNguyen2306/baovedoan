@@ -88,7 +88,7 @@ function toFormData(body: CreateHousingProjectRequestDto): FormData {
   if (body.decisionNumber) fd.append('DecisionNumber', body.decisionNumber)
   if (body.approvalDate) fd.append('ApprovalDate', body.approvalDate)
   if (body.isConfirmed !== undefined) fd.append('IsConfirmed', String(body.isConfirmed))
-  if (body.depositAmount !== undefined) fd.append('DepositAmount', String(body.depositAmount))
+  fd.append('Phase1Percentage', String(body.phase1Percentage ?? ''))
   if (body.lotteryDate) fd.append('LotteryDate', body.lotteryDate)
   if (body.lotteryLocation) fd.append('LotteryLocation', body.lotteryLocation)
   if (body.applicationOpenDate) fd.append('ApplicationOpenDate', body.applicationOpenDate)

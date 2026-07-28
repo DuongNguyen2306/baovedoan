@@ -205,6 +205,10 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
       set('minPrice', p.minPrice ?? 0)
       set('maxPrice', p.maxPrice ?? 0)
       set('availableUnits', p.availableUnits ?? 0)
+      set(
+        'phase1Percentage',
+        p.phase1Percentage ?? 20,
+      )
       if (p.housingProjectStatusId) set('housingProjectStatusId', p.housingProjectStatusId)
       // load thêm các field mới
       const formEl = form as HTMLFormElement & Record<string, HTMLInputElement>
@@ -214,8 +218,6 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
         formEl.approvalDate.value = String((p as Record<string, unknown>).approvalDate).split('T')[0]
       if (formEl.isConfirmed)
         formEl.isConfirmed.checked = Boolean((p as Record<string, unknown>).isConfirmed)
-      if (formEl.depositAmount && (p as Record<string, unknown>).depositAmount)
-        formEl.depositAmount.value = String((p as Record<string, unknown>).depositAmount)
       if (formEl.lotteryDate && (p as Record<string, unknown>).lotteryDate)
         formEl.lotteryDate.value = String((p as Record<string, unknown>).lotteryDate).replace('Z', '')
       if (formEl.lotteryLocation && (p as Record<string, unknown>).lotteryLocation)
@@ -272,7 +274,13 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
       decisionNumber: String(fd.get('decisionNumber')) || undefined,
       approvalDate: String(fd.get('approvalDate')) || undefined,
       isConfirmed: fd.get('isConfirmed') === 'on',
-      depositAmount: parseFloat(String(fd.get('depositAmount'))) || undefined,
+      phase1Percentage: (() => {
+        const v = parseFloat(String(fd.get('phase1Percentage')))
+        if (!Number.isFinite(v) || v <= 0 || v > 30) {
+          throw new Error('Vui lòng nhập tỉ lệ trả trước Đợt 1 (lớn hơn 0 và ≤ 30%).')
+        }
+        return v
+      })(),
       lotteryDate: String(fd.get('lotteryDate')) || undefined,
       lotteryLocation: String(fd.get('lotteryLocation')) || undefined,
       applicationOpenDate: String(fd.get('applicationOpenDate')) || undefined,
@@ -336,8 +344,22 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <FormField label="Số căn còn trống" htmlFor="availableUnits"><Input id="availableUnits" name="availableUnits" type="number" /></FormField>
-        <FormField label="Số tiền Đợt 1 (VNĐ)" htmlFor="depositAmount"><Input id="depositAmount" name="depositAmount" type="number" /></FormField>
+        <FormField label="Trả trước Đợt 1 (%)" htmlFor="phase1Percentage">
+          <Input
+            id="phase1Percentage"
+            name="phase1Percentage"
+            type="number"
+            min={0.01}
+            max={30}
+            step={0.01}
+            required
+            placeholder="VD: 20"
+          />
+        </FormField>
       </div>
+      <p className="text-xs text-slate-500">
+        Bắt buộc — công bố cho người dân tỉ lệ trả trước sau ký HĐ (tối đa 30%). Đợt 2 = phần còn lại.
+      </p>
 
       <div className="space-y-2 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
         <div className="flex items-center justify-between gap-2">
@@ -679,6 +701,14 @@ function ProjectDetailView({ projectId }: { projectId: string }) {
         <InfoItem label="Giá đề xuất (tối thiểu)" value={formatPrice(project.minPrice)} />
         <InfoItem label="Giá đề xuất (tối đa)" value={formatPrice(project.maxPrice)} />
         <InfoItem label="Số căn hộ trống" value={`${project.availableUnits ?? 0} căn`} />
+        <InfoItem
+          label="Trả trước (Đợt 1)"
+          value={
+            project.phase1Percentage != null && project.phase1Percentage > 0
+              ? `${project.phase1Percentage}% giá căn — Đợt 2 = phần còn lại`
+              : 'Chưa cấu hình'
+          }
+        />
         <InfoItem label="Mở thu nhận hồ sơ" value={formatWhen(openDate)} />
         <InfoItem label="Kết thúc thu nhận" value={formatWhen(closeDate)} />
       </div>

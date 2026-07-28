@@ -104,6 +104,8 @@ export interface HousingProjectDto {
   minArea?: number
   maxArea?: number
   availableUnits?: number
+  /** Tỉ lệ Đợt 1 (% giá căn), tối đa 30; Đợt 2 = phần còn lại */
+  phase1Percentage?: number
   thumbnailUrl?: string
   imageUrl?: string
   status?: string
@@ -152,7 +154,8 @@ export interface CreateHousingProjectRequestDto {
   decisionNumber?: string
   approvalDate?: string
   isConfirmed?: boolean
-  depositAmount?: number
+  /** Tỉ lệ Đợt 1 (% giá căn), mặc định 20, tối đa 30. Đợt 2 = phần còn lại. */
+  phase1Percentage?: number
   lotteryDate?: string
   lotteryLocation?: string
   applicationOpenDate?: string

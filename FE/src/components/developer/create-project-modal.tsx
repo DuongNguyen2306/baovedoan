@@ -56,7 +56,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
   const [wards, setWards] = useState<string[]>([])
   const [decisionNumber, setDecisionNumber] = useState('')
   const [approvalDate, setApprovalDate] = useState('')
-  const [depositAmount, setDepositAmount] = useState('')
+  const [phase1Percentage, setPhase1Percentage] = useState('')
   const [lotteryDate, setLotteryDate] = useState('')
   const [lotteryLocation, setLotteryLocation] = useState('')
   const [applicationOpenDate, setApplicationOpenDate] = useState('')
@@ -77,7 +77,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       setStreet('')
       setDecisionNumber('')
       setApprovalDate('')
-      setDepositAmount('')
+      setPhase1Percentage('')
       setLotteryDate('')
       setLotteryLocation('')
       setApplicationOpenDate('')
@@ -117,6 +117,10 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     if (projectName.trim().length < 5) return 'Tên dự án phải có ít nhất 5 ký tự.'
     if (!ward) return 'Vui lòng chọn phường/xã.'
     if (!housingProjectStatusId) return 'Vui lòng chọn trạng thái dự án.'
+    const p1 = parseFloat(phase1Percentage)
+    if (!Number.isFinite(p1) || p1 <= 0)
+      return 'Vui lòng nhập tỉ lệ trả trước Đợt 1 (% giá căn).'
+    if (p1 > 30) return 'Tỉ lệ trả trước Đợt 1 không được vượt 30%.'
 
     const filled = apartments.filter(
       (r) => r.unitName.trim() || r.area.trim() || r.price.trim(),
@@ -181,7 +185,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
         availableUnits: aptPayload.length,
         decisionNumber: decisionNumber.trim() || undefined,
         approvalDate: approvalDate || undefined,
-        depositAmount: depositAmount ? parseFloat(depositAmount) : undefined,
+        phase1Percentage: parseFloat(phase1Percentage),
         lotteryDate: lotteryDate || undefined,
         lotteryLocation: lotteryLocation.trim() || undefined,
         applicationOpenDate: applicationOpenDate || undefined,
@@ -440,22 +444,32 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
               <SectionCard
                 icon={FileText}
                 title="Thông tin hồ sơ"
-                subtitle="Đợt 1 sau ký HĐ và trạng thái pháp lý"
+                subtitle="Tỉ lệ trả trước Đợt 1 (bắt buộc, ≤ 30%) — người dân xem trên chi tiết dự án"
               >
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Số tiền Đợt 1" suffix="VNĐ">
+                  <Field label="Trả trước Đợt 1" suffix="%" required>
                     <input
-                      className={`${inputClass} pr-12`}
+                      className={`${inputClass} pr-10`}
                       type="number"
-                      min="0"
-                      value={depositAmount}
-                      onChange={(e) => setDepositAmount(e.target.value)}
-                      placeholder="50000000"
+                      min={0.01}
+                      max={30}
+                      step={0.01}
+                      value={phase1Percentage}
+                      onChange={(e) => setPhase1Percentage(e.target.value)}
+                      placeholder="VD: 20"
+                      required
                       disabled={submitting}
                     />
                   </Field>
                   <p className="sm:col-span-2 text-xs text-slate-500 dark:text-slate-400">
-                    Đợt 1 là lần thanh toán cố định sau khi ký HĐ (API field DepositAmount). Đợt 2/3 theo % giá căn.
+                    Công bố cho người dân: trả trước bao nhiêu % giá căn sau ký HĐ. Tối đa 30% theo Luật Nhà ở.
+                    Đợt 2 = phần còn lại.
+                    {(() => {
+                      const v = parseFloat(phase1Percentage)
+                      if (!Number.isFinite(v) || v <= 0) return ''
+                      const p1 = Math.min(v, 30)
+                      return ` → Đợt 1 ${p1}% · Đợt 2 ${(100 - p1).toFixed(2).replace(/\.00$/, '')}%.`
+                    })()}
                   </p>
                   <Field label="Trạng thái" required>
                     <select

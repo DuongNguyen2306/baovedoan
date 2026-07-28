@@ -48,9 +48,9 @@ export function formatAreaRange(min: number, max: number): string {
   return v > 0 ? `${v} m²` : '—'
 }
 
-export function depositAmount(minPrice: number): number {
-  if (minPrice <= 0) return 100_000
-  return Math.min(500_000, Math.max(100_000, Math.round(minPrice * 0.001)))
+export function phase1Amount(apartmentPrice: number): number {
+  if (apartmentPrice <= 0) return 0
+  return Math.round(apartmentPrice * 0.2)
 }
 
 export function mapProjectToCard(p: HousingProjectDto): ProjectCard {
@@ -72,7 +72,7 @@ export function mapProjectToCard(p: HousingProjectDto): ProjectCard {
     area: `${p.availableUnits ?? 0} căn`,
     status: labelProjectStatus(p.status),
     description: p.description || '',
-    paymentAmount: depositAmount(minPrice),
+    paymentAmount: phase1Amount(minPrice),
     imageUrl: resolveProjectImageUrl(p.thumbnailUrl || p.imageUrl),
     minPrice,
     maxPrice,
