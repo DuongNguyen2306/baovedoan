@@ -22,7 +22,7 @@ export function GovTopBar() {
           </span>
           <span className="hidden shrink-0 items-center gap-1.5 md:inline-flex whitespace-nowrap">
             <MapPin className="h-3 w-3 text-white/70" />
-            Hà Nội
+            TP.HCM
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-3 whitespace-nowrap">
