@@ -550,12 +550,25 @@ export function ProjectDetailPage() {
           <ProjectDetailView projectId={projectId} />
         ) : (
           <>
-            <ProjectForm projectId={projectId} />
             {(isDeveloper || isAdmin) && (
-              <div className="mt-6 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+              <section
+                id="developer-decision"
+                className="mb-8 rounded-xl border-2 border-blue-200 bg-blue-50/60 p-4 dark:border-blue-800 dark:bg-blue-950/30"
+              >
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
+                  Bước sau khi Sở duyệt — cấp căn / chốt danh sách
+                </p>
                 <DeveloperDecisionPanel projectId={projectId} />
-              </div>
+              </section>
             )}
+            <details className="rounded-xl border border-slate-200 dark:border-slate-700">
+              <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                Sửa thông tin dự án (tên, căn, tỉ lệ trả trước…)
+              </summary>
+              <div className="border-t border-slate-200 p-4 dark:border-slate-700">
+                <ProjectForm projectId={projectId} />
+              </div>
+            </details>
           </>
         )}
       </PageCard>

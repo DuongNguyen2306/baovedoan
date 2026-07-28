@@ -263,10 +263,12 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="font-semibold text-slate-900 dark:text-white">Chốt danh sách sau SXD duyệt</h3>
+        <h3 className="font-semibold text-slate-900 dark:text-white">
+          Cấp căn &amp; chuyển ký hợp đồng
+        </h3>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Chọn căn cụ thể trước khi chuyển ký hợp đồng. Người trúng bốc thăm sẽ được cấp căn sau khi
-          trúng (trên chi tiết hồ sơ).
+          Sau khi Sở duyệt: nếu số hồ sơ ≤ số căn → chọn căn rồi chốt thẳng; nếu vượt căn → cấp căn
+          cho ưu tiên, phần còn lại đề xuất lịch bốc thăm.
         </p>
       </div>
 

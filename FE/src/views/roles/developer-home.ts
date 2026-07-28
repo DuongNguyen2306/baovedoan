@@ -32,7 +32,11 @@ const STATUS: Record<string, string> = {
 const ACTIONS: QuickAction[] = [
   { title: 'Hồ sơ chờ nhận', desc: 'Danh sách hồ sơ đã nộp cần nhận thẩm định.', route: 'applications' },
   { title: 'Hồ sơ đang xử lý', desc: 'Hồ sơ đang thẩm định thuộc hàng chờ của bạn.', route: 'applications' },
-  { title: 'Dự án nhà ở', desc: 'Quản lý dự án và gửi hồ sơ lên Sở Xây dựng.', route: 'projects' },
+  {
+    title: 'Dự án — cấp căn sau Sở duyệt',
+    desc: 'Mở chi tiết dự án để chốt danh sách / cấp căn / đề xuất bốc thăm.',
+    route: 'projects',
+  },
   { title: 'Bảng điều phối', desc: 'Kiểm tra phiên và quyền truy cập.', route: 'dashboard' },
   { title: 'Hồ sơ cá nhân', desc: 'Thông tin tài khoản cán bộ.', route: 'profile' },
 ]
