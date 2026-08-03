@@ -67,13 +67,7 @@ export interface LotteryResultDto {
   winners: LotteryEligibleEntry[]
   losers?: LotteryEligibleEntry[]
   allEntries?: LotteryEligibleEntry[]
-  participants?: Array<{
-    applicationId: string
-    fullName?: string
-    citizenId?: string
-    result?: string
-    slotCode?: string | null
-  }>
+  participants?: Array<LotteryEligibleEntry>
   notes?: string | null
 }
 
@@ -269,7 +263,7 @@ export function parseLotteryResult(data: unknown): LotteryResultDto | null {
       winners: mapped.filter((m) => m.lotteryResult === 'WON' || m.lotteryResult === 'PRIORITY_WON'),
       losers: mapped.filter((m) => m.lotteryResult === 'LOST'),
       allEntries: mapped,
-      participants: participants as LotteryResultDto['participants'],
+      participants: mapped,
     }
   }
 
