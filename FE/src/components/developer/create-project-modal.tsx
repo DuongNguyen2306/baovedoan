@@ -62,7 +62,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
   const [applicationOpenDate, setApplicationOpenDate] = useState('')
   const [applicationCloseDate, setApplicationCloseDate] = useState('')
   const [housingProjectStatusId, setHousingProjectStatusId] = useState('')
-  const [isConfirmed, setIsConfirmed] = useState(false)
+  const [isConfirmed, setIsConfirmed] = useState(true)
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
   const [imagesFiles, setImagesFiles] = useState<File[]>([])
   const [apartments, setApartments] = useState<
@@ -83,7 +83,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       setApplicationOpenDate('')
       setApplicationCloseDate('')
       setHousingProjectStatusId('')
-      setIsConfirmed(false)
+      setIsConfirmed(true)
       setThumbnailFile(null)
       setImagesFiles([])
       setApartments([{ unitName: '', area: '', price: '' }])
@@ -117,6 +117,9 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     if (projectName.trim().length < 5) return 'Tên dự án phải có ít nhất 5 ký tự.'
     if (!ward) return 'Vui lòng chọn phường/xã.'
     if (!housingProjectStatusId) return 'Vui lòng chọn trạng thái dự án.'
+    if (!decisionNumber.trim()) return 'Vui lòng nhập số quyết định phê duyệt.'
+    if (!approvalDate) return 'Vui lòng chọn ngày phê duyệt.'
+    if (!isConfirmed) return 'Vui lòng xác nhận đã phê duyệt dự án trước khi tạo.'
     const p1 = parseFloat(phase1Percentage)
     if (!Number.isFinite(p1) || p1 <= 0)
       return 'Vui lòng nhập tỉ lệ trả trước Đợt 1 (% giá căn).'
@@ -491,22 +494,24 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-3">
-                  <Field label="Số quyết định">
+                  <Field label="Số quyết định" required>
                     <input
                       className={inputClass}
                       value={decisionNumber}
                       onChange={(e) => setDecisionNumber(e.target.value)}
                       placeholder="VD: 1234/QĐ-UBND"
                       disabled={submitting}
+                      required
                     />
                   </Field>
-                  <Field label="Ngày phê duyệt">
+                  <Field label="Ngày phê duyệt" required>
                     <input
                       className={inputClass}
                       type="date"
                       value={approvalDate}
                       onChange={(e) => setApprovalDate(e.target.value)}
                       disabled={submitting}
+                      required
                     />
                   </Field>
                   <div className="flex items-end pb-1">
@@ -519,9 +524,13 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
                         disabled={submitting}
                       />
                       Đã được phê duyệt
+                      <span className="text-rose-500" aria-hidden>*</span>
                     </label>
                   </div>
                 </div>
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  Khi tích xác nhận, dự án sẽ được công khai ngay trên trang người dân.
+                </p>
               </SectionCard>
             </>
           )}
