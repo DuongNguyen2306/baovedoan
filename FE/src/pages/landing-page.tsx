@@ -5,7 +5,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Clock,
+  Clock4,
   Download,
   Mail,
   Newspaper,
@@ -18,6 +18,7 @@ import {
   Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { PromoProjectsCarousel } from '@/components/landing/promo-projects-carousel'
 import { BRAND } from '@/lib/brand'
 import { GOV_IMAGES } from '@/lib/media'
 import { LANDING_NEWS } from '@/lib/landing-stats'
@@ -193,7 +194,7 @@ function AppFloatingNotice() {
 
                 {/* Footer note */}
                 <p className="mt-2 text-center text-[9px] text-slate-400 italic">
-                  Miễn phí · Hỗ trợ iOS & Android
+                  Miễn phí · Hỗ trợ iOS &amp; Android
                 </p>
               </div>
 
@@ -336,7 +337,7 @@ function PhoneMockup() {
 }
 export function LandingPage() {
   return (
-    <div className="-mx-4 lg:-mx-8">
+    <div className="min-h-screen overflow-x-hidden">
       {/* HERO */}
       <section className="relative overflow-hidden">
         <div className="relative min-h-[540px] md:min-h-[600px]">
@@ -353,7 +354,7 @@ export function LandingPage() {
           {/* Sọc cờ đáy */}
           <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#DA251D] via-[#FFCD00] to-white/70" />
 
-          <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-14 lg:grid-cols-12 lg:gap-12 lg:px-8 lg:py-20">
+          <div className="relative mx-auto grid max-w-[1400px] grid-cols-1 items-center gap-10 px-4 py-14 lg:grid-cols-12 lg:gap-12 lg:px-8 lg:py-20">
             <motion.div {...fadeUp} className="text-white lg:col-span-7">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-[#FFCD00] backdrop-blur-sm">
                 <Sparkles className="h-3.5 w-3.5" />
@@ -393,7 +394,7 @@ export function LandingPage() {
                   Xác thực email
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-[#FFCD00]" />
+                  <Clock4 className="h-3.5 w-3.5 text-[#FFCD00]" />
                   Sẵn sàng trong 2 phút
                 </span>
               </div>
@@ -412,7 +413,7 @@ export function LandingPage() {
                   style={{ aspectRatio: '4/3' }}
                 />
               </div>
-              <div className="absolute -bottom-6 -left-6 flex items-center gap-3 rounded-2xl bg-white p-4 shadow-2xl md:max-w-xs">
+              <div className="absolute -bottom-6 -left-6 flex items-center gap-3 rounded-2xl bg-white p-4 shadow-2xl dark:bg-slate-800 md:max-w-xs">
                 <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
                   <TrendingUp className="h-5 w-5" />
                 </div>
@@ -426,9 +427,21 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* FEATURED PROJECTS */}
+      <section className="mx-auto max-w-[1400px] px-4 lg:px-8">
+        <motion.div {...fadeUp}>
+          <h2 className="gov-section-title text-2xl">Dự án nổi bật</h2>
+          <p className="mt-2 max-w-2xl text-slate-600 dark:text-slate-300">
+            Khám phá các dự án nhà ở xã hội đang mở bán trên toàn quốc.
+          </p>
+          <div className="mt-8">
+            <PromoProjectsCarousel />
+          </div>
+        </motion.div>
+      </section>
 
       {/* PILLARS */}
-      <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-8">
+      <section className="mx-auto max-w-[1400px] px-4 lg:px-8">
         <motion.div {...fadeUp}>
           <h2 className="gov-section-title text-2xl">Vì sao chọn cổng số này</h2>
           <p className="mt-2 max-w-2xl text-slate-600 dark:text-slate-300">
@@ -449,7 +462,7 @@ export function LandingPage() {
       </section>
 
       {/* STEPS */}
-      <section className="mx-auto max-w-7xl px-4 pb-20 lg:px-8">
+      <section className="mx-auto max-w-[1400px] px-4 pb-20 lg:px-8">
         <motion.div {...fadeUp}>
           <h2 className="gov-section-title text-2xl">Quy trình tham gia</h2>
           <p className="mt-2 max-w-2xl text-slate-600 dark:text-slate-300">
@@ -482,11 +495,11 @@ export function LandingPage() {
       </section>
 
       {/* NEWS */}
-      <section className="mx-auto max-w-7xl px-4 pb-20 lg:px-8">
+      <section className="mx-auto max-w-[1400px] px-4 pb-20 lg:px-8">
         <motion.div {...fadeUp}>
           <div className="mb-8 flex items-end justify-between">
             <div>
-              <h2 className="gov-section-title text-2xl">Tin tức & thông báo</h2>
+              <h2 className="gov-section-title text-2xl">Tin tức &amp; thông báo</h2>
               <p className="mt-2 max-w-2xl text-slate-600 dark:text-slate-300">
                 Cập nhật mới nhất từ chương trình nhà ở xã hội.
               </p>
@@ -529,49 +542,59 @@ export function LandingPage() {
         </motion.div>
       </section>
 
-      {/* CONTACT + CTA */}
-      <section className="relative overflow-hidden bg-gradient-to-r from-[#003D7A] via-[#005BAC] to-[#005BAC] text-white">
-        <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent" />
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{ backgroundImage: `url(${GOV_IMAGES.pattern})`, backgroundSize: '32px 32px' }}
-        />
-        <div className="relative mx-auto flex max-w-7xl flex-col items-start gap-8 px-4 py-14 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-          <div className="flex-1">
-            <h2 className="text-2xl font-extrabold md:text-3xl">Sẵn sàng tham gia?</h2>
-            <p className="mt-2 max-w-xl text-white/85">
-              Tạo tài khoản công dân ngay hôm nay để nhận thông báo khi có dự án nhà ở xã hội phù hợp.
-            </p>
-            <div className="mt-5 flex flex-col gap-2 text-sm text-white/85 sm:flex-row sm:items-center sm:gap-5">
-              <span className="inline-flex items-center gap-2">
-                <Phone className="h-4 w-4 text-[#FFCD00]" />
-                Tổng đài: <strong className="text-white">{BRAND.hotline}</strong>
-              </span>
-              <span className="hidden text-white/40 sm:inline">·</span>
-              <span className="inline-flex items-center gap-2">
-                <Mail className="h-4 w-4 text-[#FFCD00]" />
-                {BRAND.email}
-              </span>
+      {/* FOOTER */}
+      <footer className="bg-[#003D7A] text-white">
+        <div className="mx-auto max-w-[1400px] px-4 py-12 lg:px-8">
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+            <div className="lg:col-span-1">
+              <h3 className="text-base font-bold leading-snug">{BRAND.projectName}</h3>
+              <p className="mt-2 text-sm text-white/80">{BRAND.acronymExpanded}</p>
+              <p className="mt-1 text-xs italic text-white/55">{BRAND.slogan}</p>
+              <p className="mt-3 text-xs text-white/60">{BRAND.footerLine}</p>
+            </div>
+            <div>
+              <h4 className="mb-3 border-l-4 border-[#FFCD00] pl-3 text-sm font-bold uppercase tracking-wide">Trụ sở</h4>
+              <div className="space-y-2 text-sm text-white/75">
+                <p>{BRAND.address}</p>
+                <p className="text-xs text-white/55">Trụ sở chính — TP. Hồ Chí Minh</p>
+              </div>
+            </div>
+            <div>
+              <h4 className="mb-3 border-l-4 border-[#FFCD00] pl-3 text-sm font-bold uppercase tracking-wide">Liên hệ</h4>
+              <div className="space-y-2 text-sm text-white/75">
+                <p>Email: {BRAND.email}</p>
+                <p>Hotline: {BRAND.hotline}</p>
+                <p>Fax: (028) 3822 1234</p>
+                <p className="text-xs text-white/55">{BRAND.workingHours}</p>
+              </div>
+            </div>
+            <div>
+              <h4 className="mb-3 border-l-4 border-[#FFCD00] pl-3 text-sm font-bold uppercase tracking-wide">Cơ quan vận hành</h4>
+              <div className="space-y-2 text-sm text-white/75">
+                <p>Sở Xây dựng TP. Hồ Chí Minh</p>
+                <p className="text-xs text-white/55">Đơn vị quản trị hệ thống</p>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2 text-[11px]">
+                <span className="rounded-full bg-white/10 px-2.5 py-1 font-semibold text-white/80">Phiên bản 1.0.0</span>
+                <span className="rounded-full bg-emerald-500/20 px-2.5 py-1 font-semibold text-emerald-300">● Đang hoạt động</span>
+              </div>
             </div>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Button size="lg" variant="accent" className="shadow-lg shadow-accent/40" onClick={() => navigate('register')}>
-              Đăng ký miễn phí <ArrowRight className="h-4 w-4" />
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-white/40 bg-white/10 text-white hover:bg-white/20 backdrop-blur-sm"
-              onClick={() => navigate('login')}
-            >
-              Đã có tài khoản
-            </Button>
+          <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-white/20 pt-6 md:flex-row">
+            <p className="text-xs text-white/55">
+              © {new Date().getFullYear()} {BRAND.projectName}. Mọi quyền được bảo lưu.
+            </p>
+            <div className="flex flex-wrap justify-center gap-4 text-xs text-white/55">
+              <span>Chính sách bảo mật</span>
+              <span>·</span>
+              <span>Điều khoản sử dụng</span>
+              <span>·</span>
+              <span>Sơ đồ trang</span>
+            </div>
           </div>
         </div>
-      </section>
+      </footer>
 
-      {/* Thông báo nổi bên phải — quảng cáo app */}
-      <AppFloatingNotice />
     </div>
   )
 }

@@ -662,7 +662,7 @@ export function VerifyIdentityPage() {
                       </>
                     ) : (
                       <>
-                        <Upload className="mr-2 h-4 w-4" /> Lưu thông tin & hoàn tất
+                        <Upload className="mr-2 h-4 w-4" /> Lưu thông tin &amp; hoàn tất
                       </>
                     )}
                   </Button>

@@ -980,7 +980,7 @@ export function CreateApplicationWizard() {
                     <Button type="button" variant="accent" disabled={!step3Ready || isBusy} onClick={() => void goNextFromStep3()}>
                       {busy === 'create'
                         ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang lưu nháp…</>
-                        : <>Lưu nháp & tải giấy tờ <ArrowRight className="ml-1 h-4 w-4" /></>}
+                        : <>Lưu nháp &amp; tải giấy tờ <ArrowRight className="ml-1 h-4 w-4" /></>}
                     </Button>
                   </div>
                 </div>
@@ -1066,7 +1066,7 @@ export function CreateApplicationWizard() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <Alert variant="info">
-                  <strong>Quy trình tiếp theo:</strong> Sau khi nộp, CĐT tiếp nhận & thẩm định → có thể yêu cầu bổ sung hoặc chuyển Sở Xây dựng → Sở phê duyệt → chờ bốc thăm/ký hợp đồng (nếu trúng).
+                  <strong>Quy trình tiếp theo:</strong> Sau khi nộp, CĐT tiếp nhận &amp; thẩm định → có thể yêu cầu bổ sung hoặc chuyển Sở Xây dựng → Sở phê duyệt → chờ bốc thăm/ký hợp đồng (nếu trúng).
                 </Alert>
 
                 <div className="grid gap-3 text-sm">

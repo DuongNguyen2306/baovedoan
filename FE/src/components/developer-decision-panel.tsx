@@ -323,7 +323,7 @@ export function DeveloperDecisionPanel({ projectId }: { projectId: string }) {
             </Button>
             <Button variant="outline" disabled={!!busy} onClick={() => void execute('KEEP_OPEN')}>
               <Inbox className="mr-1.5 h-4 w-4" />
-              {busy === 'KEEP_OPEN' ? 'Đang lưu…' : 'Giữ & nhận thêm hồ sơ'}
+              {busy === 'KEEP_OPEN' ? 'Đang lưu…' : 'Giữ &amp; nhận thêm hồ sơ'}
             </Button>
           </div>
         </div>

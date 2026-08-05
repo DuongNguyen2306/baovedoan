@@ -318,7 +318,7 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
                 <BarChart3 className="h-4 w-4 text-blue-500" />
                 Xu hướng 12 tuần
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">{isSxd ? 'Hồ sơ trình & duyệt' : 'Tiếp nhận & duyệt'}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{isSxd ? 'Hồ sơ trình &amp; duyệt' : 'Tiếp nhận &amp; duyệt'}</p>
             </div>
             <div className="flex items-center gap-3 text-xs">
               <span className="flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-2.5 py-1.5 font-medium text-blue-600 dark:text-blue-400">
@@ -464,7 +464,7 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
-            { icon: <Inbox className="h-5 w-5" />, title: 'Hồ sơ', desc: 'Xem & xử lý', route: 'applications' as RouteId, gradient: 'from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 border-blue-200/50 dark:border-blue-700/50', iconColor: 'text-blue-600 dark:text-blue-400' },
+            { icon: <Inbox className="h-5 w-5" />, title: 'Hồ sơ', desc: 'Xem &amp; xử lý', route: 'applications' as RouteId, gradient: 'from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 border-blue-200/50 dark:border-blue-700/50', iconColor: 'text-blue-600 dark:text-blue-400' },
             { icon: <Activity className="h-5 w-5" />, title: 'Thẩm định', desc: 'Đang xử lý', route: 'applications' as RouteId, gradient: 'from-cyan-500/20 to-cyan-600/20 hover:from-cyan-500/30 hover:to-cyan-600/30 border-cyan-200/50 dark:border-cyan-700/50', iconColor: 'text-cyan-600 dark:text-cyan-400' },
             { icon: <Gavel className="h-5 w-5" />, title: 'Bốc thăm', desc: 'Phiên bốc thăm', route: 'lottery-sessions' as RouteId, gradient: 'from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 border-blue-200/50 dark:border-blue-700/50', iconColor: 'text-blue-600 dark:text-blue-400' },
             { icon: <FileSignature className="h-5 w-5" />, title: 'Hợp đồng', desc: 'Quản lý', route: 'contracts' as RouteId, gradient: 'from-emerald-500/20 to-emerald-600/20 hover:from-emerald-500/30 hover:to-emerald-600/30 border-emerald-200/50 dark:border-emerald-700/50', iconColor: 'text-emerald-600 dark:text-emerald-400' },

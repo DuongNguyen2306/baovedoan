@@ -34,8 +34,8 @@ type StepId = 'basic' | 'pricing' | 'schedule'
 
 const STEPS: { id: StepId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'basic', label: 'Thông tin cơ bản', icon: Home },
-  { id: 'pricing', label: 'Giá & Hồ sơ', icon: Banknote },
-  { id: 'schedule', label: 'Thời gian & Hình ảnh', icon: CalendarDays },
+  { id: 'pricing', label: 'Giá &amp; Hồ sơ', icon: Banknote },
+  { id: 'schedule', label: 'Thời gian &amp; Hình ảnh', icon: CalendarDays },
 ]
 
 const inputClass =
@@ -299,7 +299,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
         <div className="flex-1 space-y-5 overflow-y-auto px-1 pr-2">
           {step === 'basic' && (
             <>
-              <SectionCard icon={Home} title="Thông tin cơ bản" subtitle="Tên dự án & mô tả ngắn gọn">
+              <SectionCard icon={Home} title="Thông tin cơ bản" subtitle="Tên dự án &amp; mô tả ngắn gọn">
                 <Field label="Tên dự án" required>
                   <input
                     className={inputClass}
@@ -539,7 +539,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
             <>
               <SectionCard
                 icon={CalendarDays}
-                title="Lịch đăng ký & bốc thăm"
+                title="Lịch đăng ký &amp; bốc thăm"
                 subtitle="Thời gian mở/đóng đăng ký và ngày bốc thăm"
               >
                 <div className="grid gap-4 sm:grid-cols-2">

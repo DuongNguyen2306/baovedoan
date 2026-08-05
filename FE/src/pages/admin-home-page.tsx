@@ -322,7 +322,7 @@ export function AdminHomePage() {
           <div>
             <h2 className="gov-section-title">Hoạt động 12 tuần qua</h2>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Lượt đăng nhập cán bộ & lượt tạo tài khoản mới theo tuần — dữ liệu thật từ hệ thống.
+              Lượt đăng nhập cán bộ &amp; lượt tạo tài khoản mới theo tuần — dữ liệu thật từ hệ thống.
             </p>
           </div>
           <div className="flex items-center gap-2">
