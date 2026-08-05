@@ -6,8 +6,6 @@ import {
   MapPin,
   Ruler,
 } from 'lucide-react'
-import { GovAnnouncements } from '@/components/layout/gov-announcements'
-import { GovServiceGrid } from '@/components/layout/gov-service-grid'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -297,9 +295,6 @@ export function HousingShowcase() {
 
   return (
     <section className="space-y-6">
-      <GovAnnouncements />
-      <GovServiceGrid />
-
       {/* Tiêu đề danh mục */}
       <SectionHeader
         title="Danh mục nhà ở xã hội"
