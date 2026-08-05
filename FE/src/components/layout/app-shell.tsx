@@ -13,56 +13,8 @@ import { UserWelcomeBar } from '@/components/layout/user-welcome-bar'
 import { Button } from '@/components/ui/button'
 import { resolveRoleTheme } from '@/lib/role-theme'
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
-import { isLoggedIn, publicNavRoutes, navRoutes, getRouteConfig, canAccess, getRole, ADMIN_ROLE, AUTH_FORM_ROUTES, type RouteId } from '@/router'
-import { Search, Sparkles, LayoutDashboard, Building2, ShieldCheck, Home, FileText, Building, FileSignature, Dice5, ClipboardCheck, Bell, UserCircle, Heart, Smartphone } from 'lucide-react'
-import { cn } from '@/lib/utils'
-
-const PUBLIC = publicNavRoutes()
-
-const ROUTE_ICONS: Partial<Record<RouteId, React.ReactNode>> = {
-  'home-developer': <LayoutDashboard className="h-4 w-4" />,
-  'home-sxd': <Building2 className="h-4 w-4" />,
-  'home-user': <Home className="h-4 w-4" />,
-  'home-admin': <ShieldCheck className="h-4 w-4" />,
-  applications: <FileText className="h-4 w-4" />,
-  projects: <Building className="h-4 w-4" />,
-  contracts: <FileSignature className="h-4 w-4" />,
-  'lottery-sessions': <Dice5 className="h-4 w-4" />,
-  'audit-list': <ClipboardCheck className="h-4 w-4" />,
-  notifications: <Bell className="h-4 w-4" />,
-  profile: <UserCircle className="h-4 w-4" />,
-  'quan-tam': <Heart className="h-4 w-4" />,
-}
-
-function HeaderNavLink({ id, active, activeBar, textColor, hoverColor }: { id: RouteId; active: boolean; activeBar: string; textColor: string; hoverColor: string }) {
-  const cfg = getRouteConfig(id)
-  const Icon = ROUTE_ICONS[id]
-  return (
-    <button
-      type="button"
-      onClick={() => navigate(id)}
-      className={cn(
-        'group relative flex items-center justify-center gap-1.5 whitespace-nowrap px-5 py-2.5 text-sm font-medium transition-all duration-150',
-        active
-          ? textColor
-          : cn(hoverColor, 'hover:opacity-80'),
-      )}
-    >
-      {Icon && (
-        <span className={cn('transition-transform duration-150', active ? '' : 'group-hover:scale-110')}>
-          {Icon}
-        </span>
-      )}
-      <span>{cfg.label}</span>
-      <span
-        className={cn(
-          'absolute inset-x-2 bottom-0 h-0.5 rounded-full transition-all duration-200',
-          active ? activeBar : 'scale-x-0 group-hover:scale-x-100 group-hover:bg-white/30',
-        )}
-      />
-    </button>
-  )
-}
+import { isLoggedIn, ADMIN_ROLE, AUTH_FORM_ROUTES, getRole, type RouteId } from '@/router'
+import { Search, Sparkles, Smartphone } from 'lucide-react'
 
 function AppDownloadBadge() {
   const [show, setShow] = useState(false)
@@ -236,9 +188,6 @@ function InternalHeader({ logged, role }: { logged: boolean; role: string }) {
   const isAdmin = logged && role === ADMIN_ROLE
   const showApplicantNav = isApplicant && APPLICANT_SUB_NAV_ROUTES.includes(route)
   const showAdminNav = isAdmin && ADMIN_SUB_NAV_ROUTES.includes(route)
-  const navIds = logged ? navRoutes(role) : PUBLIC
-  const visibleNavIds = navIds.filter((id) => !logged || canAccess(role, id))
-  const showHeaderNav = !showApplicantNav && !showAdminNav && visibleNavIds.length > 0
   const ambientId = roleAmbientId(logged, role)
 
   return (
@@ -305,16 +254,6 @@ function InternalHeader({ logged, role }: { logged: boolean; role: string }) {
 
         {showApplicantNav && <ApplicantSubNav />}
         {showAdminNav && <AdminSubNav />}
-        {showHeaderNav && (
-          <div className="relative">
-            <div className={`h-0.5 w-full ${theme.brandAccent}`} aria-hidden />
-            <nav className={`${theme.navBg} ${theme.navTextColor}`} aria-label="Menu chính">
-              <div className="mx-auto flex w-full max-w-7xl items-stretch justify-center overflow-x-auto gap-2 px-4 lg:gap-6 lg:px-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {visibleNavIds.map((id) => <HeaderNavLink key={id} id={id} active={route === id} activeBar={theme.activeBar} textColor={theme.navActiveTextColor} hoverColor={theme.navTextColor} />)}
-              </div>
-            </nav>
-          </div>
-        )}
       </header>
     </div>
   )
