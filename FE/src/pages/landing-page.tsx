@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { motion, AnimatePresence, useInView } from 'framer-motion'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowRight,
   CheckCircle2,
@@ -10,8 +10,6 @@ import {
   Mail,
   Newspaper,
   Phone,
-  ShieldCheck,
-  Smartphone,
   Sparkles,
   Star,
   TrendingUp,
@@ -20,7 +18,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { BRAND } from '@/lib/brand'
 import { GOV_IMAGES } from '@/lib/media'
-import { LANDING_NEWS, LANDING_STATS } from '@/lib/landing-stats'
+import { LANDING_NEWS } from '@/lib/landing-stats'
 import { navigate } from '@/hooks/useHashRoute'
 import { PromoProjectsCarousel } from '@/components/landing/promo-projects-carousel'
 
@@ -335,58 +333,6 @@ function PhoneMockup() {
     </div>
   )
 }
-function AnimatedStat({ value, label, sub, icon: Icon, delay = 0 }: { value: string; label: string; sub: string; icon: typeof LANDING_STATS[number]['icon']; delay?: number }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const inView = useInView(ref, { once: true, margin: '0px 0px -10% 0px' })
-  const [shown, setShown] = useState('0')
-  const target = parseFloat(value.replace(/\D/g, ''))
-  const suffix = value.replace(/[0-9.,\s]/g, '')
-
-  useEffect(() => {
-    if (!inView || Number.isNaN(target)) {
-      setShown(value)
-      return
-    }
-    let raf: number
-    const start = performance.now() + delay * 1000
-    const duration = 1400
-    const tick = (now: number) => {
-      const t = Math.min(1, Math.max(0, (now - start) / duration))
-      const eased = 1 - Math.pow(1 - t, 3)
-      const current = Math.round(target * eased)
-      const formatted = current >= 1000 ? current.toLocaleString('vi-VN').replace(/,/g, '.') : String(current)
-      setShown(formatted + (t < 1 ? '' : ''))
-      if (t < 1) raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [inView, target, delay])
-
-  const display = Number.isNaN(target)
-    ? value
-    : shown + (Number(shown.replace(/\D/g, '') || '0') >= target ? suffix : '')
-
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0 }}
-      animate={inView ? { opacity: 1 } : { opacity: 0 }}
-      transition={{ delay, duration: 0.4 }}
-      className="gov-card relative overflow-hidden p-6"
-    >
-      <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-primary/5" />
-      <p className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white shadow-md">
-        <Icon className="h-5 w-5" />
-      </p>
-      <p className="mt-4 text-3xl font-extrabold tracking-tight text-[#003D7A] dark:text-white">
-        {display}
-      </p>
-      <p className="mt-1 text-sm font-semibold text-slate-700">{label}</p>
-      <p className="mt-1 text-xs text-slate-500">{sub}</p>
-    </motion.div>
-  )
-}
-
 export function LandingPage() {
   return (
     <div className="-mx-4 lg:-mx-8">
@@ -479,16 +425,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* STATS — số liệu nhất quán */}
-      <section className="mx-auto max-w-7xl px-4 py-12 lg:px-8">
-        <div className="bento-grid">
-          {LANDING_STATS.map((s, i) => (
-            <AnimatedStat key={s.label} {...s} delay={i * 0.1} />
-          ))}
-        </div>
-      </section>
-
-      {/* PROMO CAROUSEL — banner quảng bá sinh động */}
+      {/* PROMO CAROUSEL}
       <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-8">
         <motion.div {...fadeUp}>
           <h2 className="gov-section-title text-2xl">Dự án đang mở bán</h2>
