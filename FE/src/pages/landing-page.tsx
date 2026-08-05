@@ -10,6 +10,8 @@ import {
   Mail,
   Newspaper,
   Phone,
+  ShieldCheck,
+  Smartphone,
   Sparkles,
   Star,
   TrendingUp,
@@ -20,7 +22,6 @@ import { BRAND } from '@/lib/brand'
 import { GOV_IMAGES } from '@/lib/media'
 import { LANDING_NEWS } from '@/lib/landing-stats'
 import { navigate } from '@/hooks/useHashRoute'
-import { PromoProjectsCarousel } from '@/components/landing/promo-projects-carousel'
 
 const PILLARS = [
   {
@@ -425,18 +426,6 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* PROMO CAROUSEL}
-      <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-8">
-        <motion.div {...fadeUp}>
-          <h2 className="gov-section-title text-2xl">Dự án đang mở bán</h2>
-          <p className="mt-2 max-w-2xl text-slate-600 dark:text-slate-300">
-            Các dự án nhà ở xã hội đang mở đăng ký — cập nhật liên tục từ chủ đầu tư.
-          </p>
-          <div className="mt-8">
-            <PromoProjectsCarousel />
-          </div>
-        </motion.div>
-      </section>
 
       {/* PILLARS */}
       <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-8">
