@@ -17,8 +17,8 @@ export const BRAND = {
   hotline: '1900 1234',
   hotlineLabel: 'Tổng đài hỗ trợ',
   email: 'hotro@rhs.gov.vn',
-  address: 'Số 1 Đại Cồ Việt, Hai Bà Trưng, Hà Nội',
-  workingHours: 'Thứ 2 – Thứ 6 · 7:30 – 17:00',
+  address: 'Đường Nguyễn Huệ, Quận 1, Thành phố Hồ Chí Minh',
+  workingHours: 'Thứ 2 – Thứ 6 · 8:00 – 17:00',
   slogan: 'Kết nối · Chia sẻ · Hiệu quả · Phát triển bền vững',
 
   // Tương thích mã cũ
