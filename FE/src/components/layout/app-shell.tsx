@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { resolveRoleTheme } from '@/lib/role-theme'
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
 import { isLoggedIn, ADMIN_ROLE, AUTH_FORM_ROUTES, getRole, type RouteId } from '@/router'
-import { Search, Sparkles, Smartphone } from 'lucide-react'
+import { Sparkles, Smartphone } from 'lucide-react'
 
 function AppDownloadBadge() {
   const [show, setShow] = useState(false)
@@ -180,7 +180,7 @@ function AuthHeader() {
   )
 }
 
-function InternalHeader({ logged, role }: { logged: boolean; role: string }) {
+function InternalHeader({ logged, role, wideScreen = false }: { logged: boolean; role: string; wideScreen?: boolean }) {
   const theme = resolveRoleTheme(role, logged)
   const ThemeIcon = theme.Icon
   const route = useHashRoute()
@@ -189,6 +189,7 @@ function InternalHeader({ logged, role }: { logged: boolean; role: string }) {
   const showApplicantNav = isApplicant && APPLICANT_SUB_NAV_ROUTES.includes(route)
   const showAdminNav = isAdmin && ADMIN_SUB_NAV_ROUTES.includes(route)
   const ambientId = roleAmbientId(logged, role)
+  const containerMax = wideScreen ? 'max-w-[1600px]' : 'max-w-full'
 
   return (
     <div>
@@ -197,7 +198,7 @@ function InternalHeader({ logged, role }: { logged: boolean; role: string }) {
       <div className={`h-1 ${theme.brandAccent}`} aria-hidden />
       <header className="header-glass sticky top-0 z-50">
         <RoleAmbient roleId={ambientId} />
-        <div className="mx-auto flex max-w-full items-center gap-3 px-6 py-3 lg:gap-5 lg:px-8">
+        <div className={`mx-auto flex ${containerMax} items-center gap-3 px-6 py-3 lg:gap-5 lg:px-8`}>
           <button
             type="button"
             onClick={() => navigate(logged ? (theme.homeRoute as RouteId) : 'landing')}
@@ -211,15 +212,6 @@ function InternalHeader({ logged, role }: { logged: boolean; role: string }) {
               <span className="mt-0.5 block text-[9px] font-semibold text-primary">{BRAND.acronym}</span>
             </span>
           </button>
-
-          {/* Command bar search */}
-          {!isAdmin && (
-            <div className="cmd-bar" aria-hidden>
-              <Search className="h-3.5 w-3.5" />
-              <span>Tìm nhanh dự án, hồ sơ, cán bộ…</span>
-              <kbd className="ml-1 rounded border border-slate-300/80 bg-slate-100 px-1.5 font-mono text-[10px] font-semibold text-slate-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400">⌘K</kbd>
-            </div>
-          )}
 
           {/* Role badge */}
           {logged && (
@@ -266,7 +258,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const isFullBleed = route === 'landing'
   const isAuthForm = AUTH_FORM_ROUTES.has(route)
+  const isApplicant = logged && role === 'Applicant'
+  const isWideScreen = isApplicant && !isFullBleed
   const ambientId = roleAmbientId(logged, role)
+  const showFooter = !isFullBleed && !isAuthForm && route !== 'profile' && route !== 'change-password'
 
   return (
     <div className={`flex min-h-screen flex-col ${!isFullBleed ? `ambient-glow-${ambientId}` : ''}`}>
@@ -275,15 +270,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       ) : isAuthForm ? (
         <AuthHeader />
       ) : (
-        <InternalHeader logged={logged} role={role} />
+        <InternalHeader logged={logged} role={role} wideScreen={isWideScreen} />
       )}
 
-      <main className={isFullBleed ? 'flex-1' : 'mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:px-8 lg:py-8'}>
+      <main className={
+        isFullBleed
+          ? 'flex-1'
+          : isWideScreen
+            ? 'mx-auto w-full max-w-[1600px] flex-1 px-3 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8'
+            : 'mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:px-8 lg:py-8'
+      }>
         {logged && !isFullBleed && <UserWelcomeBar />}
         {children}
       </main>
 
-      <GovFooter />
+      {showFooter && <GovFooter />}
     </div>
   )
 }
