@@ -52,7 +52,6 @@ export function UserWelcomeBar({ className }: { className?: string }) {
         {/* Slogan strip */}
         <div className="flex w-full items-center justify-between gap-3 border-t border-primary/10 bg-gradient-to-r from-secondary/70 via-white/40 to-secondary/50 px-5 py-2.5 text-[11px] dark:border-slate-700/70 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-slate-900/60">
           <div className="flex items-center gap-3">
-            <span className="font-bold uppercase tracking-wide text-primary">Slogan</span>
             <span className="text-slate-600 dark:text-slate-300">{BRAND.slogan}</span>
           </div>
           <span className="hidden items-center gap-1 text-[11px] font-semibold text-primary sm:inline-flex">
