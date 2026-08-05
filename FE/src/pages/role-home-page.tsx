@@ -118,7 +118,6 @@ export function InterestedPage() {
       {!loading && cards.length === 0 ? (
         <div className="rounded-2xl border border-slate-200/50 bg-white/50 p-8 text-center shadow-sm backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-900/50">
           <p className="text-slate-500 dark:text-slate-400">Bạn chưa quan tâm dự án nào.<br />Nhấn trái tim trên trang chủ để lưu dự án.</p>
-          <Button className="mt-4" variant="accent" onClick={() => navigate('home-user')}>Về trang chủ</Button>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

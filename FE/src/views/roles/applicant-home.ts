@@ -311,9 +311,6 @@ export function interestedView(): HTMLElement {
     if (saved.length === 0) {
       const empty = el('div', { class: 'fav-empty' })
       empty.innerHTML = `${HEART_SVG}<p>Bạn chưa quan tâm dự án nào.<br/>Nhấn trái tim trên trang chủ để lưu dự án.</p>`
-      const cta = el('button', { type: 'button', class: 'btn-primary home-seeall' }, 'Về trang chủ')
-      cta.addEventListener('click', () => navigate('home-user'))
-      empty.append(cta)
       row.replaceChildren(empty)
     } else {
       row.replaceChildren(...saved.map((h) => houseCard(h, render)))

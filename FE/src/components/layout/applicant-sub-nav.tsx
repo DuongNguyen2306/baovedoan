@@ -14,11 +14,11 @@ interface NavItem {
 
 const ITEMS: NavItem[] = [
   { route: 'home-user', label: 'Trang chủ', icon: Home },
+  { route: 'projects', label: 'Dự án', icon: Building2, aliases: ['project-detail', 'create-project'] },
+  { route: 'quan-tam', label: 'Quan tâm', icon: Heart },
   { route: 'applications', label: 'Hồ sơ', icon: FileText, aliases: ['application-detail', 'create-application'] },
   { route: 'my-lottery', label: 'Bốc thăm', icon: Gavel, aliases: ['lottery-lobby', 'lottery-live'] },
   { route: 'contracts', label: 'Hợp đồng', icon: FileSignature, aliases: ['contract-detail'] },
-  { route: 'quan-tam', label: 'Quan tâm', icon: Heart },
-  { route: 'projects', label: 'Dự án', icon: Building2, aliases: ['project-detail', 'create-project'] },
   { route: 'profile', label: 'Tài khoản', icon: User, aliases: ['change-password'] },
 ]
 
@@ -54,7 +54,7 @@ export function ApplicantSubNav() {
 
   return (
     <nav className={`${THEME.navBg}`} aria-label="Điều hướng người dùng">
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-center overflow-x-auto px-4 lg:px-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="mx-auto flex w-full max-w-[1600px] items-center justify-center overflow-x-auto px-4 lg:px-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {ITEMS.map((item) => {
           const active = isActive(route, item)
           const Icon = item.icon

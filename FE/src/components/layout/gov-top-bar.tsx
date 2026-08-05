@@ -10,7 +10,7 @@ export function GovTopBar() {
   return (
     <div className="relative border-b border-[#003D7A]/30 bg-gradient-to-r from-[#003D7A] via-[#0a4a8e] to-[#003D7A] text-white">
       <div className="led-strip absolute inset-x-0 top-0" aria-hidden />
-      <div className="mx-auto flex max-w-7xl flex-nowrap items-center justify-between gap-x-4 gap-y-0 whitespace-nowrap px-4 py-1.5 text-[11px] lg:px-8">
+      <div className="mx-auto flex max-w-[1600px] flex-nowrap items-center justify-between gap-x-4 gap-y-0 whitespace-nowrap px-4 py-1.5 text-[11px] lg:px-8">
         <div className="flex flex-nowrap items-center gap-x-4 whitespace-nowrap">
           <span className="inline-flex shrink-0 items-center gap-1.5 font-medium">
             <Phone className="h-3 w-3 text-[#FFCD00]" />

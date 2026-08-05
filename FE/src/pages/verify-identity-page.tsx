@@ -346,7 +346,8 @@ export function VerifyIdentityPage() {
   )
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 py-6">
+    <div className="min-h-[calc(100vh-64px)] w-full bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-6 dark:from-slate-900 dark:to-slate-800">
+      <div className="mx-auto max-w-4xl space-y-4">
       <div className="rounded-2xl border border-blue-200 bg-blue-50/80 p-4 text-sm text-slate-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-slate-300">
         <p className="flex items-start gap-2 font-semibold text-[#003D7A] dark:text-white">
           <Info className="mt-0.5 h-4 w-4 shrink-0" />
@@ -682,6 +683,7 @@ export function VerifyIdentityPage() {
           {msg.text}
         </Alert>
       )}
+    </div>
     </div>
   )
 }

@@ -69,31 +69,33 @@ export function LoginPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md py-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Đăng nhập</CardTitle>
-          <CardDescription>Truy cập bảng điều khiển và quản lý hồ sơ</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={submit} className="space-y-4">
-            <FormField label="Địa chỉ email" htmlFor="email"><Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></FormField>
-            <FormField label="Mật khẩu" htmlFor="password"><Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></FormField>
-            {error && <Alert variant="error">{error}</Alert>}
-            <Button type="submit" className="w-full" variant="accent" disabled={loading}>{loading ? 'Đang xử lý...' : 'Đăng nhập'}</Button>
-          </form>
-          <div className="mt-4 space-y-2 text-center text-sm text-slate-500 dark:text-slate-400">
-            <p>
-              <button type="button" className="font-semibold text-primary hover:underline" onClick={() => navigate('forgot-password')}>Quên mật khẩu?</button>
-              {' · '}
-              <button type="button" className="font-semibold text-primary hover:underline" onClick={() => navigate('register')}>Đăng ký</button>
-            </p>
-            <p>
-              <button type="button" className="hover:underline" onClick={() => navigate('verify-otp')}>Xác thực OTP</button>
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="flex min-h-[calc(100vh-64px)] w-full items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-8 dark:from-slate-900 dark:to-slate-800">
+      <div className="w-full max-w-sm">
+        <Card>
+          <CardHeader>
+            <CardTitle>Đăng nhập</CardTitle>
+            <CardDescription>Truy cập bảng điều khiển và quản lý hồ sơ</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={submit} className="space-y-4">
+              <FormField label="Địa chỉ email" htmlFor="email"><Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></FormField>
+              <FormField label="Mật khẩu" htmlFor="password"><Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></FormField>
+              {error && <Alert variant="error">{error}</Alert>}
+              <Button type="submit" className="w-full" variant="accent" disabled={loading}>{loading ? 'Đang xử lý...' : 'Đăng nhập'}</Button>
+            </form>
+            <div className="mt-4 space-y-2 text-center text-sm text-slate-500 dark:text-slate-400">
+              <p>
+                <button type="button" className="font-semibold text-primary hover:underline" onClick={() => navigate('forgot-password')}>Quên mật khẩu?</button>
+                {' · '}
+                <button type="button" className="font-semibold text-primary hover:underline" onClick={() => navigate('register')}>Đăng ký</button>
+              </p>
+              <p>
+                <button type="button" className="hover:underline" onClick={() => navigate('verify-otp')}>Xác thực OTP</button>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
