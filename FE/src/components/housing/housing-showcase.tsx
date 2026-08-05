@@ -299,11 +299,6 @@ export function HousingShowcase() {
       <SectionHeader
         title="Danh mục nhà ở xã hội"
         subtitle="Tra cứu dự án và theo dõi hồ sơ đã đăng ký qua cổng dịch vụ công."
-        action={
-          <Button variant="outline" size="sm" onClick={() => navigate('tim-nha')}>
-            Tìm kiếm nâng cao <ArrowRight className="ml-1 h-4 w-4" />
-          </Button>
-        }
       />
 
       {/* Danh sách dự án */}

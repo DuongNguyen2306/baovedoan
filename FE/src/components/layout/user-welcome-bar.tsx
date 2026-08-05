@@ -1,4 +1,4 @@
-import { Activity, Building2, ChevronRight } from 'lucide-react'
+import { Building2, ChevronRight } from 'lucide-react'
 import { useUserProfile } from '@/providers/user-profile-provider'
 import { BRAND } from '@/lib/brand'
 import { resolveRoleTheme } from '@/lib/role-theme'
@@ -44,10 +44,6 @@ export function UserWelcomeBar({ className }: { className?: string }) {
         {/* Stats / quick info */}
         <div className="flex flex-1 items-center gap-2 border-t border-primary/10 bg-white/40 px-5 py-3 sm:border-l sm:border-t-0 dark:bg-slate-900/40">
           <span className="chip-glass anim-up">
-            <Activity className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
-            Phiên hoạt động
-          </span>
-          <span className="chip-glass anim-up anim-up-d2 hidden md:inline-flex">
             <Building2 className="h-3 w-3 text-amber-600 dark:text-amber-400" />
             {BRAND.systemName}
           </span>
