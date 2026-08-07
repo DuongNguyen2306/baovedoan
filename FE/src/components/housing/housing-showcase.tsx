@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import { motion } from 'framer-motion'
 import {
   ArrowRight,
   Heart,
@@ -192,11 +193,10 @@ const PromoCard = memo(function PromoCard({
           <button
             type="button"
             aria-label="Quan tâm"
-            className={`absolute right-3 top-3 rounded-full p-2 shadow-sm backdrop-blur-sm transition ${
-              fav
+            className={`absolute right-3 top-3 rounded-full p-2 shadow-sm backdrop-blur-sm transition ${fav
                 ? 'bg-blue-500 text-white'
                 : 'bg-white/90 text-slate-400 hover:text-blue-500'
-            }`}
+              }`}
             onClick={onToggleFavorite}
           >
             <Heart className={`h-4 w-4 ${fav ? 'fill-current' : ''}`} />
@@ -353,6 +353,114 @@ export function HousingShowcase() {
 
   return (
     <section className="space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.75, ease: 'easeOut' }}
+        className="relative overflow-hidden rounded-[28px] border border-white/70 bg-gradient-to-br from-sky-100 via-cyan-100 to-emerald-100 shadow-[0_20px_60px_rgba(37,99,235,0.16)] backdrop-blur-xl dark:border-slate-700 dark:bg-slate-950 dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-800 dark:to-slate-950 dark:shadow-[0_20px_60px_rgba(15,23,42,0.35)]"
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.20),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.14),transparent_22%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.16),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(52,211,153,0.12),transparent_22%)]" />
+        <div className="grid gap-6 p-6 lg:grid-cols-[1.2fr_0.8fr] lg:p-8 xl:p-10">
+          <div className="relative z-10 flex flex-col justify-center gap-4">
+            <h1 className="max-w-[620px] text-3xl font-extrabold leading-[1.05] tracking-[-0.02em] text-slate-900 sm:text-4xl lg:text-[3.4rem] dark:text-white">
+              Nơi kết nối người dân với nhà ở xã hội hiện đại và cộng đồng xanh.
+            </h1>
+            <p className="max-w-[620px] text-base leading-8 text-slate-700 dark:text-slate-300">
+              Khám phá dự án xây dựng hạnh phúc trong không gian công cộng đầy ánh sáng ban mai, cây xanh và sự tin cậy từ cổng dịch vụ công.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                size="lg"
+                variant="default"
+                className="rounded-xl bg-blue-600 px-6 py-3 text-white shadow-[0_15px_40px_rgba(37,99,235,0.20)] hover:bg-blue-700"
+                onClick={() => navigate('projects')}
+              >
+                Khám phá dự án
+              </Button>
+            </div>
+          </div>
+          <div className="relative overflow-hidden rounded-[24px]">
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-full bg-gradient-to-r from-white/90 via-white/30 to-transparent" />
+            <div className="absolute -left-6 top-10 h-28 w-28 rounded-full bg-[#2563EB]/10 blur-3xl" />
+            <div className="absolute right-6 bottom-8 h-24 w-24 rounded-full bg-[#16A34A]/10 blur-3xl" />
+            <div className="grid grid-cols-2 gap-4 p-4 md:p-6">
+              <motion.div
+                initial={{ opacity: 0, y: 24, scale: 0.92 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.8, delay: 0.1, ease: 'easeOut' }}
+                whileHover={{ scale: 1.06 }}
+                className="relative overflow-hidden rounded-[20px] border border-white/80 bg-white/75 shadow-[0_16px_40px_rgba(37,99,235,0.2)] dark:border-slate-700 dark:bg-slate-900/85 dark:shadow-[0_16px_40px_rgba(15,23,42,0.35)]"
+                style={{ minHeight: '170px' }}
+              >
+                <motion.img
+                  src="/assets/banner1.png"
+                  alt="Banner nhà ở xã hội hiện đại"
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                  animate={{ scale: [1, 1.08, 1] }}
+                  transition={{ duration: 8, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
+                />
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 24, scale: 0.92 }}
+                animate={{ opacity: 1, y: -2, scale: 1 }}
+                transition={{ duration: 0.85, delay: 0.2, ease: 'easeOut' }}
+                whileHover={{ scale: 1.06 }}
+                className="relative overflow-hidden rounded-[20px] border border-white/80 bg-white/75 shadow-[0_16px_40px_rgba(37,99,235,0.2)] dark:border-slate-700 dark:bg-slate-900/85 dark:shadow-[0_16px_40px_rgba(15,23,42,0.35)]"
+                style={{ minHeight: '170px' }}
+              >
+                <motion.img
+                  src="/assets/banner2.png"
+                  alt="Banner công trình xây dựng nhà ở xã hội"
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                  animate={{ y: [0, -12, 0] }}
+                  transition={{ duration: 7, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
+                />
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 28, scale: 0.92 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.9, delay: 0.3, ease: 'easeOut' }}
+                whileHover={{ scale: 1.06 }}
+                className="relative overflow-hidden rounded-[20px] border border-white/80 bg-white/75 shadow-[0_16px_40px_rgba(37,99,235,0.2)] dark:border-slate-700 dark:bg-slate-900/85 dark:shadow-[0_16px_40px_rgba(15,23,42,0.35)]"
+                style={{ minHeight: '170px' }}
+              >
+                <motion.img
+                  src="/assets/banner3.png"
+                  alt="Banner nhà ở xã hội và gia đình bên cạnh khu nhà"
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                  animate={{ rotate: [0, 3, -3, 0] }}
+                  transition={{ duration: 6, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
+                />
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 24, scale: 0.92 }}
+                animate={{ opacity: 1, y: -4, scale: 1 }}
+                transition={{ duration: 0.95, delay: 0.35, ease: 'easeOut' }}
+                whileHover={{ scale: 1.06 }}
+                className="relative overflow-hidden rounded-[20px] border border-white/80 bg-white/75 shadow-[0_16px_40px_rgba(37,99,235,0.2)] dark:border-slate-700 dark:bg-slate-900/85 dark:shadow-[0_16px_40px_rgba(15,23,42,0.35)]"
+                style={{ minHeight: '170px' }}
+              >
+                <motion.img
+                  src="/images/hero-banner.jpg"
+                  alt="Góc nhìn khu nhà ở xã hội với cây xanh và đường phố"
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                  animate={{ scale: [1, 1.04, 1], opacity: [1, 0.92, 1] }}
+                  transition={{ duration: 9, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
+                />
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Tiêu đề danh mục */}
       <SectionHeader
         title="Danh mục nhà ở xã hội"

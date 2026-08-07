@@ -17,6 +17,7 @@ interface UserProfileState {
   email: string
   avatarUrl: string | null
   roleLabel: string
+  ekycVerified: boolean
 }
 
 interface UserProfileContextValue extends UserProfileState {
@@ -31,6 +32,7 @@ const empty: UserProfileState = {
   email: '',
   avatarUrl: null,
   roleLabel: '',
+  ekycVerified: false,
 }
 
 const UserProfileContext = createContext<UserProfileContextValue | null>(null)
@@ -44,12 +46,14 @@ function readUser(data: unknown): UserProfileState | null {
   const fullName = String(u.fullName ?? u.FullName ?? '')
   const email = String(u.email ?? u.Email ?? '')
   const role = String(u.role ?? u.Role ?? localStorage.getItem('userRole') ?? '')
+  const ekycVerified = Boolean(u.ekycVerified ?? u.EkycVerified ?? u.kycVerified ?? u.KycVerified ?? true)
 
   return {
     fullName,
     email,
     avatarUrl: extractProfileImageUrl(u),
     roleLabel: labelRole(role),
+    ekycVerified,
   }
 }
 
