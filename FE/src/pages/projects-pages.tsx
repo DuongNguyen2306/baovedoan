@@ -663,127 +663,201 @@ function ProjectDetailView({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="space-y-6">
-      {project.thumbnailUrl && (
-        <img
-          src={project.thumbnailUrl}
-          alt={project.projectName || project.name || 'Dự án'}
-          className="h-64 w-full rounded-xl object-cover"
-        />
-      )}
+    <div className="space-y-8">
+      {/* Layout 2 cột: Ảnh | Thông tin */}
+      <div className="grid gap-6 lg:grid-cols-5">
+        {/* Cột trái: Ảnh */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Ảnh chính */}
+          {project.thumbnailUrl && (
+            <div className="overflow-hidden rounded-2xl bg-slate-100 shadow-lg dark:bg-slate-800">
+              <div className="aspect-[4/3] w-full">
+                <img
+                  src={project.thumbnailUrl}
+                  alt={project.projectName || project.name || 'Dự án'}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            </div>
+          )}
 
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {project.projectName || project.name}
-          </h2>
-          {project.status && (
-            <span className="mt-2 inline-block rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-              {project.status}
-            </span>
+          {/* Gallery ảnh */}
+          {project.images && project.images.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Hình ảnh ({project.images.length})
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {project.images.slice(0, 6).map((img, idx) => (
+                  <div
+                    key={img.id}
+                    className="group relative aspect-square overflow-hidden rounded-lg bg-slate-100 shadow-sm dark:bg-slate-800"
+                  >
+                    <img
+                      src={img.imageUrl}
+                      alt={`Hình ảnh ${idx + 1}`}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                ))}
+                {project.images.length > 6 && (
+                  <div className="relative aspect-square overflow-hidden rounded-lg bg-slate-200 dark:bg-slate-700">
+                    <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-slate-500">
+                      +{project.images.length - 6}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
-        <div className="flex gap-2">
-          {logged && isApplicant && (
-            <Button variant="outline" disabled={wishlistBusy} onClick={handleWishlist}>
-              <Heart className={wishlisted ? 'mr-2 h-4 w-4 fill-current text-rose-500' : 'mr-2 h-4 w-4'} />
-              {wishlisted ? 'Đã quan tâm' : 'Quan tâm'}
+
+        {/* Cột phải: Thông tin */}
+        <div className="lg:col-span-3 space-y-5">
+          {/* Tiêu đề & nút */}
+          <div className="space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="text-2xl font-bold leading-tight text-slate-900 dark:text-slate-100">
+                {project.projectName || project.name}
+              </h2>
+              {project.status && (
+                <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                  {project.status}
+                </span>
+              )}
+            </div>
+
+            {(project.address || project.district || project.province) && (
+              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                <MapPin className="h-4 w-4 shrink-0 text-blue-400" />
+                <span>
+                  {[project.address, project.district, project.province].filter(Boolean).join(', ')}
+                </span>
+              </div>
+            )}
+
+            {/* Giá nổi bật */}
+            <div className="rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 p-5 text-white shadow-lg shadow-blue-500/20">
+              <p className="text-xs font-medium uppercase tracking-wide text-blue-100">Giá từ</p>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-3xl font-bold">{formatPrice(project.minPrice)}</span>
+                {project.maxPrice && project.maxPrice !== project.minPrice && (
+                  <>
+                    <span className="text-blue-200">—</span>
+                    <span className="text-xl font-semibold">{formatPrice(project.maxPrice)}</span>
+                  </>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-blue-100">
+                {project.availableUnits ?? 0} căn hộ còn trống
+              </p>
+            </div>
+          </div>
+
+          {/* Thông tin chi tiết */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Thông tin dự án
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <InfoItem label="Mở thu nhận hồ sơ" value={formatWhen(openDate)} />
+              <InfoItem label="Kết thúc thu nhận" value={formatWhen(closeDate)} />
+              <InfoItem
+                label="Trả trước (Đợt 1)"
+                value={
+                  project.phase1Percentage != null && project.phase1Percentage > 0
+                    ? `${project.phase1Percentage}% giá căn`
+                    : 'Chưa cấu hình'
+                }
+              />
+              <InfoItem
+                label="Đợt 2"
+                value={
+                  project.phase1Percentage != null && project.phase1Percentage > 0
+                    ? `Phần còn lại (${100 - project.phase1Percentage}%)`
+                    : '—'
+                }
+              />
+            </div>
+          </div>
+
+          {/* Mô tả */}
+          {project.description && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Mô tả dự án
+              </h3>
+              <div
+                className="prose prose-slate max-w-none rounded-xl bg-slate-50 p-4 text-sm leading-relaxed dark:prose-invert dark:bg-slate-800/50"
+                dangerouslySetInnerHTML={{ __html: project.description }}
+              />
+            </div>
+          )}
+
+          {/* Nút hành động */}
+          <div className="flex flex-wrap gap-3 pt-2">
+            {logged && isApplicant && (
+              <Button
+                variant="outline"
+                disabled={wishlistBusy}
+                onClick={handleWishlist}
+                className="gap-2"
+              >
+                <Heart className={`h-4 w-4 ${wishlisted ? 'fill-current text-rose-500' : ''}`} />
+                {wishlisted ? 'Đã quan tâm' : 'Quan tâm'}
+              </Button>
+            )}
+            <Button
+              variant="accent"
+              className="flex-1 sm:flex-none"
+              disabled={!canApply && logged && isApplicant}
+              onClick={() => void handleApply()}
+            >
+              {!logged ? 'Đăng nhập để nộp hồ sơ' : 'Nộp hồ sơ ngay'}
             </Button>
-          )}
-          <Button
-            variant="accent"
-            disabled={!canApply && logged && isApplicant}
-            onClick={() => void handleApply()}
-            title={!logged ? 'Đăng nhập tài khoản người dân để nộp hồ sơ' : undefined}
-          >
-            {!logged ? 'Đăng nhập để nộp hồ sơ' : 'Nộp hồ sơ ngay'}
-          </Button>
+          </div>
         </div>
       </div>
 
-      {(project.address || project.district || project.province) && (
-        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-          <MapPin className="h-4 w-4" />
-          <span className="text-sm">
-            {[project.address, project.district, project.province].filter(Boolean).join(', ')}
-          </span>
-        </div>
-      )}
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <InfoItem label="Giá đề xuất (tối thiểu)" value={formatPrice(project.minPrice)} />
-        <InfoItem label="Giá đề xuất (tối đa)" value={formatPrice(project.maxPrice)} />
-        <InfoItem label="Số căn hộ trống" value={`${project.availableUnits ?? 0} căn`} />
-        <InfoItem
-          label="Trả trước (Đợt 1)"
-          value={
-            project.phase1Percentage != null && project.phase1Percentage > 0
-              ? `${project.phase1Percentage}% giá căn — Đợt 2 = phần còn lại`
-              : 'Chưa cấu hình'
-          }
-        />
-        <InfoItem label="Mở thu nhận hồ sơ" value={formatWhen(openDate)} />
-        <InfoItem label="Kết thúc thu nhận" value={formatWhen(closeDate)} />
-      </div>
-
+      {/* Danh sách căn hộ */}
       {(project.apartments?.length ?? 0) > 0 && (
         <div>
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Danh sách căn
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Danh sách căn hộ ({project.apartments!.length})
           </h3>
           <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
                 <tr>
-                  <th className="px-3 py-2 font-semibold">Tên căn</th>
-                  <th className="px-3 py-2 font-semibold">Diện tích</th>
-                  <th className="px-3 py-2 font-semibold">Giá</th>
-                  <th className="px-3 py-2 font-semibold">Trạng thái</th>
+                  <th className="px-4 py-3 font-semibold">Tên căn</th>
+                  <th className="px-4 py-3 font-semibold">Diện tích</th>
+                  <th className="px-4 py-3 font-semibold">Giá</th>
+                  <th className="px-4 py-3 font-semibold">Trạng thái</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {project.apartments!.map((apt) => (
-                  <tr key={apt.id} className="border-t border-slate-100 dark:border-slate-800">
-                    <td className="px-3 py-2 font-medium">{apt.unitName}</td>
-                    <td className="px-3 py-2">{apt.area} m²</td>
-                    <td className="px-3 py-2">{Number(apt.price).toLocaleString('vi-VN')} VNĐ</td>
-                    <td className="px-3 py-2">
-                      {String(apt.status).toUpperCase() === 'ASSIGNED' ? 'Đã bàn giao' : 'Còn trống'}
+                  <tr key={apt.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                    <td className="px-4 py-3 font-medium">{apt.unitName}</td>
+                    <td className="px-4 py-3">{apt.area} m²</td>
+                    <td className="px-4 py-3 font-semibold text-blue-600 dark:text-blue-400">
+                      {Number(apt.price).toLocaleString('vi-VN')} VNĐ
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        String(apt.status).toUpperCase() === 'ASSIGNED'
+                          ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                          : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                      }`}>
+                        {String(apt.status).toUpperCase() === 'ASSIGNED' ? 'Đã bàn giao' : 'Còn trống'}
+                      </span>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        </div>
-      )}
-
-      {project.description && (
-        <div>
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Mô tả dự án
-          </h3>
-          <div
-            className="prose prose-slate max-w-none rounded-xl bg-slate-50 p-4 text-sm leading-relaxed dark:prose-invert dark:bg-slate-800/50"
-            dangerouslySetInnerHTML={{ __html: project.description }}
-          />
-        </div>
-      )}
-
-      {project.images && project.images.length > 0 && (
-        <div>
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Hình ảnh dự án
-          </h3>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {project.images.map((img) => (
-              <img
-                key={img.id}
-                src={img.imageUrl}
-                alt=""
-                className="aspect-video w-full rounded-lg object-cover"
-              />
-            ))}
           </div>
         </div>
       )}
@@ -793,9 +867,9 @@ function ProjectDetailView({ projectId }: { projectId: string }) {
 
 function InfoItem({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800/50">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
-      <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">{value}</p>
+    <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800/50">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">{label}</p>
+      <p className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-slate-100">{value}</p>
     </div>
   )
 }

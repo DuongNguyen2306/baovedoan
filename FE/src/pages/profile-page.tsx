@@ -19,9 +19,12 @@ export function ProfilePage() {
   const [pwMsg, setPwMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [showPasswordForm, setShowPasswordForm] = useState(false)
   const [phoneNumber, setPhoneNumber] = useState('')
+  const [phoneSaved, setPhoneSaved] = useState('')
+  const [isEditingPhone, setIsEditingPhone] = useState(false)
   const [citizenId, setCitizenId] = useState('')
   const [address, setAddress] = useState('')
   const [dateOfBirth, setDateOfBirth] = useState('')
+  const [phoneDraft, setPhoneDraft] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -29,7 +32,10 @@ export function ProfilePage() {
       void usersApi.getProfile().then((data) => {
         const u = (data as { user?: Record<string, unknown> })?.user
         if (!u) return
-        setPhoneNumber(String(u.phoneNumber ?? u.PhoneNumber ?? ''))
+        const phone = String(u.phoneNumber ?? u.PhoneNumber ?? '')
+        setPhoneNumber(phone)
+        setPhoneSaved(phone)
+        setPhoneDraft(phone)
         setCitizenId(String(u.citizenId ?? u.CitizenId ?? ''))
         setAddress(String(u.address ?? u.Address ?? ''))
         const dobRaw = u.dateOfBirth ?? u.DateOfBirth
@@ -42,6 +48,21 @@ export function ProfilePage() {
       })
     })
   }, [refreshProfile])
+
+  const hasPhoneChanged = phoneDraft !== phoneSaved
+
+  const savePhone = async () => {
+    try {
+      const data = await usersApi.updateProfile({
+        fullName,
+        phoneNumber: phoneDraft || null,
+      })
+      setPhoneNumber(phoneDraft)
+      setPhoneSaved(phoneDraft)
+      setIsEditingPhone(false)
+      setMsg({ type: 'success', text: formatSuccess(data) || 'Cập nhật số điện thoại thành công.' })
+    } catch (err) { setMsg({ type: 'error', text: formatError(err) }) }
+  }
 
   const logout = async () => {
     const refresh = localStorage.getItem('refreshToken') ?? ''
@@ -103,14 +124,7 @@ export function ProfilePage() {
         <div className="space-y-6">
           <form className="space-y-4" onSubmit={async (e) => {
             e.preventDefault()
-            try {
-              // BE: đã eKYC thì chỉ cập nhật SĐT; vẫn gửi fullName hiện tại để DTO hợp lệ
-              const data = await usersApi.updateProfile({
-                fullName,
-                phoneNumber: phoneNumber || null,
-              })
-              setMsg({ type: 'success', text: formatSuccess(data) || 'Cập nhật số điện thoại thành công.' })
-            } catch (err) { setMsg({ type: 'error', text: formatError(err) }) }
+            // Các trường eKYC chỉ đọc, không cần submit form
           }}>
             <FormField label="Địa chỉ email đăng ký" htmlFor="email">
               <Input id="email" name="email" readOnly className="opacity-70" value={email} />
@@ -166,17 +180,57 @@ export function ProfilePage() {
                 </button>
               </Alert>
             )}
-            <FormField label="Số điện thoại (có thể cập nhật)" htmlFor="phoneNumber">
-              <Input
-                id="phoneNumber"
-                name="phoneNumber"
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="Nhập số điện thoại"
-              />
-            </FormField>
-            <Button type="submit" variant="accent">Lưu số điện thoại</Button>
+            <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Số điện thoại
+                </span>
+                {!isEditingPhone && (
+                  <button
+                    type="button"
+                    onClick={() => { setIsEditingPhone(true); setPhoneDraft(phoneNumber) }}
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >
+                    Chỉnh sửa
+                  </button>
+                )}
+                {isEditingPhone && (
+                  <button
+                    type="button"
+                    onClick={() => { setIsEditingPhone(false); setPhoneDraft(phoneNumber) }}
+                    className="text-xs font-semibold text-slate-500 hover:underline"
+                  >
+                    Hủy
+                  </button>
+                )}
+              </div>
+              {isEditingPhone ? (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <div className="flex-1">
+                    <Input
+                      id="phoneNumber"
+                      name="phoneNumber"
+                      type="tel"
+                      value={phoneDraft}
+                      onChange={(e) => setPhoneDraft(e.target.value)}
+                      placeholder="Nhập số điện thoại"
+                    />
+                  </div>
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    disabled={!hasPhoneChanged}
+                    onClick={() => void savePhone()}
+                  >
+                    Lưu thay đổi
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-800 dark:text-slate-200">
+                  {phoneNumber || <span className="italic font-normal text-slate-400">Chưa cập nhật</span>}
+                </p>
+              )}
+            </div>
             {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
           </form>
 

@@ -3,7 +3,7 @@ import { BRAND } from '@/lib/brand'
 export function GovFooter() {
   return (
     <footer className="bg-[#003D7A] text-white">
-      <div className="mx-auto max-w-[1400px] px-4 py-12 lg:px-8">
+      <div className="mx-auto px-4 py-12 lg:px-8">
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-1">
             <h3 className="text-base font-bold leading-snug">{BRAND.projectName}</h3>
@@ -42,9 +42,6 @@ export function GovFooter() {
             <div className="mt-4 flex flex-wrap gap-2 text-[11px]">
               <span className="rounded-full bg-white/10 px-2.5 py-1 font-semibold text-white/80">
                 Phiên bản 1.0.0
-              </span>
-              <span className="rounded-full bg-emerald-500/20 px-2.5 py-1 font-semibold text-emerald-300">
-                ● Đang hoạt động
               </span>
             </div>
           </div>

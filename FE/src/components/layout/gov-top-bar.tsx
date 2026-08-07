@@ -1,4 +1,4 @@
-import { Mail, MapPin, Phone, Wifi } from 'lucide-react'
+import { Mail, MapPin, Phone } from 'lucide-react'
 import { BRAND } from '@/lib/brand'
 import { LiveClock } from '@/components/layout/live-clock'
 
@@ -26,9 +26,6 @@ export function GovTopBar() {
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-3 whitespace-nowrap">
-          <span className="hidden items-center gap-1.5 rounded-full border border-emerald-300/40 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-200 lg:inline-flex whitespace-nowrap">
-            <Wifi className="h-3 w-3" /> 99.98% Uptime
-          </span>
           <span className="rounded-md border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold tabular-nums whitespace-nowrap">
             <LiveClock className="text-white/85" />
           </span>

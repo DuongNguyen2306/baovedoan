@@ -134,7 +134,7 @@ function LandingHeader() {
           <Button
             variant="outline"
             size="sm"
-            className="rounded-md border-primary/30 font-semibold text-primary"
+            className="rounded-lg border-2 border-primary/40 font-bold text-primary shadow-sm hover:border-primary/60 hover:bg-primary/5 hover:shadow-md"
             onClick={() => navigate('login')}
           >
             Đăng nhập
@@ -169,7 +169,7 @@ function AuthHeader() {
           <Button
             variant="outline"
             size="sm"
-            className="rounded-md border-primary/30 font-semibold text-primary"
+            className="rounded-lg border-2 border-primary/40 font-bold text-primary shadow-sm hover:border-primary/60 hover:bg-primary/5 hover:shadow-md"
             onClick={() => navigate('landing')}
           >
             Trang chủ
@@ -196,9 +196,9 @@ function InternalHeader({ logged, role, wideScreen = false }: { logged: boolean;
       <GovTopBar />
       <div className="led-strip" aria-hidden />
       <div className={`h-1 ${theme.brandAccent}`} aria-hidden />
-      <header className="header-glass sticky top-0 z-50">
+      <header className="header-glass sticky top-0 z-50 border-b border-primary/20 bg-white/95 shadow-md dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-lg">
         <RoleAmbient roleId={ambientId} />
-        <div className={`mx-auto flex ${containerMax} items-center gap-3 px-6 py-3 lg:gap-5 lg:px-8`}>
+        <div className={`mx-auto flex ${containerMax} items-center gap-3 px-6 py-3.5 lg:gap-5 lg:px-8`}>
           <button
             type="button"
             onClick={() => navigate(logged ? (theme.homeRoute as RouteId) : 'landing')}
@@ -216,24 +216,24 @@ function InternalHeader({ logged, role, wideScreen = false }: { logged: boolean;
           {/* Role badge */}
           {logged && (
             <span
-              className={`hidden items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide text-white shadow-sm md:inline-flex ${theme.brandAccent}`}
+              className={`hidden items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-white shadow-md ring-1 ring-white/20 md:inline-flex ${theme.brandAccent}`}
               title={theme.badgeFull}
             >
-              <ThemeIcon className="h-3.5 w-3.5" />
+              <ThemeIcon className="h-4 w-4" />
               {theme.badge}
             </span>
           )}
 
           <div className="flex shrink-0 items-center gap-2">
             {logged && (
-              <span className="hidden items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 xl:inline-flex dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-300" title="Trạng thái hệ thống">
+              <span className="hidden items-center gap-1.5 rounded-full border-2 border-emerald-300 bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700 xl:inline-flex dark:border-emerald-400/50 dark:bg-emerald-500/15 dark:text-emerald-300" title="Trạng thái hệ thống">
                 <span className="pulse-dot" /> Trực tuyến
               </span>
             )}
             <AppDownloadBadge />
             <ThemeToggle />
             {logged && <NotificationBell />}
-            {!logged && <Button variant="outline" size="sm" className="rounded-md border-primary/30 font-semibold text-primary" onClick={() => navigate('login')}>Đăng nhập</Button>}
+            {!logged && <Button variant="outline" size="sm" className="rounded-lg border-2 border-primary/40 font-bold text-primary shadow-sm hover:border-primary/60 hover:bg-primary/5 hover:shadow-md" onClick={() => navigate('login')}>Đăng nhập</Button>}
             {logged && (
               <Button size="sm" className={`glow-cta rounded-md font-bold ${theme.ctaBg} ${theme.ctaBgHover} ${theme.ctaText}`} onClick={() => navigate(theme.ctaRoute as RouteId)}>
                 <Sparkles className="mr-1 h-3.5 w-3.5" />

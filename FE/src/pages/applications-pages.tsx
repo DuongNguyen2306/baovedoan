@@ -356,28 +356,26 @@ export function CreateApplicationPage() {
   }, [])
 
   return (
-    <div>
+    <div className="space-y-4">
       <PageHeader routeId="create-application" />
-      <PageCard className="p-6">
-        {checking ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Đang kiểm tra xác minh danh tính...</p>
-        ) : ready ? (
-          <CreateApplicationWizard />
-        ) : (
-          <div className="space-y-4">
-            <Alert variant="warning">
-              Cần xác minh danh tính (eKYC) trước khi tạo hồ sơ đăng ký nhà ở xã hội. Bạn vẫn có thể
-              duyệt dự án và lưu quan tâm mà không cần eKYC.
-            </Alert>
-            <Button variant="accent" onClick={() => navigate('verify-identity')}>
-              Xác minh danh tính
-            </Button>
-            <Button variant="outline" onClick={() => navigate('applications')}>
-              Quay lại danh sách hồ sơ
-            </Button>
-          </div>
-        )}
-      </PageCard>
+      {checking ? (
+        <p className="text-sm text-slate-500 dark:text-slate-400">Đang kiểm tra xác minh danh tính...</p>
+      ) : ready ? (
+        <CreateApplicationWizard />
+      ) : (
+        <div className="space-y-4">
+          <Alert variant="warning">
+            Cần xác minh danh tính (eKYC) trước khi tạo hồ sơ đăng ký nhà ở xã hội. Bạn vẫn có thể
+            duyệt dự án và lưu quan tâm mà không cần eKYC.
+          </Alert>
+          <Button variant="accent" onClick={() => navigate('verify-identity')}>
+            Xác minh danh tính
+          </Button>
+          <Button variant="outline" onClick={() => navigate('applications')}>
+            Quay lại danh sách hồ sơ
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

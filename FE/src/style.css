@@ -2991,3 +2991,32 @@ button.role-stat-clickable:active {
     width: 100%;
   }
 }
+
+/* ─── Wishlist Toast Animations ─────────────────────────────────────── */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.35s cubic-bezier(0.21, 1.02, 0.73, 1);
+}
+
+@keyframes shrink-width {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.animate-shrink-width {
+  animation: shrink-width 5s linear forwards;
+}

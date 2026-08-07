@@ -19,7 +19,6 @@ import { usersApi } from '@/api/users'
 import { FileDropzone } from '@/components/shared/file-dropzone'
 import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FormField } from '@/components/ui/label'
 import { Input, Select } from '@/components/ui/input'
 import { navigate } from '@/hooks/useHashRoute'
@@ -178,6 +177,7 @@ export function CreateApplicationWizard() {
   const { fullName: profileFullName } = useUserProfile()
 
   const [step, setStep] = useState<Step>(1)
+  const [completedSteps, setCompletedSteps] = useState<Step[]>([])
   const [msg, setMsg] = useState<{ type: 'success' | 'error' | 'warning' | 'info'; text: string } | null>(null)
   const [busy, setBusy] = useState('')
   const [projects, setProjects] = useState<{ id: string; name: string; minPrice?: number; maxPrice?: number; availableUnits?: number }[]>([])
@@ -529,6 +529,7 @@ export function CreateApplicationWizard() {
       }
       const newStatus = result?.newStatus ?? result?.NewStatus ?? 'SUBMITTED'
       setDraftStatus(newStatus)
+      setCompletedSteps((prev) => (prev.includes(5) ? prev : [...prev, 5]))
       setMsg({ type: 'success', text: `Nộp hồ sơ thành công (trạng thái: ${newStatus}). Hệ thống sẽ chuyển sang trang chi tiết.` })
       setTimeout(() => {
         sessionStorage.setItem('applicationId', draftId)
@@ -566,6 +567,7 @@ export function CreateApplicationWizard() {
       return
     }
     setMsg(null)
+    setCompletedSteps((prev) => (prev.includes(1) ? prev : [...prev, 1]))
     setStep(2)
   }
 
@@ -581,12 +583,14 @@ export function CreateApplicationWizard() {
       return
     }
     setMsg(null)
+    setCompletedSteps((prev) => (prev.includes(2) ? prev : [...prev, 2]))
     setStep(3)
   }
 
   const goNextFromStep3 = async () => {
     const id = await createDraft()
     if (!id) return
+    setCompletedSteps((prev) => (prev.includes(3) ? prev : [...prev, 3]))
     setStep(4)
   }
 
@@ -627,10 +631,10 @@ export function CreateApplicationWizard() {
   }, [householdSize])
 
   const progress: Record<Step, 'todo' | 'doing' | 'done'> = {
-    1: step === 1 ? 'doing' : step1Ready ? 'done' : 'todo',
-    2: step === 2 ? 'doing' : step2Ready ? 'done' : 'todo',
-    3: step === 3 ? 'doing' : step3Ready ? 'done' : 'todo',
-    4: step === 4 ? 'doing' : allDocsUploaded ? 'done' : 'todo',
+    1: step === 1 ? 'doing' : completedSteps.includes(1) ? 'done' : 'todo',
+    2: step === 2 ? 'doing' : completedSteps.includes(2) ? 'done' : 'todo',
+    3: step === 3 ? 'doing' : completedSteps.includes(3) ? 'done' : 'todo',
+    4: step === 4 ? 'doing' : completedSteps.includes(4) ? 'done' : 'todo',
     5: step === 5 ? 'doing' : 'todo',
   }
 
@@ -656,7 +660,7 @@ export function CreateApplicationWizard() {
   )
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
+    <div className="mx-auto w-full space-y-4">
       {activeBlock && (
         <Alert variant="error">
           {activeBlock}{' '}
@@ -671,18 +675,15 @@ export function CreateApplicationWizard() {
       <AnimatePresence mode="wait">
         {step === 1 && (
           <motion.section key="s1" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <UserCheck className="h-5 w-5 text-primary" />
-                  Bước 1 — Thông tin cá nhân
-                </CardTitle>
-                <CardDescription>
-                  Họ tên, CCCD, địa chỉ thường trú lấy từ eKYC (chỉ đọc). Bổ sung nghề nghiệp, nơi ở hiện tại và thực trạng nhà ở.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {summary}
+            <div className="glass-card p-5 sm:p-6 space-y-5">
+              <div className="flex items-center gap-2 mb-1">
+                <UserCheck className="h-5 w-5 text-primary" />
+                <h2 className="text-base font-semibold">Bước 1 — Thông tin cá nhân</h2>
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                Họ tên, CCCD, địa chỉ thường trú lấy từ eKYC (chỉ đọc). Bổ sung nghề nghiệp, nơi ở hiện tại và thực trạng nhà ở.
+              </p>
+              {summary}
 
                 {ekycIncomplete && (
                   <Alert variant="warning">
@@ -705,7 +706,7 @@ export function CreateApplicationWizard() {
                   </Select>
                 </FormField>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <FormField label="Họ và tên (eKYC) *" htmlFor="fullName">
                     <Input
                       id="fullName"
@@ -724,41 +725,26 @@ export function CreateApplicationWizard() {
                       title="Lấy từ eKYC — không thể sửa tay"
                     />
                   </FormField>
+                  {dateOfBirthLabel && (
+                    <FormField label="Ngày sinh (eKYC)" htmlFor="dateOfBirth">
+                      <Input id="dateOfBirth" value={dateOfBirthLabel} readOnly className={ekycInputClass} />
+                    </FormField>
+                  )}
                 </div>
 
-                {dateOfBirthLabel && (
-                  <FormField label="Ngày sinh (eKYC)" htmlFor="dateOfBirth">
-                    <Input id="dateOfBirth" value={dateOfBirthLabel} readOnly className={ekycInputClass} />
-                  </FormField>
-                )}
-
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <FormField label="Nghề nghiệp" htmlFor="occupation">
                     <Input id="occupation" value={form.occupation} onChange={(e) => setForm((f) => ({ ...f, occupation: e.target.value }))} maxLength={200} />
                   </FormField>
                   <FormField label="Nơi làm việc" htmlFor="workPlace">
                     <Input id="workPlace" value={form.workPlace} onChange={(e) => setForm((f) => ({ ...f, workPlace: e.target.value }))} maxLength={500} />
                   </FormField>
+                  <FormField label="Thu nhập hàng tháng (VNĐ) *" htmlFor="monthlyIncome">
+                    <Input id="monthlyIncome" type="number" min={0} step={1000} value={form.monthlyIncome} onChange={(e) => setForm((f) => ({ ...f, monthlyIncome: e.target.value }))} placeholder="Ví dụ: 12000000" required />
+                  </FormField>
                 </div>
 
-                <FormField label="Nơi ở hiện tại *" htmlFor="currentResidence">
-                  <Input id="currentResidence" value={form.currentResidence} onChange={(e) => setForm((f) => ({ ...f, currentResidence: e.target.value }))} maxLength={500} required />
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Địa chỉ đang sinh sống (có thể khác thường trú trên CCCD).
-                  </p>
-                </FormField>
-
-                <FormField label="Địa chỉ thường trú / tạm trú (eKYC) *" htmlFor="permanentAddress">
-                  <Input
-                    id="permanentAddress"
-                    value={form.permanentAddress}
-                    readOnly
-                    className={ekycInputClass}
-                    title="Lấy từ eKYC — không thể sửa tay"
-                  />
-                </FormField>
-
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <FormField label="Thực trạng nhà ở *" htmlFor="housingStatus">
                     <Select
                       id="housingStatus"
@@ -768,7 +754,6 @@ export function CreateApplicationWizard() {
                         setForm((f) => ({
                           ...f,
                           housingStatus: next,
-                          // Đổi sang chưa có nhà → xoá diện tích để không gửi nhầm
                           averageHousingAreaPerPerson:
                             next === 'SMALL_HOUSE' ? f.averageHousingAreaPerPerson : '',
                         }))
@@ -799,13 +784,7 @@ export function CreateApplicationWizard() {
                       ))}
                     </Select>
                   </FormField>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <FormField label="Thu nhập hàng tháng (VNĐ) *" htmlFor="monthlyIncome">
-                    <Input id="monthlyIncome" type="number" min={0} step={1000} value={form.monthlyIncome} onChange={(e) => setForm((f) => ({ ...f, monthlyIncome: e.target.value }))} placeholder="Ví dụ: 12000000" required />
-                  </FormField>
-                  {isMarried ? (
+                  {isMarried && (
                     <FormField label="Thu nhập vợ/chồng (VNĐ) *" htmlFor="spouseMonthlyIncome">
                       <Input
                         id="spouseMonthlyIncome"
@@ -817,14 +796,26 @@ export function CreateApplicationWizard() {
                         placeholder="Ví dụ: 8000000"
                         required
                       />
-                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        Dùng để xét trần thu nhập hộ đã kết hôn (Đ30). Có thể nhập 0.
-                      </p>
                     </FormField>
-                  ) : (
-                    <div className="hidden sm:block" aria-hidden />
                   )}
                 </div>
+
+                <FormField label="Nơi ở hiện tại *" htmlFor="currentResidence">
+                  <Input id="currentResidence" value={form.currentResidence} onChange={(e) => setForm((f) => ({ ...f, currentResidence: e.target.value }))} maxLength={500} required />
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Địa chỉ đang sinh sống (có thể khác thường trú trên CCCD).
+                  </p>
+                </FormField>
+
+                <FormField label="Địa chỉ thường trú / tạm trú (eKYC) *" htmlFor="permanentAddress">
+                  <Input
+                    id="permanentAddress"
+                    value={form.permanentAddress}
+                    readOnly
+                    className={ekycInputClass}
+                    title="Lấy từ eKYC — không thể sửa tay"
+                  />
+                </FormField>
 
                 {form.housingStatus === 'SMALL_HOUSE' && (
                   <FormField label="Diện tích bình quân đầu người (m²) *" htmlFor="averageHousingAreaPerPerson">
@@ -858,24 +849,20 @@ export function CreateApplicationWizard() {
                     Tiếp tục <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
           </motion.section>
         )}
 
         {step === 2 && (
           <motion.section key="s2" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Users className="h-5 w-5 text-primary" />
-                  Bước 2 — Hộ gia đình
-                </CardTitle>
-                <CardDescription>
-                  Khai số thành viên và quan hệ trong hộ. Dữ liệu được gửi kèm khi tạo hồ sơ qua trường <code>householdMembers[]</code>.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <div className="glass-card p-5 sm:p-6 space-y-5">
+              <div className="flex items-center gap-2 mb-1">
+                <Users className="h-5 w-5 text-primary" />
+                <h2 className="text-base font-semibold">Bước 2 — Hộ gia đình</h2>
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                Khai số thành viên và quan hệ trong hộ. Dữ liệu được gửi kèm khi tạo hồ sơ qua trường <code>householdMembers[]</code>.
+              </p>
                 <FormField label="Số thành viên thêm (ngoài bạn) *" htmlFor="householdSize">
                   <Input
                     id="householdSize"
@@ -901,7 +888,7 @@ export function CreateApplicationWizard() {
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                      <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         <FormField label="Họ tên *" htmlFor={`m-name-${m.id}`}>
                           <Input id={`m-name-${m.id}`} value={m.fullName} onChange={(e) => updateMember(m.id, { fullName: e.target.value })} maxLength={100} required />
                         </FormField>
@@ -934,24 +921,20 @@ export function CreateApplicationWizard() {
                     Tiếp tục <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
           </motion.section>
         )}
 
         {step === 3 && (
           <motion.section key="s3" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <HomeIcon className="h-5 w-5 text-primary" />
-                  Bước 3 — Xác nhận thông tin
-                </CardTitle>
-                <CardDescription>
-                  Kiểm tra lại nhóm đối tượng và lịch sử hợp đồng nhà ở xã hội.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <div className="glass-card p-5 sm:p-6 space-y-5">
+              <div className="flex items-center gap-2 mb-1">
+                <HomeIcon className="h-5 w-5 text-primary" />
+                <h2 className="text-base font-semibold">Bước 3 — Xác nhận thông tin</h2>
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                Kiểm tra lại nhóm đối tượng và lịch sử hợp đồng nhà ở xã hội.
+              </p>
                 <FormField label="Nhóm đối tượng ưu tiên *" htmlFor="priorityGroup">
                   <Select id="priorityGroup" value={form.priorityGroup} onChange={(e) => setForm((f) => ({ ...f, priorityGroup: e.target.value }))} required>
                     <option value="">— Chọn nhóm đối tượng —</option>
@@ -984,24 +967,20 @@ export function CreateApplicationWizard() {
                     </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
           </motion.section>
         )}
 
         {step === 4 && (
           <motion.section key="s4" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <FileCheck2 className="h-5 w-5 text-primary" />
-                  Bước 4 — Tài liệu đính kèm
-                </CardTitle>
-                <CardDescription>
-                  Upload PDF bắt buộc theo nhóm đối tượng (tối đa 10 MB / file). Cần {requiredDocs.length} loại giấy tờ.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <div className="glass-card p-5 sm:p-6 space-y-5">
+              <div className="flex items-center gap-2 mb-1">
+                <FileCheck2 className="h-5 w-5 text-primary" />
+                <h2 className="text-base font-semibold">Bước 4 — Tài liệu đính kèm</h2>
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                Upload PDF bắt buộc theo nhóm đối tượng (tối đa 10 MB / file). Cần {requiredDocs.length} loại giấy tờ.
+              </p>
                 {summary}
                 {!draftId && (
                   <Alert variant="warning">Bạn cần lưu nháp hồ sơ trước khi upload tài liệu.</Alert>
@@ -1045,150 +1024,149 @@ export function CreateApplicationWizard() {
 
                 <div className="flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
                   <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep(3)}>← Quay lại</Button>
-                  <Button type="button" variant="accent" disabled={!allDocsUploaded || (draftStatus !== 'DRAFT' && draftStatus !== 'NEED_MORE_DOCUMENTS') || isBusy} onClick={() => setStep(5)}>
+                  <Button type="button" variant="accent" disabled={!allDocsUploaded || (draftStatus !== 'DRAFT' && draftStatus !== 'NEED_MORE_DOCUMENTS') || isBusy} onClick={() => {
+                    setCompletedSteps((prev) => (prev.includes(4) ? prev : [...prev, 4]))
+                    setStep(5)
+                  }}>
                     Tiếp tục rà soát <ArrowRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-          </motion.section>
-        )}
+              </div>
+            </motion.section>
+          )}
 
-        {step === 5 && (
+          {step === 5 && (
           <motion.section key="s5" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <CheckCircle2 className="h-5 w-5 text-primary" />
-                  Bước 5 — Rà soát trước khi nộp
-                </CardTitle>
-                <CardDescription>Kiểm tra toàn bộ thông tin. Sau khi nộp, hồ sơ sẽ chuyển sang trạng thái <strong>SUBMITTED</strong>.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Alert variant="info">
-                  <strong>Quy trình tiếp theo:</strong> Sau khi nộp, CĐT tiếp nhận &amp; thẩm định → có thể yêu cầu bổ sung hoặc chuyển Sở Xây dựng → Sở phê duyệt → chờ bốc thăm/ký hợp đồng (nếu trúng).
-                </Alert>
+            <div className="glass-card p-5 sm:p-6 space-y-5">
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                <h2 className="text-base font-semibold">Bước 5 — Rà soát trước khi nộp</h2>
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                Kiểm tra toàn bộ thông tin. Sau khi nộp, hồ sơ sẽ chuyển sang trạng thái <strong>SUBMITTED</strong>.
+              </p>
+              <Alert variant="info">
+                <strong>Quy trình tiếp theo:</strong> Sau khi nộp, CĐT tiếp nhận &amp; thẩm định → có thể yêu cầu bổ sung hoặc chuyển Sở Xây dựng → Sở phê duyệt → chờ bốc thăm/ký hợp đồng (nếu trúng).
+              </Alert>
 
-                <div className="grid gap-3 text-sm">
-                  <section>
-                    <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Cá nhân</p>
-                    <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                      <p><strong>Dự án:</strong> {projects.find((p) => p.id === form.projectId)?.name ?? '—'}</p>
-                      <p><strong>Họ tên:</strong> {form.fullName || '—'} · <strong>CCCD:</strong> {form.citizenId || '—'}</p>
-                      <p><strong>Nghề:</strong> {form.occupation || '—'} · <strong>Nơi làm việc:</strong> {form.workPlace || '—'}</p>
-                      <p><strong>Nơi ở hiện tại:</strong> {form.currentResidence || '—'}</p>
-                      <p><strong>Thường trú:</strong> {form.permanentAddress || '—'}</p>
-                      <p><strong>Thực trạng nhà:</strong> {HOUSING_STATUS_LABELS[form.housingStatus] ?? '—'}</p>
-                      <p><strong>Tình trạng hôn nhân:</strong> {MARITAL_STATUSES.find((s) => s.value === form.maritalStatus)?.label ?? (form.maritalStatus || '—')}</p>
-                      <p><strong>Nhóm đối tượng:</strong> {PRIORITY_GROUPS.find((g) => g.value === form.priorityGroup)?.label ?? '—'}</p>
-                      <p>
-                        <strong>Thu nhập:</strong>{' '}
-                        {form.monthlyIncome ? `${Number(form.monthlyIncome).toLocaleString('vi-VN')} đ` : '—'}
-                        {form.maritalStatus === 'MARRIED' && form.spouseMonthlyIncome
-                          ? ` · Vợ/chồng: ${Number(form.spouseMonthlyIncome).toLocaleString('vi-VN')} đ`
-                          : ''}
-                      </p>
+              <div className="grid gap-4 text-sm lg:grid-cols-2">
+                <section>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Cá nhân</p>
+                  <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                    <div className="grid gap-2 lg:grid-cols-2">
+                      <p><span className="text-slate-500">Dự án:</span> <strong>{projects.find((p) => p.id === form.projectId)?.name ?? '—'}</strong></p>
+                      <p><span className="text-slate-500">Họ tên:</span> {form.fullName || '—'}</p>
+                      <p><span className="text-slate-500">CCCD:</span> {form.citizenId || '—'}</p>
+                      <p><span className="text-slate-500">Nghề nghiệp:</span> {form.occupation || '—'}</p>
+                      <p><span className="text-slate-500">Nơi làm việc:</span> {form.workPlace || '—'}</p>
+                      <p><span className="text-slate-500">Nơi ở hiện tại:</span> {form.currentResidence || '—'}</p>
+                      <p><span className="text-slate-500">Thường trú:</span> {form.permanentAddress || '—'}</p>
+                      <p><span className="text-slate-500">Thực trạng nhà:</span> {HOUSING_STATUS_LABELS[form.housingStatus] ?? '—'}</p>
+                      <p><span className="text-slate-500">Hôn nhân:</span> {MARITAL_STATUSES.find((s) => s.value === form.maritalStatus)?.label ?? (form.maritalStatus || '—')}</p>
+                      <p><span className="text-slate-500">Thu nhập/tháng:</span> {form.monthlyIncome ? `${Number(form.monthlyIncome).toLocaleString('vi-VN')} đ` : '—'}</p>
+                      {form.maritalStatus === 'MARRIED' && (
+                        <p><span className="text-slate-500">Thu nhập vợ/chồng:</span> {form.spouseMonthlyIncome ? `${Number(form.spouseMonthlyIncome).toLocaleString('vi-VN')} đ` : '—'}</p>
+                      )}
                       {form.housingStatus === 'SMALL_HOUSE' && (
-                        <p><strong>Diện tích TB/người:</strong> {form.averageHousingAreaPerPerson || '—'} m²</p>
+                        <p><span className="text-slate-500">Diện tích TB/người:</span> {form.averageHousingAreaPerPerson || '—'} m²</p>
                       )}
                     </div>
-                  </section>
+                  </div>
+                </section>
 
-                  <section>
-                    <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Hộ gia đình</p>
-                    <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                      {household.length === 0 ? (
-                        <p className="text-slate-500">Chưa khai thành viên.</p>
-                      ) : (
+                <section>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Hộ gia đình & Đối tượng</p>
+                  <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700 space-y-3">
+                    <div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Nhóm đối tượng:</p>
+                      <p className="font-medium">{PRIORITY_GROUPS.find((g) => g.value === form.priorityGroup)?.label ?? '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Tổng người trong hộ:</p>
+                      <p className="font-medium">{1 + (Number(householdSize) || 0)} (bạn + {householdSize || 0} thành viên thêm)</p>
+                    </div>
+                    {household.length > 0 && (
+                      <div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Thành viên:</p>
                         <ul className="space-y-1">
                           {household.map((m, idx) => (
-                            <li key={m.id}>
-                              <strong>#{idx + 1}</strong> {m.fullName} —{' '}
-                              {HOUSEHOLD_RELATIONS.find((r) => r.value === m.relationship)?.label ?? m.relationship}
-                              {m.dateOfBirth ? ` (${m.dateOfBirth})` : ''}
+                            <li key={m.id} className="text-sm">
+                              <strong>#{idx + 1}</strong> {m.fullName} — {HOUSEHOLD_RELATIONS.find((r) => r.value === m.relationship)?.label ?? m.relationship}
                               {m.citizenId ? `, CCCD: ${m.citizenId}` : ''}
                             </li>
                           ))}
                         </ul>
-                      )}
-                      <p className="mt-2 text-xs text-slate-500">
-                        Tổng người trong hộ: {1 + (Number(householdSize) || 0)} (bạn + {householdSize || 0} thành viên thêm).
-                      </p>
-                    </div>
-                  </section>
+                      </div>
+                    )}
+                    {hasPriorContract && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">Đã từng ký HĐ: {priorContractNote}</p>
+                    )}
+                  </div>
+                </section>
+              </div>
 
-                  <section>
-                    <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Nhóm đối tượng</p>
-                    <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                      <p>{PRIORITY_GROUPS.find((g) => g.value === form.priorityGroup)?.label ?? '—'}</p>
-                      {hasPriorContract && (
-                        <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">Đã từng ký HĐ trước đây: {priorContractNote}</p>
-                      )}
-                    </div>
-                  </section>
-
-                  <section>
-                    <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Tài liệu</p>
-                    <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                      <ul className="space-y-1">
-                        {requiredDocs.map((key) => {
-                          const d = docs[key]
-                          return (
-                            <li key={key} className="flex items-center justify-between">
-                              <span>{DOC_TYPE_LABELS[key]}</span>
-                              <span className="text-xs">
-                                {d?.state === 'uploaded' ? <span className="text-emerald-600 dark:text-emerald-400">✓ Đã tải</span> : <span className="text-amber-600 dark:text-amber-400">Chưa tải</span>}
-                              </span>
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    </div>
-                  </section>
+              <section>
+                <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Tài liệu đính kèm</p>
+                <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                  <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {requiredDocs.map((key) => {
+                      const d = docs[key]
+                      return (
+                        <li key={key} className="flex items-center gap-2 rounded-lg bg-slate-50 p-2 dark:bg-slate-800/40">
+                          <span className="text-sm">{DOC_TYPE_LABELS[key]}</span>
+                          {d?.state === 'uploaded' ? (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                          ) : (
+                            <X className="h-4 w-4 text-amber-500 shrink-0" />
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
                 </div>
+              </section>
 
-                <div className="flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
-                  <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep(4)}>← Quay lại</Button>
-                  <Button
-                    type="button"
-                    variant="accent"
-                    className="bg-emerald-500 hover:bg-emerald-600 shadow-[0_4px_14px_-2px_rgba(16,185,129,0.45)] dark:bg-emerald-600 dark:hover:bg-emerald-700"
-                    disabled={!commitment || !allDocsUploaded || (draftStatus !== 'DRAFT' && draftStatus !== 'NEED_MORE_DOCUMENTS') || isBusy}
-                    onClick={() => void handleSubmit()}
-                  >
-                    {busy === 'submit' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang nộp…</> : 'Nộp hồ sơ'}
-                  </Button>
-                </div>
+              <div className="flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-4 dark:border-slate-700">
+                <Button type="button" variant="outline" disabled={isBusy} onClick={() => setStep(4)}>← Quay lại</Button>
+                <Button
+                  type="button"
+                  variant="accent"
+                  className="bg-emerald-500 hover:bg-emerald-600 shadow-[0_4px_14px_-2px_rgba(16,185,129,0.45)] dark:bg-emerald-600 dark:hover:bg-emerald-700"
+                  disabled={!commitment || !allDocsUploaded || (draftStatus !== 'DRAFT' && draftStatus !== 'NEED_MORE_DOCUMENTS') || isBusy}
+                  onClick={() => void handleSubmit()}
+                >
+                  {busy === 'submit' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Đang nộp…</> : 'Nộp hồ sơ'}
+                </Button>
+              </div>
 
-                <label className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-700 dark:bg-slate-800/40">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 h-4 w-4 accent-primary"
-                    checked={commitment}
-                    onChange={(e) => setCommitment(e.target.checked)}
-                  />
-                  <span>
-                    Tôi cam kết thông tin và tài liệu đã cung cấp là chính xác. Sau khi nộp, hồ sơ sẽ được đóng băng để thẩm định.
-                  </span>
-                </label>
+              <label className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-700 dark:bg-slate-800/40">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                  checked={commitment}
+                  onChange={(e) => setCommitment(e.target.checked)}
+                />
+                <span>
+                  Tôi cam kết thông tin và tài liệu đã cung cấp là chính xác. Sau khi nộp, hồ sơ sẽ được đóng băng để thẩm định.
+                </span>
+              </label>
 
-                {draftId && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Mã hồ sơ: <span className="font-mono">{draftId}</span> · Trạng thái hiện tại: <strong>{draftStatus}</strong>
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+              {draftId && (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Mã hồ sơ: <span className="font-mono">{draftId}</span> · Trạng thái hiện tại: <strong>{draftStatus}</strong>
+                </p>
+              )}
+            </div>
           </motion.section>
         )}
       </AnimatePresence>
-      </fieldset>
+    </fieldset>
 
-      {msg && (
-        <Alert variant={msg.type === 'error' ? 'error' : msg.type === 'warning' ? 'warning' : msg.type === 'info' ? 'info' : 'success'}>
-          {msg.text}
-        </Alert>
-      )}
-    </div>
-  )
+    {msg && (
+      <Alert variant={msg.type === 'error' ? 'error' : msg.type === 'warning' ? 'warning' : msg.type === 'info' ? 'info' : 'success'}>
+        {msg.text}
+      </Alert>
+    )}
+  </div>
+)
 }

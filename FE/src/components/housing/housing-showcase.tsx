@@ -6,7 +6,6 @@ import {
   MapPin,
   Ruler,
 } from 'lucide-react'
-import { Alert } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { navigate } from '@/hooks/useHashRoute'
@@ -17,6 +16,65 @@ import type { ProjectCard } from '@/lib/projects'
 function goToProjectDetail(house: ProjectCard) {
   sessionStorage.setItem('projectId', house.id)
   navigate('project-detail')
+}
+
+// ─── Wishlist Toast ────────────────────────────────────────────────────────────
+function WishlistToast({
+  message,
+  onClose,
+}: {
+  message: string
+  onClose: () => void
+}) {
+  useEffect(() => {
+    const id = window.setTimeout(onClose, 5000)
+    return () => window.clearTimeout(id)
+  }, [onClose])
+
+  return (
+    <div
+      role="status"
+      className="fixed inset-x-0 bottom-6 z-[100] flex justify-center px-4 pointer-events-none"
+    >
+      <div className="pointer-events-auto w-full max-w-sm animate-slide-up">
+        <div className="relative overflow-hidden rounded-2xl border border-emerald-300/50 bg-gradient-to-r from-emerald-600 to-emerald-500 p-px shadow-2xl shadow-emerald-500/30">
+          <div className="relative rounded-2xl bg-white px-5 py-4 dark:bg-slate-900">
+            {/* Nền gradient mờ */}
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-blue-500/10" />
+            <div className="relative flex items-start gap-4">
+              {/* Icon */}
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/40">
+                <Heart className="h-5 w-5 fill-white text-white" />
+              </div>
+              {/* Nội dung */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                  Đã thêm vào danh sách quan tâm
+                </p>
+                <p className="mt-0.5 line-clamp-2 text-xs text-slate-600 dark:text-slate-400">
+                  {message}
+                </p>
+              </div>
+              {/* Đóng */}
+              <button
+                type="button"
+                onClick={onClose}
+                className="shrink-0 rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            {/* Thanh tiến trình */}
+            <div className="absolute inset-x-0 bottom-0 h-1 overflow-hidden rounded-b-2xl bg-slate-100 dark:bg-slate-800">
+              <div className="h-full animate-shrink-width bg-gradient-to-r from-emerald-500 to-emerald-400" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ─── PromoHero ────────────────────────────────────────────────────────────────
@@ -52,7 +110,7 @@ const PromoHero = memo(function PromoHero({
         {/* Nội dung */}
         <div className="flex flex-col justify-center p-6 md:p-8">
           <p className="text-xs font-semibold uppercase tracking-widest text-blue-500">
-            Nhà ở xã hội · {house.type}
+            Nhà ở xã hội
           </p>
           <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-800 dark:text-white md:text-2xl">
             {house.name}
@@ -339,20 +397,10 @@ export function HousingShowcase() {
 
       {/* Toast thông báo */}
       {notice && (
-        <div
-          role="status"
-          className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4"
-        >
-          <Alert
-            variant="success"
-            className="pointer-events-auto flex max-w-md flex-wrap items-center justify-between gap-3 shadow-lg"
-          >
-            <span>{notice}</span>
-            <Button variant="outline" size="sm" onClick={() => navigate('quan-tam')}>
-              Xem quan tâm
-            </Button>
-          </Alert>
-        </div>
+        <WishlistToast
+          message={notice}
+          onClose={() => setNotice(null)}
+        />
       )}
     </section>
   )
