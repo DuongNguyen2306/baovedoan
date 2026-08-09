@@ -1,4 +1,4 @@
-import { ChevronRight, ShieldCheck, ShieldAlert, BadgeCheck, Calendar, Fingerprint } from 'lucide-react'
+import { ChevronRight, ShieldCheck, BadgeCheck, Calendar, Fingerprint, Building2, IdCard } from 'lucide-react'
 import { useUserProfile } from '@/providers/user-profile-provider'
 import { BRAND } from '@/lib/brand'
 import { resolveRoleTheme } from '@/lib/role-theme'
@@ -6,9 +6,12 @@ import { getRole } from '@/router'
 import { cn } from '@/lib/utils'
 
 export function UserWelcomeBar({ className }: { className?: string }) {
-  const { greeting, roleLabel, avatarUrl, initials, ekycVerified } = useUserProfile()
-  const theme = resolveRoleTheme(getRole(), true)
+  const { greeting, roleLabel, avatarUrl, initials } = useUserProfile()
+  const role = getRole()
+  const theme = resolveRoleTheme(role, true)
   const ThemeIcon = theme.Icon
+  const isApplicant = role === 'Applicant'
+  const today = new Date().toLocaleDateString('vi-VN')
 
   return (
     <div className={cn('relative mb-6 overflow-hidden rounded-2xl border border-white/60 bg-white/85 shadow-[0_18px_50px_-18px_rgb(15_23_42_/_25%)] backdrop-blur-md dark:border-slate-700/70 dark:bg-slate-900/70', className)}>
@@ -43,7 +46,7 @@ export function UserWelcomeBar({ className }: { className?: string }) {
 
         {/* Stats / quick info */}
         <div className="flex flex-1 flex-col items-center justify-center gap-2.5 border-t border-primary/10 bg-white/40 px-5 py-3 sm:border-l sm:border-t-0 dark:bg-slate-900/40">
-          {ekycVerified ? (
+          {isApplicant ? (
             <div className="group w-full max-w-md rounded-xl border border-emerald-200/70 bg-gradient-to-r from-emerald-50 via-green-50 to-teal-50 p-3 shadow-sm transition-all hover:shadow-md dark:border-emerald-700/50 dark:from-emerald-950/40 dark:via-green-950/30 dark:to-teal-950/40">
               <div className="flex items-center gap-3">
                 <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 shadow-md ring-2 ring-emerald-400/30">
@@ -69,7 +72,6 @@ export function UserWelcomeBar({ className }: { className?: string }) {
                 </span>
               </div>
 
-              {/* Mini info rows */}
               <div className="mt-2.5 grid grid-cols-2 gap-2 border-t border-emerald-200/60 pt-2.5 dark:border-emerald-800/60">
                 <div className="flex items-center gap-1.5 rounded-md bg-white/60 px-2 py-1 dark:bg-slate-900/30">
                   <Fingerprint className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
@@ -82,44 +84,50 @@ export function UserWelcomeBar({ className }: { className?: string }) {
                   <Calendar className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
                   <div className="min-w-0">
                     <p className="text-[9px] font-medium text-slate-500 dark:text-slate-400">Xác minh lúc</p>
-                    <p className="truncate text-[10px] font-bold text-slate-700 dark:text-slate-200">07/08/2026</p>
+                    <p className="truncate text-[10px] font-bold text-slate-700 dark:text-slate-200">{today}</p>
                   </div>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="group w-full max-w-md rounded-xl border border-amber-300/70 bg-gradient-to-r from-amber-50 via-orange-50 to-yellow-50 p-3 shadow-sm transition-all hover:shadow-md dark:border-amber-700/50 dark:from-amber-950/40 dark:via-orange-950/30 dark:to-yellow-950/40">
+            <div className="group w-full max-w-md rounded-xl border border-slate-200/70 bg-gradient-to-r from-slate-50 via-white to-blue-50 p-3 shadow-sm transition-all hover:shadow-md dark:border-slate-700/60 dark:from-slate-900/40 dark:via-slate-900/30 dark:to-blue-950/30">
               <div className="flex items-center gap-3">
-                <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-md ring-2 ring-amber-400/30">
-                  <ShieldAlert className="h-5 w-5 text-white" strokeWidth={2.5} />
+                <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md ring-2 ring-blue-400/30">
+                  <Building2 className="h-5 w-5 text-white" strokeWidth={2.5} />
+                  <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
+                    <span className="relative inline-flex h-3 w-3 rounded-full bg-blue-500 ring-2 ring-white" />
+                  </span>
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                    eKYC chưa xác minh
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <IdCard className="h-3.5 w-3.5 text-blue-500" />
+                    <p className="text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400">
+                      Tài khoản cán bộ
+                    </p>
+                  </div>
                   <p className="mt-0.5 text-[11px] font-medium text-slate-600 dark:text-slate-400">
-                    Vui lòng xác minh danh tính để tiếp tục
+                    Tài khoản nội bộ — không yêu cầu eKYC
                   </p>
                 </div>
-                <button className="shrink-0 rounded-md bg-amber-500 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm hover:bg-amber-600 transition-colors">
-                  Xác minh ngay
-                </button>
+                <span className="hidden shrink-0 rounded-full border border-blue-200 bg-blue-100/80 px-2 py-0.5 text-[10px] font-bold text-blue-700 sm:inline-flex dark:border-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                  Đang hoạt động
+                </span>
               </div>
 
-              {/* Mini info rows */}
-              <div className="mt-2.5 grid grid-cols-2 gap-2 border-t border-amber-200/60 pt-2.5 dark:border-amber-800/60">
+              <div className="mt-2.5 grid grid-cols-2 gap-2 border-t border-slate-200/60 pt-2.5 dark:border-slate-700/60">
                 <div className="flex items-center gap-1.5 rounded-md bg-white/60 px-2 py-1 dark:bg-slate-900/30">
-                  <Fingerprint className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                  <ThemeIcon className="h-3 w-3 text-blue-600 dark:text-blue-400" />
                   <div className="min-w-0">
-                    <p className="text-[9px] font-medium text-slate-500 dark:text-slate-400">Trạng thái</p>
-                    <p className="truncate text-[10px] font-bold text-slate-700 dark:text-slate-200">Chưa có</p>
+                    <p className="text-[9px] font-medium text-slate-500 dark:text-slate-400">Vai trò</p>
+                    <p className="truncate text-[10px] font-bold text-slate-700 dark:text-slate-200">{theme.badgeFull}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 rounded-md bg-white/60 px-2 py-1 dark:bg-slate-900/30">
-                  <Calendar className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                  <Calendar className="h-3 w-3 text-blue-600 dark:text-blue-400" />
                   <div className="min-w-0">
-                    <p className="text-[9px] font-medium text-slate-500 dark:text-slate-400">Thời hạn</p>
-                    <p className="truncate text-[10px] font-bold text-slate-700 dark:text-slate-200">Không giới hạn</p>
+                    <p className="text-[9px] font-medium text-slate-500 dark:text-slate-400">Phiên đăng nhập</p>
+                    <p className="truncate text-[10px] font-bold text-slate-700 dark:text-slate-200">{today}</p>
                   </div>
                 </div>
               </div>

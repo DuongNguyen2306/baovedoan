@@ -181,6 +181,7 @@ export const housingProjectsApi = {
       method: 'POST',
       body: toFormData(body),
       auth: true,
+      timeoutMs: 90_000,
     }),
 
   getById: (id: string) =>
@@ -191,6 +192,7 @@ export const housingProjectsApi = {
       method: 'PUT',
       body: toFormData(body),
       auth: true,
+      timeoutMs: 90_000,
     }),
 
   delete: (id: string) =>

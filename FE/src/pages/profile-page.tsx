@@ -76,13 +76,17 @@ export function ProfilePage() {
 
   const displayRole = roleLabel || labelRole(getRole())
   const hasEkyc = !!citizenId.trim()
+  // eKYC chỉ dành cho công dân (Applicant). Chủ đầu tư & Sở Xây dựng không có dữ liệu eKYC.
+  const showEkyc = getRole() === 'Applicant'
 
   return (
     <div className="glass-card overflow-hidden">
       <div className="border-b border-slate-200/80 p-6 dark:border-slate-800">
         <h2 className="text-2xl font-bold">Hồ sơ cá nhân</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Thông tin định danh lấy từ eKYC (chỉ đọc). Bạn chỉ có thể cập nhật số điện thoại và ảnh đại diện.
+          {showEkyc
+            ? 'Thông tin định danh lấy từ eKYC (chỉ đọc). Bạn chỉ có thể cập nhật số điện thoại và ảnh đại diện.'
+            : 'Thông tin tài khoản cán bộ. Bạn có thể cập nhật số điện thoại và ảnh đại diện.'}
         </p>
       </div>
       <div className="grid gap-8 p-6 lg:grid-cols-[220px_1fr]">
@@ -133,52 +137,58 @@ export function ProfilePage() {
               <FormField label="Vai trò" htmlFor="role">
                 <Input id="role" name="role" readOnly className="opacity-70" value={displayRole} />
               </FormField>
-              <FormField label="Họ và tên (eKYC)" htmlFor="fullName">
-                <Input
-                  id="fullName"
-                  name="fullName"
-                  readOnly
-                  className="opacity-70"
-                  title="Họ tên lấy từ CCCD / eKYC — không thể thay đổi tại đây"
-                  value={fullName}
-                />
-              </FormField>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FormField label="Số CCCD (eKYC)" htmlFor="citizenId">
-                <Input
-                  id="citizenId"
-                  readOnly
-                  className="font-mono opacity-70"
-                  value={citizenId || 'Chưa xác minh'}
-                  title="Lấy từ eKYC"
-                />
-              </FormField>
-              <FormField label="Ngày sinh (eKYC)" htmlFor="dateOfBirth">
-                <Input
-                  id="dateOfBirth"
-                  readOnly
-                  className="opacity-70"
-                  value={dateOfBirth || '—'}
-                />
-              </FormField>
-            </div>
-            <FormField label="Địa chỉ thường trú (eKYC)" htmlFor="address">
-              <Input
-                id="address"
-                readOnly
-                className="opacity-70"
-                value={address || '—'}
-                title="Lấy từ eKYC"
-              />
-            </FormField>
-            {!hasEkyc && (
-              <Alert variant="warning">
-                Chưa có dữ liệu eKYC.{' '}
-                <button type="button" className="font-semibold underline" onClick={() => navigate('verify-identity')}>
-                  Xác minh danh tính
-                </button>
-              </Alert>
+            {showEkyc && (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField label="Họ và tên (eKYC)" htmlFor="fullName">
+                    <Input
+                      id="fullName"
+                      name="fullName"
+                      readOnly
+                      className="opacity-70"
+                      title="Họ tên lấy từ CCCD / eKYC — không thể thay đổi tại đây"
+                      value={fullName}
+                    />
+                  </FormField>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField label="Số CCCD (eKYC)" htmlFor="citizenId">
+                    <Input
+                      id="citizenId"
+                      readOnly
+                      className="font-mono opacity-70"
+                      value={citizenId || 'Chưa xác minh'}
+                      title="Lấy từ eKYC"
+                    />
+                  </FormField>
+                  <FormField label="Ngày sinh (eKYC)" htmlFor="dateOfBirth">
+                    <Input
+                      id="dateOfBirth"
+                      readOnly
+                      className="opacity-70"
+                      value={dateOfBirth || '—'}
+                    />
+                  </FormField>
+                </div>
+                <FormField label="Địa chỉ thường trú (eKYC)" htmlFor="address">
+                  <Input
+                    id="address"
+                    readOnly
+                    className="opacity-70"
+                    value={address || '—'}
+                    title="Lấy từ eKYC"
+                  />
+                </FormField>
+                {!hasEkyc && (
+                  <Alert variant="warning">
+                    Chưa có dữ liệu eKYC.{' '}
+                    <button type="button" className="font-semibold underline" onClick={() => navigate('verify-identity')}>
+                      Xác minh danh tính
+                    </button>
+                  </Alert>
+                )}
+              </>
             )}
             <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
               <div className="mb-2 flex items-center justify-between">

@@ -91,14 +91,34 @@ async function doFetch(path: string, init: RequestInit & { auth?: boolean }): Pr
 
 export async function request<T = unknown>(
   path: string,
-  init: RequestInit & { auth?: boolean } = {},
+  init: RequestInit & { auth?: boolean; timeoutMs?: number } = {},
 ): Promise<T> {
-  let res = await doFetch(path, init)
-
-  if (res.status === 401 && init.auth) {
-    const refreshed = await refreshAccessToken()
-    if (refreshed) res = await doFetch(path, init)
+  // Tự động cancel request khi quá timeout (mặc định 30s; create/upload có thể truyền 90s)
+  const timeoutMs = init.timeoutMs ?? 30_000
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+  const initWithSignal: RequestInit & { auth?: boolean } = {
+    ...init,
+    signal: controller.signal,
   }
+
+  let res: Response
+  try {
+    res = await doFetch(path, initWithSignal)
+    if (res.status === 401 && init.auth) {
+      const refreshed = await refreshAccessToken()
+      if (refreshed) res = await doFetch(path, initWithSignal)
+    }
+  } catch (err) {
+    clearTimeout(timeoutId)
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new ApiError(0, {
+        message: `Yêu cầu quá thời gian (timeout ${Math.round(timeoutMs / 1000)}s). Vui lòng thử lại hoặc kiểm tra kết nối.`,
+      })
+    }
+    throw err
+  }
+  clearTimeout(timeoutId)
 
   if (res.status === 204 || res.status === 205) return null as T
 

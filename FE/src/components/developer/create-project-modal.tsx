@@ -3,17 +3,18 @@ import {
   Loader2,
   Sparkles,
   Home,
-  MapPin,
-  Banknote,
-  FileText,
   CalendarDays,
   Image as ImageIcon,
-  Check,
-  ArrowLeft,
-  ArrowRight,
-  X,
   Plus,
   Trash2,
+  Upload,
+  X,
+  Building2,
+  Wallet,
+  ArrowRight,
+  ArrowLeft,
+  Check,
+  ListChecks,
 } from 'lucide-react'
 import { housingProjectsApi } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
@@ -30,24 +31,17 @@ interface CreateProjectModalProps {
   onCreated?: () => void | Promise<void>
 }
 
-type StepId = 'basic' | 'pricing' | 'schedule'
-
-const STEPS: { id: StepId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'basic', label: 'Thông tin cơ bản', icon: Home },
-  { id: 'pricing', label: 'Giá &amp; Hồ sơ', icon: Banknote },
-  { id: 'schedule', label: 'Thời gian &amp; Hình ảnh', icon: CalendarDays },
-]
-
 const inputClass =
-  'block w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition hover:border-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-50 dark:placeholder:text-slate-500 dark:hover:border-slate-500 dark:focus:border-indigo-400 dark:focus:ring-indigo-400/30 dark:disabled:bg-slate-900/40'
-const labelClass = 'mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-slate-800 dark:text-slate-100'
+  'block w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition hover:border-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-50 dark:placeholder:text-slate-500 dark:hover:border-slate-500 dark:focus:border-indigo-400 dark:focus:ring-indigo-400/30 dark:disabled:bg-slate-900/40'
+const labelClass =
+  'mb-0.5 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300'
 const requiredDot = <span className="text-rose-500" aria-hidden>*</span>
 
 export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectModalProps) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [statuses, setStatuses] = useState<{ id: string; label: string }[]>([])
-  const [step, setStep] = useState<StepId>('basic')
+  const [step, setStep] = useState<1 | 2>(1)
 
   const [projectName, setProjectName] = useState('')
   const [description, setDescription] = useState('')
@@ -56,7 +50,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
   const [wards, setWards] = useState<string[]>([])
   const [decisionNumber, setDecisionNumber] = useState('')
   const [approvalDate, setApprovalDate] = useState('')
-  const [phase1Percentage, setPhase1Percentage] = useState('')
+  const [phase1Percentage, setPhase1Percentage] = useState('20')
   const [lotteryDate, setLotteryDate] = useState('')
   const [lotteryLocation, setLotteryLocation] = useState('')
   const [applicationOpenDate, setApplicationOpenDate] = useState('')
@@ -88,10 +82,11 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       setImagesFiles([])
       setApartments([{ unitName: '', area: '', price: '' }])
       setError('')
-      setStep('basic')
+      setStep(1)
       return
     }
-    void housingProjectStatusesApi.list()
+    void housingProjectStatusesApi
+      .list()
       .then((data) => setStatuses(parseStatuses(data).map((s) => ({ id: s.id, label: s.label }))))
       .catch(() => setStatuses([]))
     void ensureHcmLocationsLoaded()
@@ -99,30 +94,20 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       .catch(() => setWards([]))
   }, [open])
 
-  const currentStepIndex = useMemo(() => STEPS.findIndex((s) => s.id === step), [step])
-
-  const goNext = () => {
-    if (currentStepIndex < STEPS.length - 1) {
-      setStep(STEPS[currentStepIndex + 1].id)
-    }
-  }
-  const goPrev = () => {
-    if (currentStepIndex > 0) {
-      setStep(STEPS[currentStepIndex - 1].id)
-    }
-  }
-
-  const validate = (): string | null => {
+  const validateStep1 = (): string | null => {
     if (!projectName.trim()) return 'Vui lòng nhập tên dự án.'
     if (projectName.trim().length < 5) return 'Tên dự án phải có ít nhất 5 ký tự.'
-    if (!ward) return 'Vui lòng chọn phường/xã.'
     if (!housingProjectStatusId) return 'Vui lòng chọn trạng thái dự án.'
+    if (!ward) return 'Vui lòng chọn phường/xã.'
     if (!decisionNumber.trim()) return 'Vui lòng nhập số quyết định phê duyệt.'
     if (!approvalDate) return 'Vui lòng chọn ngày phê duyệt.'
     if (!isConfirmed) return 'Vui lòng xác nhận đã phê duyệt dự án trước khi tạo.'
+    return null
+  }
+
+  const validateStep2 = (): string | null => {
     const p1 = parseFloat(phase1Percentage)
-    if (!Number.isFinite(p1) || p1 <= 0)
-      return 'Vui lòng nhập tỉ lệ trả trước Đợt 1 (% giá căn).'
+    if (!Number.isFinite(p1) || p1 <= 0) return 'Vui lòng nhập tỉ lệ trả trước Đợt 1 (% giá căn).'
     if (p1 > 30) return 'Tỉ lệ trả trước Đợt 1 không được vượt 30%.'
 
     const filled = apartments.filter(
@@ -142,6 +127,21 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     return null
   }
 
+  const goNext = () => {
+    const err = validateStep1()
+    if (err) {
+      setError(err)
+      return
+    }
+    setError('')
+    setStep(2)
+  }
+
+  const goPrev = () => {
+    setError('')
+    setStep(1)
+  }
+
   const buildApartmentsPayload = (): CreateApartmentDto[] =>
     apartments
       .filter((r) => r.unitName.trim())
@@ -156,13 +156,15 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     field: 'unitName' | 'area' | 'price',
     value: string,
   ) => {
-    setApartments((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)))
+    setApartments((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
+    )
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (submitting) return
-    const err = validate()
+    const err = validateStep2()
     if (err) {
       setError(err)
       return
@@ -200,257 +202,276 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
         apartments: aptPayload,
       }
       await housingProjectsApi.create(body)
-      await onCreated?.()
+      try {
+        await onCreated?.()
+      } catch (cbErr) {
+        // onCreated có thể reload list, throw thì vẫn đóng modal — không để kẹt loading
+        console.warn('[CreateProjectModal] onCreated callback error:', cbErr)
+      }
       onClose()
       setTimeout(() => navigate('projects'), 100)
     } catch (err) {
+      console.error('[CreateProjectModal] create error:', err)
       setError(formatError(err))
+      // KHÔNG setSubmitting(false) ở đây — để finally lo
+    } finally {
+      // Luôn reset submitting, dù success/error/abort đều đảm bảo button không bị kẹt
       setSubmitting(false)
     }
   }
 
+  const filledCount = apartments.filter((r) => r.unitName.trim()).length
+  const aptSummary = useMemo(() => {
+    const filled = apartments.filter(
+      (r) => r.unitName.trim() && parseFloat(r.area) > 0 && parseFloat(r.price) > 0,
+    )
+    if (filled.length === 0) return null
+    const areas = filled.map((r) => parseFloat(r.area))
+    const prices = filled.map((r) => parseFloat(r.price))
+    return {
+      count: filled.length,
+      minArea: Math.min(...areas).toFixed(1),
+      maxArea: Math.max(...areas).toFixed(1),
+      minPrice: Math.min(...prices),
+      maxPrice: Math.max(...prices),
+      avgPrice: prices.reduce((a, b) => a + b, 0) / filled.length,
+    }
+  }, [apartments])
+
+const p1Num = parseFloat(phase1Percentage)
+const p1Valid = Number.isFinite(p1Num) && p1Num > 0 && p1Num <= 30
+const p1 = p1Valid ? Math.min(p1Num, 30) : 0
+const p2 = (100 - p1).toFixed(2).replace(/\.00$/, '')
+
+// Auto-clear error khi user sửa bất kỳ field nào (UX mượt hơn, đỡ bị dính alert cũ)
+useEffect(() => {
+  if (!error) return
+  const t = setTimeout(() => setError(''), 0)
+  return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [
+  projectName,
+  description,
+  ward,
+  street,
+  decisionNumber,
+  approvalDate,
+  housingProjectStatusId,
+  isConfirmed,
+  phase1Percentage,
+  lotteryDate,
+  lotteryLocation,
+  applicationOpenDate,
+  applicationCloseDate,
+  apartments,
+])
+
   return (
-    <Modal
-      open={open}
-      onClose={submitting ? () => undefined : onClose}
-      title="Tạo dự án nhà ở mới"
-      description="Nhập đầy đủ thông tin dự án theo quy định của Sở Xây dựng."
-      size="lg"
-    >
-      <form onSubmit={handleSubmit} noValidate className="flex max-h-[75vh] flex-col">
+    <Modal open={open} onClose={submitting ? () => undefined : onClose} size="xl" fullHeight>
+      <form onSubmit={handleSubmit} noValidate className="flex h-full flex-col">
+        {/* === Header === */}
+        <header className="mb-1 flex items-center justify-between gap-4 border-b border-slate-200/70 pb-1 dark:border-slate-700/60">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-md">
+                <Building2 className="h-4.5 w-4.5" />
+              </span>
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                  Tạo dự án nhà ở mới
+                </h2>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Nhập đầy đủ thông tin theo quy định của Sở Xây dựng.
+                </p>
+              </div>
+            </div>
+          </div>
+          {aptSummary && (
+            <div className="hidden shrink-0 rounded-lg border border-emerald-200/80 bg-emerald-50/80 px-2.5 py-1.5 text-right text-[10px] dark:border-emerald-500/30 dark:bg-emerald-950/30 lg:block">
+              <p className="font-semibold text-emerald-700 dark:text-emerald-300">
+                {aptSummary.count} căn · {aptSummary.minArea}–{aptSummary.maxArea} m²
+              </p>
+              <p className="text-emerald-600/80 dark:text-emerald-300/80">
+                {fmtVnd(aptSummary.minPrice)} – {fmtVnd(aptSummary.maxPrice)}
+              </p>
+            </div>
+          )}
+        </header>
+
+        {/* === Stepper === */}
+        <div className="mb-1">
+          <Stepper current={step} />
+        </div>
+
         {error && (
-          <div className="px-1 pt-1">
+          <div className="mb-1">
             <Alert variant="error">{error}</Alert>
           </div>
         )}
 
-        {/* === Stepper === */}
-        <div className="mb-5 rounded-2xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50 via-white to-violet-50 p-3 shadow-sm dark:border-indigo-500/30 dark:from-indigo-950/40 dark:via-slate-900/40 dark:to-violet-950/30">
-          <ol className="flex items-stretch gap-1.5">
-            {STEPS.map((s, idx) => {
-              const isActive = s.id === step
-              const isDone = idx < currentStepIndex
-              const Icon = s.icon
-              return (
-                <li key={s.id} className="flex flex-1 min-w-0 items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setStep(s.id)}
-                    disabled={submitting}
-                    className={[
-                      'group flex min-w-0 w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left transition',
-                      isActive
-                        ? 'bg-white shadow-lg ring-2 ring-indigo-300 dark:bg-slate-800 dark:ring-indigo-500/60'
-                        : 'hover:bg-white/70 dark:hover:bg-slate-800/50',
-                    ].join(' ')}
-                  >
-                    <span
-                      className={[
-                        'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-bold transition',
-                        isActive
-                          ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-md'
-                          : isDone
-                            ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow'
-                            : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400',
-                      ].join(' ')}
-                    >
-                      {isDone ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
-                    </span>
-                    <span className="min-w-0 flex-1 overflow-hidden">
-                      <span
-                        className={[
-                          'block truncate text-[10px] font-bold uppercase tracking-wider leading-none',
-                          isActive ? 'text-indigo-600 dark:text-indigo-300' : 'text-slate-400',
-                        ].join(' ')}
-                      >
-                        Bước {idx + 1}
-                      </span>
-                      <span
-                        className={[
-                          'mt-0.5 block truncate text-xs font-bold leading-tight',
-                          isActive
-                            ? 'bg-gradient-to-r from-indigo-700 to-violet-700 bg-clip-text text-transparent dark:from-indigo-300 dark:to-violet-300'
-                            : 'text-slate-700 dark:text-slate-200',
-                        ].join(' ')}
-                        title={s.label}
-                      >
-                        {s.label}
-                      </span>
-                    </span>
-                  </button>
-                  {idx < STEPS.length - 1 && (
-                    <span
-                      className={[
-                        'h-0.5 w-2 shrink-0 rounded-full sm:w-4',
-                        idx < currentStepIndex
-                          ? 'bg-gradient-to-r from-emerald-400 to-teal-500'
-                          : 'bg-slate-200 dark:bg-slate-700',
-                      ].join(' ')}
-                      aria-hidden
-                    />
-                  )}
-                </li>
-              )
-            })}
-          </ol>
-        </div>
+        {/* === Body: Step 1 — Thông tin dự án (1 viewport, flat grid, không scroll) === */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden pr-1">
+          {step === 1 && (
+            <div className="grid gap-x-3 gap-y-2 md:grid-cols-12">
+              {/* === Row 1: Tên dự án (col-7) | Trạng thái (col-5) === */}
+              <Field label="Tên dự án" required className="md:col-span-7">
+                <input
+                  className={inputClass}
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  placeholder="VD: Khu NOXH Bình Dương — Block A"
+                  maxLength={150}
+                  disabled={submitting}
+                />
+              </Field>
+              <Field label="Trạng thái" required className="md:col-span-5">
+                <select
+                  className={inputClass}
+                  value={housingProjectStatusId}
+                  onChange={(e) => setHousingProjectStatusId(e.target.value)}
+                  disabled={submitting}
+                >
+                  <option value="">
+                    {statuses.length ? '-- Chọn trạng thái --' : 'Đang tải...'}
+                  </option>
+                  {statuses.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
 
-        {/* === Body theo step === */}
-        <div className="flex-1 space-y-5 overflow-y-auto px-1 pr-2">
-          {step === 'basic' && (
-            <>
-              <SectionCard icon={Home} title="Thông tin cơ bản" subtitle="Tên dự án &amp; mô tả ngắn gọn">
-                <Field label="Tên dự án" required>
-                  <input
-                    className={inputClass}
-                    value={projectName}
-                    onChange={(e) => setProjectName(e.target.value)}
-                    placeholder="VD: Khu NOXH Bình Dương — Block A"
-                    maxLength={150}
-                    disabled={submitting}
-                  />
-                </Field>
-                <Field label="Mô tả" hint="Tối đa 500 ký tự, dùng để hiển thị trên trang chủ.">
-                  <textarea
-                    className={`${inputClass} min-h-[90px] resize-y`}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Mô tả ngắn về dự án, vị trí, tiện ích nổi bật..."
-                    disabled={submitting}
-                  />
-                </Field>
-              </SectionCard>
+              {/* === Row 2: Tỉnh (col-4) | Phường/Xã (col-4) | Đường (col-4) === */}
+              <Field label="Tỉnh/Thành phố" required className="md:col-span-4">
+                <select
+                  className={`${inputClass} cursor-not-allowed bg-slate-100 dark:bg-slate-900/80`}
+                  value={HCM_PROVINCE}
+                  disabled
+                >
+                  <option value={HCM_PROVINCE}>{HCM_PROVINCE}</option>
+                </select>
+              </Field>
+              <Field label="Phường/Xã" required className="md:col-span-4">
+                <select
+                  className={inputClass}
+                  value={ward}
+                  onChange={(e) => setWard(e.target.value)}
+                  disabled={submitting || wards.length === 0}
+                >
+                  <option value="">
+                    {wards.length ? '-- Chọn phường/xã --' : 'Đang tải...'}
+                  </option>
+                  {wards.map((w) => (
+                    <option key={w} value={w}>
+                      {w}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Đường / Số nhà" className="md:col-span-4">
+                <input
+                  className={inputClass}
+                  value={street}
+                  onChange={(e) => setStreet(e.target.value)}
+                  placeholder="VD: 123 Nguyễn Trãi"
+                  disabled={submitting}
+                />
+              </Field>
 
-              <SectionCard icon={MapPin} title="Vị trí dự án" subtitle="Địa chỉ chi tiết phục vụ công khai">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Tỉnh/Thành phố" required>
-                    <select
-                      className={`${inputClass} cursor-not-allowed bg-slate-100 dark:bg-slate-900/80`}
-                      value={HCM_PROVINCE}
-                      disabled
-                    >
-                      <option value={HCM_PROVINCE}>{HCM_PROVINCE}</option>
-                    </select>
-                  </Field>
-                  <Field label="Phường/Xã" required>
-                    <select
-                      className={inputClass}
-                      value={ward}
-                      onChange={(e) => setWard(e.target.value)}
-                      disabled={submitting || wards.length === 0}
-                    >
-                      <option value="">
-                        {wards.length ? '-- Chọn phường/xã --' : 'Đang tải danh sách...'}
-                      </option>
-                      {wards.map((w) => (
-                        <option key={w} value={w}>
-                          {w}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                </div>
-                <Field label="Đường/Số nhà">
+              {/* === Row 3: Số QĐ (col-4) | Ngày phê duyệt (col-3) | Phê duyệt checkbox (col-5) === */}
+              <Field label="Số quyết định" required className="md:col-span-4">
+                <input
+                  className={inputClass}
+                  value={decisionNumber}
+                  onChange={(e) => setDecisionNumber(e.target.value)}
+                  placeholder="VD: 1234/QĐ-UBND"
+                  disabled={submitting}
+                />
+              </Field>
+              <Field label="Ngày phê duyệt" required className="md:col-span-3">
+                <input
+                  className={inputClass}
+                  type="date"
+                  value={approvalDate}
+                  onChange={(e) => setApprovalDate(e.target.value)}
+                  disabled={submitting}
+                />
+              </Field>
+              <div className="md:col-span-5">
+                <label className="flex h-full cursor-pointer items-center gap-2.5 rounded-md border border-amber-200/70 bg-amber-50/60 px-3 py-1.5 text-xs text-slate-700 transition hover:bg-amber-100/70 dark:border-amber-500/30 dark:bg-amber-950/20 dark:text-slate-200 dark:hover:bg-amber-950/40">
                   <input
-                    className={inputClass}
-                    value={street}
-                    onChange={(e) => setStreet(e.target.value)}
-                    placeholder="VD: 123 Nguyễn Trãi"
+                    type="checkbox"
+                    className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-indigo-600"
+                    checked={isConfirmed}
+                    onChange={(e) => setIsConfirmed(e.target.checked)}
                     disabled={submitting}
                   />
-                </Field>
-              </SectionCard>
-            </>
+                  <span className="flex-1">
+                    <strong className="block leading-tight text-slate-900 dark:text-white">
+                      Đã được Sở Xây dựng phê duyệt
+                    </strong>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Khi tích, dự án sẽ công khai cho người dân.
+                    </span>
+                  </span>
+                </label>
+              </div>
+
+              {/* === Row 4: Mô tả (full) === */}
+              <Field
+                label="Mô tả"
+                hint="Tối đa 500 ký tự — hiển thị trên trang chủ."
+                className="md:col-span-12"
+              >
+                <textarea
+                  className={`${inputClass} min-h-[44px] resize-none`}
+                  rows={2}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Mô tả ngắn về vị trí, tiện ích nổi bật..."
+                  maxLength={500}
+                  disabled={submitting}
+                />
+              </Field>
+
+              {/* === Row 5: Hình ảnh dự án (compact 2 cột) === */}
+              <Field label="Ảnh đại diện dự án" className="md:col-span-6">
+                <FilePicker
+                  mode="single"
+                  onPickSingle={(f) => setThumbnailFile(f)}
+                  file={thumbnailFile}
+                  disabled={submitting}
+                />
+              </Field>
+              <Field
+                label="Ảnh chi tiết công trình"
+                hint={imagesFiles.length > 0 ? `${imagesFiles.length} ảnh đã chọn` : undefined}
+                className="md:col-span-6"
+              >
+                <FilePicker
+                  mode="multi"
+                  onPickMulti={(files) => setImagesFiles(files)}
+                  files={imagesFiles}
+                  disabled={submitting}
+                />
+              </Field>
+            </div>
           )}
 
-          {step === 'pricing' && (
-            <>
-              <SectionCard
-                icon={Home}
-                title="Danh sách căn"
-                subtitle="Mỗi dòng = một căn cụ thể (tên, diện tích, giá). Giá / số căn trống được tính từ danh sách này."
-              >
-                <div className="space-y-3">
-                  {apartments.map((row, idx) => (
-                    <div
-                      key={idx}
-                      className="grid gap-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700 sm:grid-cols-12"
-                    >
-                      <div className="sm:col-span-4">
-                        <label className="mb-1 block text-xs font-medium text-slate-500">Tên căn</label>
-                        <input
-                          className={inputClass}
-                          value={row.unitName}
-                          onChange={(e) => updateAptRow(idx, 'unitName', e.target.value)}
-                          placeholder="VD: A-101"
-                          disabled={submitting}
-                        />
-                      </div>
-                      <div className="sm:col-span-3">
-                        <label className="mb-1 block text-xs font-medium text-slate-500">Diện tích (m²)</label>
-                        <input
-                          className={inputClass}
-                          type="number"
-                          min="0"
-                          step="0.1"
-                          value={row.area}
-                          onChange={(e) => updateAptRow(idx, 'area', e.target.value)}
-                          placeholder="38.5"
-                          disabled={submitting}
-                        />
-                      </div>
-                      <div className="sm:col-span-3">
-                        <label className="mb-1 block text-xs font-medium text-slate-500">Giá (VNĐ)</label>
-                        <input
-                          className={inputClass}
-                          type="number"
-                          min="0"
-                          value={row.price}
-                          onChange={(e) => updateAptRow(idx, 'price', e.target.value)}
-                          placeholder="720000000"
-                          disabled={submitting}
-                        />
-                      </div>
-                      <div className="flex items-end sm:col-span-2">
-                        <button
-                          type="button"
-                          className="inline-flex w-full items-center justify-center gap-1 rounded-xl border border-rose-200 px-3 py-2.5 text-sm text-rose-600 hover:bg-rose-50 disabled:opacity-40 dark:border-rose-900 dark:hover:bg-rose-950/40"
-                          disabled={submitting || apartments.length <= 1}
-                          onClick={() =>
-                            setApartments((prev) => prev.filter((_, i) => i !== idx))
-                          }
-                        >
-                          <Trash2 className="h-4 w-4" /> Xóa
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-                    disabled={submitting}
-                    onClick={() =>
-                      setApartments((prev) => [
-                        ...prev,
-                        { unitName: '', area: '', price: '' },
-                      ])
-                    }
-                  >
-                    <Plus className="h-4 w-4" /> Thêm căn
-                  </button>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Số căn: <strong>{apartments.filter((r) => r.unitName.trim()).length}</strong>
-                  </p>
-                </div>
-              </SectionCard>
-
-              <SectionCard
-                icon={FileText}
-                title="Thông tin hồ sơ"
-                subtitle="Tỉ lệ trả trước Đợt 1 (bắt buộc, ≤ 30%) — người dân xem trên chi tiết dự án"
-              >
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Trả trước Đợt 1" suffix="%" required>
+          {/* === Step 2 — Chi tiết & lịch trình (2 cột compact, không cần cuộn trang) === */}
+          {step === 2 && (
+            <div className="grid items-start gap-2 md:grid-cols-2">
+              {/* === Cột trái: Thanh toán + Lịch đăng ký / bốc thăm === */}
+              <div className="flex flex-col gap-2">
+                {/* Phân bổ thanh toán */}
+                <SectionCard
+                  icon={Wallet}
+                  title="Phân bổ thanh toán"
+                  subtitle="Trả trước đợt đầu tối đa 30% giá căn"
+                  compact
+                >
+                  <Field label="Tỉ lệ trả trước đợt đầu" required suffix="%">
                     <input
                       className={`${inputClass} pr-10`}
                       type="number"
@@ -460,178 +481,244 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
                       value={phase1Percentage}
                       onChange={(e) => setPhase1Percentage(e.target.value)}
                       placeholder="VD: 20"
-                      required
                       disabled={submitting}
                     />
                   </Field>
-                  <p className="sm:col-span-2 text-xs text-slate-500 dark:text-slate-400">
-                    Công bố cho người dân: trả trước bao nhiêu % giá căn sau ký HĐ. Tối đa 30% theo Luật Nhà ở.
-                    Đợt 2 = phần còn lại.
-                    {(() => {
-                      const v = parseFloat(phase1Percentage)
-                      if (!Number.isFinite(v) || v <= 0) return ''
-                      const p1 = Math.min(v, 30)
-                      return ` → Đợt 1 ${p1}% · Đợt 2 ${(100 - p1).toFixed(2).replace(/\.00$/, '')}%.`
-                    })()}
-                  </p>
-                  <Field label="Trạng thái" required>
-                    <select
-                      className={inputClass}
-                      value={housingProjectStatusId}
-                      onChange={(e) => setHousingProjectStatusId(e.target.value)}
-                      disabled={submitting}
-                    >
-                      <option value="">
-                        {statuses.length ? 'Chọn trạng thái' : 'Đang tải...'}
-                      </option>
-                      {statuses.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.label}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                </div>
+                  <div className="space-y-1">
+                    <div className="flex h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                      {p1Valid ? (
+                        <>
+                          <div
+                            className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
+                            style={{ width: `${p1}%` }}
+                          />
+                          <div
+                            className="h-full bg-gradient-to-r from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500"
+                            style={{ width: `${100 - p1}%` }}
+                          />
+                        </>
+                      ) : (
+                        <div className="h-full w-full bg-slate-200 dark:bg-slate-700" />
+                      )}
+                    </div>
+                    <div className="flex justify-between text-[10px] font-semibold">
+                      <span className="text-indigo-600 dark:text-indigo-300">
+                        Đợt đầu: {p1Valid ? `${p1}%` : '—'}
+                      </span>
+                      <span className="text-slate-500 dark:text-slate-400">
+                        Đợt sau: {p1Valid ? `${p2}%` : '—'}
+                      </span>
+                    </div>
+                  </div>
+                </SectionCard>
 
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <Field label="Số quyết định" required>
-                    <input
-                      className={inputClass}
-                      value={decisionNumber}
-                      onChange={(e) => setDecisionNumber(e.target.value)}
-                      placeholder="VD: 1234/QĐ-UBND"
-                      disabled={submitting}
-                      required
-                    />
-                  </Field>
-                  <Field label="Ngày phê duyệt" required>
-                    <input
-                      className={inputClass}
-                      type="date"
-                      value={approvalDate}
-                      onChange={(e) => setApprovalDate(e.target.value)}
-                      disabled={submitting}
-                      required
-                    />
-                  </Field>
-                  <div className="flex items-end pb-1">
-                    <label className="inline-flex cursor-pointer items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-200 dark:hover:bg-slate-800">
+                {/* Lịch đăng ký & bốc thăm */}
+                <SectionCard
+                  icon={CalendarDays}
+                  title="Lịch đăng ký & bốc thăm"
+                  subtitle="Thời gian mở đăng ký, bốc thăm và địa điểm"
+                  compact
+                >
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="Mở đăng ký">
                       <input
-                        type="checkbox"
-                        className="h-4 w-4 cursor-pointer rounded border-slate-300 text-blue-600 accent-blue-600 focus:ring-blue-500"
-                        checked={isConfirmed}
-                        onChange={(e) => setIsConfirmed(e.target.checked)}
+                        className={inputClass}
+                        type="datetime-local"
+                        value={applicationOpenDate}
+                        onChange={(e) => setApplicationOpenDate(e.target.value)}
                         disabled={submitting}
                       />
-                      Đã được phê duyệt
-                      <span className="text-rose-500" aria-hidden>*</span>
-                    </label>
+                    </Field>
+                    <Field label="Đóng đăng ký">
+                      <input
+                        className={inputClass}
+                        type="datetime-local"
+                        value={applicationCloseDate}
+                        onChange={(e) => setApplicationCloseDate(e.target.value)}
+                        disabled={submitting}
+                      />
+                    </Field>
+                    <Field label="Ngày bốc thăm" className="col-span-2">
+                      <input
+                        className={inputClass}
+                        type="datetime-local"
+                        value={lotteryDate}
+                        onChange={(e) => setLotteryDate(e.target.value)}
+                        disabled={submitting}
+                      />
+                    </Field>
+                    <Field label="Địa điểm bốc thăm" className="col-span-2">
+                      <input
+                        className={inputClass}
+                        value={lotteryLocation}
+                        onChange={(e) => setLotteryLocation(e.target.value)}
+                        placeholder="VD: Hội trường Trung tâm hành chính thành phố"
+                        disabled={submitting}
+                      />
+                    </Field>
                   </div>
-                </div>
-                <p className="text-xs text-amber-700 dark:text-amber-400">
-                  Khi tích xác nhận, dự án sẽ được công khai ngay trên trang người dân.
-                </p>
-              </SectionCard>
-            </>
-          )}
+                </SectionCard>
+              </div>
 
-          {step === 'schedule' && (
-            <>
-              <SectionCard
-                icon={CalendarDays}
-                title="Lịch đăng ký &amp; bốc thăm"
-                subtitle="Thời gian mở/đóng đăng ký và ngày bốc thăm"
-              >
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Ngày mở đăng ký">
-                    <input
-                      className={inputClass}
-                      type="datetime-local"
-                      value={applicationOpenDate}
-                      onChange={(e) => setApplicationOpenDate(e.target.value)}
-                      disabled={submitting}
-                    />
-                  </Field>
-                  <Field label="Ngày đóng đăng ký">
-                    <input
-                      className={inputClass}
-                      type="datetime-local"
-                      value={applicationCloseDate}
-                      onChange={(e) => setApplicationCloseDate(e.target.value)}
-                      disabled={submitting}
-                    />
-                  </Field>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Ngày bốc thăm">
-                    <input
-                      className={inputClass}
-                      type="datetime-local"
-                      value={lotteryDate}
-                      onChange={(e) => setLotteryDate(e.target.value)}
-                      disabled={submitting}
-                    />
-                  </Field>
-                  <Field label="Địa điểm bốc thăm">
-                    <input
-                      className={inputClass}
-                      value={lotteryLocation}
-                      onChange={(e) => setLotteryLocation(e.target.value)}
-                      placeholder="VD: Hội trường TTTM Bình Dương"
-                      disabled={submitting}
-                    />
-                  </Field>
-                </div>
-              </SectionCard>
+              {/* === Cột phải: Tóm tắt nhanh + Danh sách căn hộ === */}
+              <div className="flex flex-col gap-2">
+                {/* Tóm tắt nhanh */}
+                {aptSummary ? (
+                  <div className="grid grid-cols-4 gap-2 rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-sm dark:border-slate-700/60 dark:bg-slate-900/40">
+                    <div className="rounded-lg border border-emerald-200/60 bg-emerald-50/60 p-2 text-center dark:border-emerald-500/30 dark:bg-emerald-950/20">
+                      <p className="text-[9px] uppercase tracking-wide text-emerald-600/70 dark:text-emerald-300/70">
+                        Số căn
+                      </p>
+                      <p className="mt-0.5 text-lg font-bold text-emerald-700 dark:text-emerald-200">
+                        {aptSummary.count}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-sky-200/60 bg-sky-50/60 p-2 text-center dark:border-sky-500/30 dark:bg-sky-950/20">
+                      <p className="text-[9px] uppercase tracking-wide text-sky-600/70 dark:text-sky-300/70">
+                        Diện tích (m²)
+                      </p>
+                      <p className="mt-0.5 text-sm font-bold text-sky-700 dark:text-sky-200">
+                        {aptSummary.minArea}–{aptSummary.maxArea}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-violet-200/60 bg-violet-50/60 p-2 text-center dark:border-violet-500/30 dark:bg-violet-950/20">
+                      <p className="text-[9px] uppercase tracking-wide text-violet-600/70 dark:text-violet-300/70">
+                        Giá thấp nhất
+                      </p>
+                      <p className="mt-0.5 text-sm font-bold text-violet-700 dark:text-violet-200">
+                        {fmtVnd(aptSummary.minPrice)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-fuchsia-200/60 bg-fuchsia-50/60 p-2 text-center dark:border-fuchsia-500/30 dark:bg-fuchsia-950/20">
+                      <p className="text-[9px] uppercase tracking-wide text-fuchsia-600/70 dark:text-fuchsia-300/70">
+                        Giá cao nhất
+                      </p>
+                      <p className="mt-0.5 text-sm font-bold text-fuchsia-700 dark:text-fuchsia-200">
+                        {fmtVnd(aptSummary.maxPrice)}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-3 text-center text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
+                    Thêm căn ở bảng bên dưới để xem tóm tắt tự động.
+                  </p>
+                )}
 
-              <SectionCard
-                icon={ImageIcon}
-                title="Hình ảnh dự án"
-                subtitle="Ảnh đại diện sẽ hiển thị ở trang chủ và danh sách"
-              >
-                <Field label="Ảnh đại diện (thumbnail)">
-                  <FilePicker
-                    mode="single"
-                    onPickSingle={(f) => setThumbnailFile(f)}
-                    file={thumbnailFile}
-                    disabled={submitting}
-                    placeholder="Chọn 1 ảnh đại diện (JPG/PNG/WebP)"
-                  />
-                </Field>
-                <Field
-                  label="Ảnh chi tiết dự án"
-                  hint={imagesFiles.length > 0 ? `${imagesFiles.length} ảnh đã chọn` : undefined}
+                {/* Danh sách căn hộ */}
+                <SectionCard
+                  icon={Building2}
+                  title="Danh sách căn hộ"
+                  subtitle={`${filledCount} căn đã nhập · Thêm ít nhất một căn trước khi tạo dự án`}
+                  compact
+                  className="min-h-0"
+                  right={
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setApartments((prev) => [
+                          ...prev,
+                          { unitName: '', area: '', price: '' },
+                        ])
+                      }
+                      disabled={submitting}
+                      className="inline-flex items-center gap-1 rounded-md border border-dashed border-indigo-300 bg-indigo-50/50 px-2.5 py-1 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-500/40 dark:bg-indigo-950/30 dark:text-indigo-300 dark:hover:bg-indigo-950/60"
+                    >
+                      <Plus className="h-3 w-3" />
+                      Thêm căn
+                    </button>
+                  }
                 >
-                  <FilePicker
-                    mode="multi"
-                    onPickMulti={(files) => setImagesFiles(files)}
-                    files={imagesFiles}
-                    disabled={submitting}
-                    placeholder="Chọn nhiều ảnh (JPG/PNG/WebP)"
-                  />
-                </Field>
-              </SectionCard>
-            </>
+                  <div className="max-h-[280px] overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur dark:bg-slate-800/95">
+                        <tr className="text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                          <th className="w-8 px-2 py-1.5 font-semibold">#</th>
+                          <th className="px-2 py-1.5 font-semibold">Tên căn</th>
+                          <th className="px-2 py-1.5 font-semibold">Diện tích (m²)</th>
+                          <th className="px-2 py-1.5 font-semibold">Giá (VNĐ)</th>
+                          <th className="w-10 px-2 py-1.5"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                        {apartments.map((row, idx) => (
+                          <tr
+                            key={idx}
+                            className="group transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/30"
+                          >
+                            <td className="px-2 py-1 text-xs font-bold text-slate-400">
+                              {idx + 1}
+                            </td>
+                            <td className="px-2 py-1">
+                              <input
+                                className={`${inputClass} py-1.5`}
+                                value={row.unitName}
+                                onChange={(e) => updateAptRow(idx, 'unitName', e.target.value)}
+                                placeholder="A-101"
+                                disabled={submitting}
+                              />
+                            </td>
+                            <td className="px-2 py-1">
+                              <input
+                                className={`${inputClass} py-1.5`}
+                                type="number"
+                                min="0"
+                                step="0.1"
+                                value={row.area}
+                                onChange={(e) => updateAptRow(idx, 'area', e.target.value)}
+                                placeholder="38.5"
+                                disabled={submitting}
+                              />
+                            </td>
+                            <td className="px-2 py-1">
+                              <input
+                                className={`${inputClass} py-1.5`}
+                                type="number"
+                                min="0"
+                                value={row.price}
+                                onChange={(e) => updateAptRow(idx, 'price', e.target.value)}
+                                placeholder="720000000"
+                                disabled={submitting}
+                              />
+                            </td>
+                            <td className="px-2 py-1 text-center">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setApartments((prev) => prev.filter((_, i) => i !== idx))
+                                }
+                                disabled={submitting || apartments.length <= 1}
+                                className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-400 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-30 dark:border-slate-700 dark:hover:border-rose-700/60 dark:hover:bg-rose-950/40"
+                                title="Xoá căn này"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </SectionCard>
+              </div>
+            </div>
           )}
         </div>
 
         {/* === Footer === */}
-        <div className="sticky bottom-0 -mx-1 mt-5 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200/80 bg-gradient-to-r from-indigo-50/80 via-white to-violet-50/80 px-5 py-3 shadow-md dark:border-slate-700/60 dark:from-indigo-950/40 dark:via-slate-900/60 dark:to-violet-950/30">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
-            <span className="flex h-7 min-w-[28px] items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-2 text-[11px] font-bold text-white shadow">
-              {currentStepIndex + 1}/{STEPS.length}
-            </span>
-            <span>{STEPS[currentStepIndex].label}</span>
-          </div>
+        <div className="sticky bottom-0 mt-1 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200/80 bg-gradient-to-r from-indigo-50/80 via-white to-violet-50/80 px-3.5 py-1 shadow-md dark:border-slate-700/60 dark:from-indigo-950/40 dark:via-slate-900/60 dark:to-violet-950/30">
+          <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+            <ListChecks className="mr-1 inline h-3 w-3 text-indigo-500" />
+            Bước {step}/2 · {filledCount} căn · Đợt 1: {p1Valid ? `${p1}%` : '—'}
+          </p>
           <div className="flex items-center gap-2">
-            {currentStepIndex > 0 && (
+            {step === 2 && (
               <button
                 type="button"
                 onClick={goPrev}
                 disabled={submitting}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
               >
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-3.5 w-3.5" />
                 Quay lại
               </button>
             )}
@@ -639,35 +726,34 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+              className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
             >
-              <X className="h-4 w-4" />
               Huỷ
             </button>
-            {currentStepIndex < STEPS.length - 1 ? (
+            {step === 1 ? (
               <button
                 type="button"
                 onClick={goNext}
                 disabled={submitting}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-2 text-sm font-bold text-white shadow-md transition hover:shadow-lg hover:brightness-110 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-md bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-4 py-1.5 text-xs font-bold text-white shadow-md transition hover:shadow-lg hover:brightness-110 disabled:opacity-50"
               >
                 Tiếp tục
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-3.5 w-3.5" />
               </button>
             ) : (
               <button
                 type="submit"
                 disabled={submitting}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-5 py-2 text-sm font-bold text-white shadow-md transition hover:shadow-lg hover:brightness-110 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-md bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-4 py-1.5 text-xs font-bold text-white shadow-md transition hover:shadow-lg hover:brightness-110 disabled:opacity-50"
               >
                 {submitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     Đang tạo...
                   </>
                 ) : (
                   <>
-                    <Sparkles className="h-4 w-4" />
+                    <Sparkles className="h-3.5 w-3.5" />
                     Tạo dự án
                   </>
                 )}
@@ -680,35 +766,142 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
   )
 }
 
-/* ===== Helper components ===== */
+/* ===== Helpers ===== */
+
+function Stepper({ current }: { current: 1 | 2 }) {
+  const steps = [
+    { num: 1, label: 'Thông tin dự án', icon: Home, desc: 'Tên, vị trí, hồ sơ' },
+    { num: 2, label: 'Chi tiết & lịch trình', icon: Building2, desc: 'Căn, thanh toán, lịch' },
+  ]
+  return (
+    <div className="flex items-stretch gap-1.5 rounded-lg border border-slate-200/70 bg-slate-100/60 p-1 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/40">
+      {steps.map((s) => {
+        const active = current === s.num
+        const done = current > s.num
+        const Icon = s.icon
+        return (
+          <div
+            key={s.num}
+            className={[
+              'flex flex-1 items-center gap-2 rounded-md px-2.5 py-1.5 transition-all duration-300',
+              active
+                ? 'bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-md ring-1 ring-indigo-500/30'
+                : done
+                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
+                  : 'bg-transparent text-slate-400 dark:text-slate-500',
+            ].join(' ')}
+          >
+            <span
+              className={[
+                'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition-all',
+                active
+                  ? 'bg-white/25 text-white'
+                  : done
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400',
+              ].join(' ')}
+            >
+              {done ? <Check className="h-3.5 w-3.5" /> : s.num}
+            </span>
+            <div className="hidden min-w-0 flex-1 sm:block">
+              <p
+                className={[
+                  'text-[11px] font-bold leading-tight',
+                  active
+                    ? 'text-white'
+                    : done
+                      ? 'text-emerald-700 dark:text-emerald-300'
+                      : 'text-slate-500 dark:text-slate-400',
+                ].join(' ')}
+              >
+                {s.label}
+              </p>
+              <p
+                className={[
+                  'text-[9px] leading-tight',
+                  active
+                    ? 'text-white/80'
+                    : done
+                      ? 'text-emerald-600/80 dark:text-emerald-300/80'
+                      : 'text-slate-400 dark:text-slate-500',
+                ].join(' ')}
+              >
+                {s.desc}
+              </p>
+            </div>
+            <Icon
+              className={[
+                'h-3.5 w-3.5 shrink-0 sm:hidden',
+                active ? 'text-white' : 'opacity-60',
+              ].join(' ')}
+            />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function fmtVnd(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return '—'
+  if (n >= 1e9) return `${(n / 1e9).toFixed(2)} tỷ`
+  if (n >= 1e6) return `${(n / 1e6).toFixed(0)} tr`
+  return n.toLocaleString('vi-VN')
+}
 
 function SectionCard({
   icon: Icon,
   title,
   subtitle,
   children,
+  className = '',
+  right,
+  compact = false,
 }: {
   icon: React.ComponentType<{ className?: string }>
   title: string
   subtitle?: string
   children: React.ReactNode
+  className?: string
+  right?: React.ReactNode
+  compact?: boolean
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-700/60 dark:bg-slate-900/40">
-      <header className="mb-4 flex items-start gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md">
-          <Icon className="h-5 w-5" />
-        </span>
-        <div className="min-w-0">
-          <h3 className="text-base font-bold leading-tight text-slate-900 dark:text-slate-50">
-            {title}
-          </h3>
-          {subtitle && (
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
-          )}
+    <section
+      className={[
+        'rounded-xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700/60 dark:bg-slate-900/40',
+        compact ? 'p-3.5' : 'p-5',
+        className,
+      ].join(' ')}
+    >
+      <header className={['flex items-start justify-between gap-3', compact ? 'mb-2.5' : 'mb-4'].join(' ')}>
+        <div className="flex min-w-0 items-start gap-2.5">
+          <span className={[
+            'flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm',
+            compact ? 'h-7 w-7' : 'h-9 w-9',
+          ].join(' ')}>
+            <Icon className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+          </span>
+          <div className="min-w-0">
+            <h3 className={[
+              'font-bold leading-tight text-slate-900 dark:text-slate-50',
+              compact ? 'text-xs' : 'text-sm',
+            ].join(' ')}>
+              {title}
+            </h3>
+            {subtitle && (
+              <p className={[
+                'mt-0.5 text-slate-500 dark:text-slate-400',
+                compact ? 'text-[10px]' : 'text-[11px]',
+              ].join(' ')}>
+                {subtitle}
+              </p>
+            )}
+          </div>
         </div>
+        {right}
       </header>
-      <div className="space-y-4">{children}</div>
+      <div className={compact ? 'space-y-2.5' : 'space-y-3.5'}>{children}</div>
     </section>
   )
 }
@@ -719,15 +912,17 @@ function Field({
   hint,
   suffix,
   children,
+  className = '',
 }: {
   label: string
   required?: boolean
   hint?: string
   suffix?: string
   children: React.ReactNode
+  className?: string
 }) {
   return (
-    <div>
+    <div className={className}>
       <label className={labelClass}>
         <span>{label}</span>
         {required && requiredDot}
@@ -742,7 +937,7 @@ function Field({
       ) : (
         children
       )}
-      {hint && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</p>}
+      {hint && <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{hint}</p>}
     </div>
   )
 }
@@ -761,20 +956,23 @@ type MultiPickerProps = {
 
 type FilePickerProps = {
   disabled?: boolean
-  placeholder: string
 } & (SinglePickerProps | MultiPickerProps)
 
+/** Hiển thị preview ảnh từ File bằng URL.createObjectURL (auto-revoke khi unmount) */
+function Thumb({ file, className }: { file: File; className?: string }) {
+  const [src, setSrc] = useState<string>('')
+  useEffect(() => {
+    const url = URL.createObjectURL(file)
+    setSrc(url)
+    return () => URL.revokeObjectURL(url)
+  }, [file])
+  return <img src={src} alt={file.name} className={className} />
+}
+
 function FilePicker(props: FilePickerProps) {
-  const { mode, disabled, placeholder } = props
+  const { mode, disabled } = props
   const multiple = mode === 'multi'
   const inputId = useMemo(() => `fp-${Math.random().toString(36).slice(2, 9)}`, [])
-  const summary = multiple
-    ? props.files.length > 0
-      ? `${props.files.length} ảnh đã chọn`
-      : null
-    : props.file
-      ? props.file.name
-      : null
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (mode === 'multi') {
@@ -791,26 +989,6 @@ function FilePicker(props: FilePickerProps) {
 
   return (
     <div>
-      <label
-        htmlFor={inputId}
-        className={[
-          'flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-300 bg-slate-50/80 px-4 py-3 text-sm transition hover:border-indigo-400 hover:bg-indigo-50/60',
-          disabled ? 'pointer-events-none opacity-50' : '',
-          'dark:border-slate-600 dark:bg-slate-800/60 dark:hover:border-indigo-500 dark:hover:bg-indigo-950/30',
-        ].join(' ')}
-      >
-        <span className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
-          <ImageIcon className="h-4 w-4 text-indigo-500" />
-          {summary ? (
-            <span className="font-semibold text-slate-900 dark:text-slate-50">{summary}</span>
-          ) : (
-            <span>{placeholder}</span>
-          )}
-        </span>
-        <span className="rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 px-3 py-1 text-xs font-bold text-white shadow-sm">
-          Chọn file
-        </span>
-      </label>
       <input
         id={inputId}
         type="file"
@@ -820,15 +998,106 @@ function FilePicker(props: FilePickerProps) {
         onChange={handleChange}
         disabled={disabled}
       />
-      {((multiple && props.files.length > 0) || (!multiple && props.file)) && (
-        <button
-          type="button"
-          onClick={handleClear}
-          disabled={disabled}
-          className="mt-1 text-xs font-semibold text-rose-600 hover:underline disabled:opacity-50"
-        >
-          {multiple ? 'Xoá tất cả' : 'Xoá ảnh'}
-        </button>
+
+      {/* === Chế độ 1 ảnh (thumbnail) === */}
+      {!multiple && (
+        <div className="flex items-start gap-2.5">
+          {/* Preview hoặc placeholder */}
+          <div
+            className={[
+              'flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed',
+              props.file
+                ? 'border-emerald-300 bg-emerald-50/50 dark:border-emerald-500/40 dark:bg-emerald-950/20'
+                : 'border-slate-300 bg-slate-50 dark:border-slate-600 dark:bg-slate-800/40',
+            ].join(' ')}
+          >
+            {props.file ? (
+              <Thumb file={props.file} className="h-full w-full object-cover" />
+            ) : (
+              <ImageIcon className="h-6 w-6 text-slate-400" />
+            )}
+          </div>
+
+          {/* Info + actions */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <label
+                htmlFor={inputId}
+                className={[
+                  'inline-flex cursor-pointer items-center gap-1 rounded-md bg-gradient-to-r from-indigo-600 to-violet-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm transition hover:opacity-90',
+                  disabled ? 'pointer-events-none opacity-50' : '',
+                ].join(' ')}
+              >
+                <Upload className="h-3 w-3" />
+                {props.file ? 'Đổi ảnh' : 'Chọn ảnh'}
+              </label>
+              {props.file && (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  disabled={disabled}
+                  className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-rose-600 transition hover:bg-rose-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-rose-950/30"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Xoá
+                </button>
+              )}
+            </div>
+            <p className="mt-1 truncate text-[10px] font-medium text-slate-500 dark:text-slate-400">
+              {props.file ? props.file.name : (
+                <span className="italic">Chưa có ảnh — JPG/PNG/WebP</span>
+              )}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* === Chế độ nhiều ảnh (gallery) === */}
+      {multiple && (
+        <div>
+          <div
+            className={[
+              'grid grid-cols-4 gap-1.5 rounded-lg border-2 border-dashed p-1.5',
+              props.files.length > 0
+                ? 'border-indigo-200 bg-indigo-50/30 dark:border-indigo-500/30 dark:bg-indigo-950/10'
+                : 'border-slate-300 bg-slate-50/50 dark:border-slate-600 dark:bg-slate-800/30',
+            ].join(' ')}
+          >
+            {props.files.map((file, idx) => (
+              <div
+                key={`${file.name}-${idx}`}
+                className="group relative aspect-square overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900"
+              >
+                <Thumb file={file} className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => props.onPickMulti(props.files.filter((_, i) => i !== idx))}
+                  disabled={disabled}
+                  aria-label="Xoá ảnh"
+                  className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500/95 text-white opacity-0 shadow-sm transition hover:bg-rose-600 group-hover:opacity-100 disabled:opacity-50"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+
+            {/* Nút thêm ảnh */}
+            <label
+              htmlFor={inputId}
+              className={[
+                'flex aspect-square cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-slate-300 bg-white text-slate-400 transition hover:border-indigo-400 hover:bg-indigo-50/60 hover:text-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-950/30 dark:hover:text-indigo-400',
+                disabled ? 'pointer-events-none opacity-50' : '',
+              ].join(' ')}
+            >
+              <Plus className="h-5 w-5" />
+            </label>
+          </div>
+          <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+            {props.files.length > 0
+              ? `${props.files.length} ảnh — click dấu + để thêm`
+              : <span className="italic">Click dấu + để thêm ảnh</span>}
+          </p>
+        </div>
       )}
     </div>
   )

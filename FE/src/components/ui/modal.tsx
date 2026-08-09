@@ -9,13 +9,15 @@ export function Modal({
   description,
   children,
   size = 'md',
+  fullHeight = false,
 }: {
   open: boolean
   onClose: () => void
-  title: string
+  title?: string
   description?: string
   children: ReactNode
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full'
+  fullHeight?: boolean
 }) {
   useEffect(() => {
     if (!open) return
@@ -31,7 +33,16 @@ export function Modal({
     }
   }, [open, onClose])
 
-  const maxW = size === 'sm' ? 'max-w-sm' : size === 'lg' ? 'max-w-2xl' : 'max-w-md'
+  const maxW =
+    size === 'sm'
+      ? 'max-w-sm'
+      : size === 'lg'
+        ? 'max-w-2xl'
+        : size === 'xl'
+          ? 'max-w-5xl'
+          : size === 'full'
+            ? 'max-w-[96vw]'
+            : 'max-w-md'
 
   return (
     <AnimatePresence>
@@ -43,7 +54,7 @@ export function Modal({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
           onClick={onClose}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4"
+          className="fixed inset-0 z-50 flex items-stretch justify-center bg-slate-900/60 backdrop-blur-sm p-4"
         >
           <motion.div
             key="dialog"
@@ -52,25 +63,41 @@ export function Modal({
             exit={{ opacity: 0, scale: 0.95, y: 16 }}
             transition={{ type: 'spring', stiffness: 320, damping: 26 }}
             onClick={(e) => e.stopPropagation()}
-            className={`relative w-full ${maxW} overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:border dark:border-slate-700`}
+            className={`relative flex w-full flex-col ${maxW} ${
+              fullHeight ? 'h-[calc(100vh-2rem)]' : ''
+            } overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:border dark:border-slate-700`}
           >
-            <div className="flex items-start gap-4 border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-              <div className="min-w-0 flex-1">
-                <h3 className="text-lg font-bold text-[#003D7A] dark:text-white">{title}</h3>
-                {description && (
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
-                )}
+            {title && (
+              <div className="flex items-start gap-4 border-b border-slate-100 px-6 py-4 dark:border-slate-800">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-lg font-bold text-[#003D7A] dark:text-white">{title}</h3>
+                  {description && (
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  aria-label="Đóng"
+                  onClick={onClose}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
+            )}
+            {!title && (
               <button
                 type="button"
                 aria-label="Đóng"
                 onClick={onClose}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
               >
                 <X className="h-4 w-4" />
               </button>
+            )}
+            <div className={`${fullHeight ? 'min-h-0 flex-1' : ''} px-6 py-5`}>
+              {children}
             </div>
-            <div className="px-6 py-5">{children}</div>
           </motion.div>
         </motion.div>
       )}

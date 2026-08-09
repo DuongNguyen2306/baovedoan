@@ -62,10 +62,10 @@ export function AreaChart({
   const layout = useMemo(() => {
     const w = 720
     const h = height
-    const padL = showAxes ? 36 : 8
-    const padR = 16
-    const padT = 16
-    const padB = showAxes ? 28 : 8
+    const padL = showAxes ? 28 : 8
+    const padR = 8
+    const padT = 14
+    const padB = showAxes ? 24 : 8
 
     const list: { name: string; data: number[]; color: string }[] = []
     if (points && points.length) {
@@ -231,10 +231,16 @@ export function AreaChart({
 
       {/* Legend */}
       {showLegend && (
-        <div className="pointer-events-none absolute right-3 top-2 flex flex-wrap items-center gap-3 text-[10px] font-semibold">
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-semibold">
           {list.map((s) => (
-            <span key={s.name} className="inline-flex items-center gap-1.5 rounded-full bg-white/70 px-2 py-0.5 text-slate-700 backdrop-blur-md ring-1 ring-slate-200/80 dark:bg-slate-900/70 dark:text-slate-200 dark:ring-slate-700/70">
-              <span className="h-2 w-2 rounded-full" style={{ background: s.color, boxShadow: `0 0 8px ${s.color}` }} />
+            <span
+              key={s.name}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/70 px-2 py-0.5 text-slate-700 backdrop-blur-md ring-1 ring-slate-200/80 dark:bg-slate-900/70 dark:text-slate-200 dark:ring-slate-700/70"
+            >
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ background: s.color, boxShadow: `0 0 8px ${s.color}` }}
+              />
               {s.name}
             </span>
           ))}

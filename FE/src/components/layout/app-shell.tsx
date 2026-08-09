@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ApplicantSubNav, APPLICANT_SUB_NAV_ROUTES } from '@/components/layout/applicant-sub-nav'
 import { AdminSubNav, ADMIN_SUB_NAV_ROUTES } from '@/components/layout/admin-sub-nav'
+import { DeveloperSubNav, DEVELOPER_SUB_NAV_ROUTES } from '@/components/layout/developer-sub-nav'
 import { BrandLogo } from '@/components/brand/brand-logo'
 import { BRAND } from '@/lib/brand'
 import { GovFooter } from '@/components/layout/gov-footer'
@@ -186,10 +187,12 @@ function InternalHeader({ logged, role, wideScreen = false }: { logged: boolean;
   const route = useHashRoute()
   const isApplicant = logged && role === 'Applicant'
   const isAdmin = logged && role === ADMIN_ROLE
+  const isDeveloper = logged && role === 'Housing Developer'
   const showApplicantNav = isApplicant && APPLICANT_SUB_NAV_ROUTES.includes(route)
   const showAdminNav = isAdmin && ADMIN_SUB_NAV_ROUTES.includes(route)
+  const showDeveloperNav = isDeveloper && DEVELOPER_SUB_NAV_ROUTES.includes(route)
   const ambientId = roleAmbientId(logged, role)
-  const containerMax = wideScreen ? 'max-w-[1600px]' : 'max-w-full'
+  const containerMax = wideScreen ? 'max-w-[1760px]' : 'max-w-full'
 
   return (
     <div>
@@ -198,7 +201,7 @@ function InternalHeader({ logged, role, wideScreen = false }: { logged: boolean;
       <div className={`h-1 ${theme.brandAccent}`} aria-hidden />
       <header className="header-glass sticky top-0 z-50 border-b border-primary/20 bg-white/95 shadow-md dark:border-slate-700 dark:bg-slate-900/95 dark:shadow-lg">
         <RoleAmbient roleId={ambientId} />
-        <div className={`mx-auto flex ${containerMax} items-center gap-3 px-6 py-3.5 lg:gap-5 lg:px-8`}>
+        <div className={`mx-auto flex ${containerMax} items-center gap-3 px-3 py-3.5 sm:px-4 lg:gap-5 lg:px-5`}>
           <button
             type="button"
             onClick={() => navigate(logged ? (theme.homeRoute as RouteId) : 'landing')}
@@ -246,6 +249,7 @@ function InternalHeader({ logged, role, wideScreen = false }: { logged: boolean;
 
         {showApplicantNav && <ApplicantSubNav />}
         {showAdminNav && <AdminSubNav />}
+        {showDeveloperNav && <DeveloperSubNav />}
       </header>
     </div>
   )
@@ -259,7 +263,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isFullBleed = route === 'landing'
   const isAuthForm = AUTH_FORM_ROUTES.has(route)
   const isApplicant = logged && role === 'Applicant'
-  const isWideScreen = isApplicant && !isFullBleed
+  const isDeveloper = logged && role === 'Housing Developer'
+  // Developer & Applicant dùng layout rộng sát 2 cạnh (full màn hình)
+  const isWideScreen = !isFullBleed && (isApplicant || isDeveloper)
   const ambientId = roleAmbientId(logged, role)
   const showFooter = !isFullBleed && !isAuthForm && route !== 'profile' && route !== 'change-password'
 
@@ -277,7 +283,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         isFullBleed
           ? 'flex-1'
           : isWideScreen
-            ? 'mx-auto w-full max-w-[1600px] flex-1 px-3 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8'
+            ? isDeveloper
+              ? 'mx-auto w-full max-w-[1760px] flex-1 px-3 py-4 sm:px-4 sm:py-5 lg:px-5 lg:py-6'
+              : 'mx-auto w-full max-w-[1600px] flex-1 px-3 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8'
             : 'mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:px-8 lg:py-8'
       }>
         {logged && !isFullBleed && <UserWelcomeBar />}

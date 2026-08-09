@@ -383,14 +383,14 @@ export function HousingShowcase() {
             <div className="pointer-events-none absolute inset-y-0 left-0 w-full bg-gradient-to-r from-white/90 via-white/30 to-transparent" />
             <div className="absolute -left-6 top-10 h-28 w-28 rounded-full bg-[#2563EB]/10 blur-3xl" />
             <div className="absolute right-6 bottom-8 h-24 w-24 rounded-full bg-[#16A34A]/10 blur-3xl" />
-            <div className="grid grid-cols-2 gap-4 p-4 md:p-6">
+            <div className="p-4 md:p-6">
               <motion.div
                 initial={{ opacity: 0, y: 24, scale: 0.92 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.8, delay: 0.1, ease: 'easeOut' }}
                 whileHover={{ scale: 1.06 }}
-                className="relative overflow-hidden rounded-[20px] border border-white/80 bg-white/75 shadow-[0_16px_40px_rgba(37,99,235,0.2)] dark:border-slate-700 dark:bg-slate-900/85 dark:shadow-[0_16px_40px_rgba(15,23,42,0.35)]"
-                style={{ minHeight: '170px' }}
+                className="relative overflow-hidden rounded-[28px] border border-white/80 bg-white/75 shadow-[0_16px_40px_rgba(37,99,235,0.2)] dark:border-slate-700 dark:bg-slate-900/85 dark:shadow-[0_16px_40px_rgba(15,23,42,0.35)]"
+                style={{ minHeight: '340px' }}
               >
                 <motion.img
                   src="/assets/banner1.png"
@@ -398,62 +398,8 @@ export function HousingShowcase() {
                   className="h-full w-full object-cover"
                   loading="lazy"
                   decoding="async"
-                  animate={{ scale: [1, 1.08, 1] }}
+                  animate={{ scale: [1, 1.08, 1], opacity: [0.98, 1, 0.98] }}
                   transition={{ duration: 8, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
-                />
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, y: 24, scale: 0.92 }}
-                animate={{ opacity: 1, y: -2, scale: 1 }}
-                transition={{ duration: 0.85, delay: 0.2, ease: 'easeOut' }}
-                whileHover={{ scale: 1.06 }}
-                className="relative overflow-hidden rounded-[20px] border border-white/80 bg-white/75 shadow-[0_16px_40px_rgba(37,99,235,0.2)] dark:border-slate-700 dark:bg-slate-900/85 dark:shadow-[0_16px_40px_rgba(15,23,42,0.35)]"
-                style={{ minHeight: '170px' }}
-              >
-                <motion.img
-                  src="/assets/banner2.png"
-                  alt="Banner công trình xây dựng nhà ở xã hội"
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                  decoding="async"
-                  animate={{ y: [0, -12, 0] }}
-                  transition={{ duration: 7, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
-                />
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, y: 28, scale: 0.92 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.9, delay: 0.3, ease: 'easeOut' }}
-                whileHover={{ scale: 1.06 }}
-                className="relative overflow-hidden rounded-[20px] border border-white/80 bg-white/75 shadow-[0_16px_40px_rgba(37,99,235,0.2)] dark:border-slate-700 dark:bg-slate-900/85 dark:shadow-[0_16px_40px_rgba(15,23,42,0.35)]"
-                style={{ minHeight: '170px' }}
-              >
-                <motion.img
-                  src="/assets/banner3.png"
-                  alt="Banner nhà ở xã hội và gia đình bên cạnh khu nhà"
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                  decoding="async"
-                  animate={{ rotate: [0, 3, -3, 0] }}
-                  transition={{ duration: 6, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
-                />
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, y: 24, scale: 0.92 }}
-                animate={{ opacity: 1, y: -4, scale: 1 }}
-                transition={{ duration: 0.95, delay: 0.35, ease: 'easeOut' }}
-                whileHover={{ scale: 1.06 }}
-                className="relative overflow-hidden rounded-[20px] border border-white/80 bg-white/75 shadow-[0_16px_40px_rgba(37,99,235,0.2)] dark:border-slate-700 dark:bg-slate-900/85 dark:shadow-[0_16px_40px_rgba(15,23,42,0.35)]"
-                style={{ minHeight: '170px' }}
-              >
-                <motion.img
-                  src="/images/hero-banner.jpg"
-                  alt="Góc nhìn khu nhà ở xã hội với cây xanh và đường phố"
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                  decoding="async"
-                  animate={{ scale: [1, 1.04, 1], opacity: [1, 0.92, 1] }}
-                  transition={{ duration: 9, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
                 />
               </motion.div>
             </div>

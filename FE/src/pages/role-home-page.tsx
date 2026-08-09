@@ -22,6 +22,7 @@ import { housingProjectsApi } from '@/api/housing-projects'
 import { CreateProjectModal } from '@/components/developer/create-project-modal'
 import { HouseCard } from '@/components/housing/house-card'
 import { HousingShowcase } from '@/components/housing/housing-showcase'
+import { DeveloperHomePage } from '@/pages/developer-home-page'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AreaChart } from '@/components/ui/area-chart'
@@ -137,6 +138,7 @@ export function InterestedPage() {
 
 export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'home-sxd' }) {
   const isSxd = routeId === 'home-sxd'
+  if (!isSxd) return <DeveloperHomePage />
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<Stats>({
     pending: 0, approved: 0, rejected: 0, needMore: 0, submitted: 0, reviewing: 0, projects: 0,
