@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FileText, Printer, Send } from 'lucide-react'
+import { Eye, FileText, Printer, Send } from 'lucide-react'
 import { housingApplicationsApi, parseApplicationDetail, parsePagedApplications } from '@/api/housing-applications'
 import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { reportsApi } from '@/api/reports'
@@ -238,13 +238,18 @@ export function ApplicationsPage() {
                     isSxd && app.applicationStatus === 'PENDING_SXD_REVIEW'
                       ? formatSxdCountdown(app.submittedAt || app.createdAt)
                       : null
+                  const openDetail = () => {
+                    sessionStorage.setItem('applicationId', app.applicationId)
+                    navigate('application-detail')
+                  }
                   return (
                     <tr
                       key={app.applicationId}
-                      className={`border-t border-slate-100 dark:border-slate-800 ${app.isViolation ? 'bg-rose-50 dark:bg-rose-950/30' : ''}`}
+                      onClick={openDetail}
+                      className={`cursor-pointer border-t border-slate-100 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40 ${app.isViolation ? 'bg-rose-50 dark:bg-rose-950/30' : ''}`}
                     >
                       {isDeveloper && (
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                           {canSelect && (
                             <input
                               type="checkbox"
@@ -277,7 +282,8 @@ export function ApplicationsPage() {
                               <Button
                                 size="sm"
                                 variant="accent"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation()
                                   sessionStorage.setItem('projectId', app.projectId)
                                   navigate('project-detail')
                                 }}
@@ -287,13 +293,14 @@ export function ApplicationsPage() {
                             )}
                           <Button
                             size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              sessionStorage.setItem('applicationId', app.applicationId)
-                              navigate('application-detail')
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openDetail()
                             }}
                           >
-                            Chi tiết
+                            <Eye className="mr-1.5 h-3.5 w-3.5" />
+                            Xem hồ sơ
                           </Button>
                         </div>
                       </td>
