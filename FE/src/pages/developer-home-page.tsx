@@ -4,8 +4,10 @@ import {
   Activity,
   AlertTriangle,
   ArrowRight,
+  Bell,
   Building2,
   CheckCircle2,
+  CheckCheck,
   ChevronRight,
   Clock,
   Home,
@@ -28,10 +30,13 @@ import {
 import { CreateProjectModal } from '@/components/developer/create-project-modal'
 import { AreaChart } from '@/components/ui/area-chart'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
 import { extractProjects, countFromPaged } from '@/lib/parsers'
+import { useNotifications } from '@/providers/notifications-provider'
+import type { NotificationDto } from '@/api/notification'
 import type { ApplicationSummaryDto, HousingProjectDto } from '@/types'
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -108,6 +113,71 @@ function buildWeekly<T extends { submittedAt?: string; createdAt?: string }>(
   return buckets
 }
 
+function timeAgo(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const diff = Date.now() - d.getTime()
+  const m = Math.round(diff / 60_000)
+  if (m < 1) return 'Vừa xong'
+  if (m < 60) return `${m} phút trước`
+  const h = Math.round(m / 60)
+  if (h < 24) return `${h} giờ trước`
+  const day = Math.round(h / 24)
+  if (day < 7) return `${day} ngày trước`
+  return d.toLocaleDateString('vi-VN')
+}
+
+function notifTypeLabel(t: string): string {
+  switch (t) {
+    case 'ApplicationStatusChanged':
+      return 'Cập nhật hồ sơ'
+    case 'PaymentResult':
+      return 'Thanh toán'
+    case 'IssueReport':
+      return 'Báo cáo sự cố'
+    case 'System':
+      return 'Hệ thống'
+    case 'NewApplication':
+      return 'Hồ sơ mới nộp'
+    case 'ProjectCreated':
+      return 'Tạo dự án thành công'
+    case 'ProjectUpdated':
+      return 'Cập nhật dự án'
+    case 'ProjectDeleted':
+      return 'Xoá dự án'
+    case 'SxdApproved':
+      return 'SXD phê duyệt'
+    case 'SxdRejected':
+      return 'SXD từ chối'
+    default:
+      return t || 'Thông báo'
+  }
+}
+
+function notifTypeTone(
+  t: string,
+): 'default' | 'success' | 'warning' | 'danger' | 'secondary' {
+  switch (t) {
+    case 'PaymentResult':
+    case 'ProjectCreated':
+    case 'SxdApproved':
+      return 'success'
+    case 'IssueReport':
+    case 'NewApplication':
+      return 'warning'
+    case 'ProjectDeleted':
+    case 'SxdRejected':
+      return 'danger'
+    case 'System':
+      return 'secondary'
+    case 'ApplicationStatusChanged':
+    case 'ProjectUpdated':
+      return 'default'
+    default:
+      return 'secondary'
+  }
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Component chính
 // ──────────────────────────────────────────────────────────────────────────────
@@ -135,6 +205,8 @@ export function DeveloperHomePage() {
   const [error, setError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  const { recent, unreadCount, refreshList, markAsRead, markAllAsRead } = useNotifications()
+  const [notifLoading, setNotifLoading] = useState(false)
   const [data, setData] = useState<DashboardData>({
     projects: [],
     evaluations: {},
@@ -233,6 +305,17 @@ export function DeveloperHomePage() {
   useEffect(() => {
     void load()
   }, [load, reloadKey])
+
+  useEffect(() => {
+    let cancelled = false
+    setNotifLoading(true)
+    void refreshList(1, 5).finally(() => {
+      if (!cancelled) setNotifLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [refreshList])
 
   const refresh = useCallback(() => setReloadKey((k) => k + 1), [])
 
@@ -470,76 +553,192 @@ export function DeveloperHomePage() {
         </motion.div>
       </div>
 
-      {/* ── RECENT APPLICATIONS ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="glass-card p-5 sm:p-6"
-      >
-        <div className="mb-3 flex items-center gap-2">
-          <Users className="h-4 w-4 text-blue-500" />
-          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-            Hồ sơ mới nhất
-          </h3>
-        </div>
-        <div className="divide-y divide-slate-100/70 dark:divide-slate-800/60">
-          {loading ? (
-            Array.from({ length: 4 }).map((_, idx) => (
-              <div key={idx} className="flex items-center gap-3 py-2.5">
-                <Skeleton className="h-9 w-9 shrink-0 rounded-lg" />
-                <div className="flex-1">
-                  <Skeleton className="h-3.5 w-40" />
-                  <Skeleton className="mt-1 h-3 w-24" />
+      {/* ── RECENT APPLICATIONS + NOTIFICATIONS ── */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="glass-card p-5 sm:p-6"
+        >
+          <div className="mb-3 flex items-center gap-2">
+            <Users className="h-4 w-4 text-blue-500" />
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+              Hồ sơ mới nhất
+            </h3>
+          </div>
+          <div className="divide-y divide-slate-100/70 dark:divide-slate-800/60">
+            {loading ? (
+              Array.from({ length: 4 }).map((_, idx) => (
+                <div key={idx} className="flex items-center gap-3 py-2.5">
+                  <Skeleton className="h-9 w-9 shrink-0 rounded-lg" />
+                  <div className="flex-1">
+                    <Skeleton className="h-3.5 w-40" />
+                    <Skeleton className="mt-1 h-3 w-24" />
+                  </div>
+                  <Skeleton className="h-5 w-14 rounded-md" />
                 </div>
-                <Skeleton className="h-5 w-14 rounded-md" />
-              </div>
-            ))
-          ) : data.recent.length === 0 ? (
-            <p className="py-6 text-center text-sm text-slate-500">
-              Chưa có hồ sơ nào được nộp.
-            </p>
-          ) : (
-            data.recent.map((a) => {
-              const statusLabel = APP_STATUS_LABEL[a.applicationStatus]
-              return (
-                <motion.button
-                  key={a.applicationId}
-                  type="button"
-                  whileHover={{ x: 2 }}
-                  onClick={() => navigate('applications')}
-                  className="flex w-full items-center gap-3 py-2 text-left transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/40"
-                >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-xs font-bold text-white">
-                    {(a.applicantFullName || '?').charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
-                      {a.applicantFullName || '(chưa rõ)'}
-                    </p>
-                    <p className="truncate text-[11px] text-slate-500">
-                      {a.projectName || '—'}
-                      {a.citizenId ? ` · CCCD ${a.citizenId}` : ''}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    {statusLabel && (
-                      <span className="inline-block rounded-md bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-600 dark:text-blue-400">
-                        {statusLabel}
-                      </span>
-                    )}
-                    {a.submittedAt && (
-                      <p className="mt-0.5 text-[10px] text-slate-400">
-                        {formatDate(a.submittedAt)}
+              ))
+            ) : data.recent.length === 0 ? (
+              <p className="py-6 text-center text-sm text-slate-500">
+                Chưa có hồ sơ nào được nộp.
+              </p>
+            ) : (
+              data.recent.map((a) => {
+                const statusLabel = APP_STATUS_LABEL[a.applicationStatus]
+                return (
+                  <motion.button
+                    key={a.applicationId}
+                    type="button"
+                    whileHover={{ x: 2 }}
+                    onClick={() => navigate('applications')}
+                    className="flex w-full items-center gap-3 py-2 text-left transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/40"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-xs font-bold text-white">
+                      {(a.applicantFullName || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                        {a.applicantFullName || '(chưa rõ)'}
                       </p>
-                    )}
+                      <p className="truncate text-[11px] text-slate-500">
+                        {a.projectName || '—'}
+                        {a.citizenId ? ` · CCCD ${a.citizenId}` : ''}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      {statusLabel && (
+                        <span className="inline-block rounded-md bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-600 dark:text-blue-400">
+                          {statusLabel}
+                        </span>
+                      )}
+                      {a.submittedAt && (
+                        <p className="mt-0.5 text-[10px] text-slate-400">
+                          {formatDate(a.submittedAt)}
+                        </p>
+                      )}
+                    </div>
+                  </motion.button>
+                )
+              })
+            )}
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45 }}
+          className="glass-card p-5 sm:p-6"
+        >
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-blue-500" />
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                Thông báo gần đây
+              </h3>
+              {unreadCount > 0 && (
+                <span className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-[#DA251D] px-1.5 text-[10px] font-bold text-white">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[11px]"
+                disabled={unreadCount === 0}
+                onClick={() => void markAllAsRead()}
+                title="Đánh dấu tất cả đã đọc"
+              >
+                <CheckCheck className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => navigate('notifications')}
+              >
+                Xem tất cả
+              </Button>
+            </div>
+          </div>
+          <div className="divide-y divide-slate-100/70 dark:divide-slate-800/60">
+            {notifLoading && recent.length === 0 ? (
+              Array.from({ length: 4 }).map((_, idx) => (
+                <div key={idx} className="flex items-center gap-3 py-2.5">
+                  <Skeleton className="h-9 w-9 shrink-0 rounded-lg" />
+                  <div className="flex-1">
+                    <Skeleton className="h-3.5 w-40" />
+                    <Skeleton className="mt-1 h-3 w-24" />
                   </div>
-                </motion.button>
-              )
-            })
-          )}
-        </div>
-      </motion.div>
+                </div>
+              ))
+            ) : recent.length === 0 ? (
+              <div className="py-4">
+                <EmptyState
+                  title="Chưa có thông báo"
+                  description="Các thông báo về hồ sơ, duyệt và sự cố sẽ xuất hiện tại đây."
+                />
+              </div>
+            ) : (
+              recent.map((n: NotificationDto) => {
+                const tone = notifTypeTone(n.notificationType)
+                const toneClasses: Record<typeof tone, string> = {
+                  default: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+                  success: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+                  warning: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+                  danger: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+                  secondary: 'bg-slate-500/10 text-slate-600 dark:text-slate-400',
+                }
+                return (
+                  <button
+                    key={n.notificationId}
+                    type="button"
+                    onClick={() => {
+                      if (!n.isRead) void markAsRead(n.notificationId)
+                    }}
+                    className={`flex w-full items-start gap-3 py-2 text-left transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/40 ${
+                      !n.isRead ? 'bg-primary/[0.03]' : ''
+                    }`}
+                  >
+                    <div
+                      className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                        toneClasses[tone]
+                      }`}
+                    >
+                      <Bell className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={`truncate text-sm ${
+                          !n.isRead
+                            ? 'font-bold text-slate-900 dark:text-white'
+                            : 'font-medium text-slate-700 dark:text-slate-200'
+                        }`}
+                      >
+                        {n.title}
+                      </p>
+                      <p className="line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
+                        {n.content}
+                      </p>
+                      <div className="mt-1 flex items-center gap-2 text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                        <span>{notifTypeLabel(n.notificationType)}</span>
+                        <span>·</span>
+                        <span>{timeAgo(n.createdAt)}</span>
+                      </div>
+                    </div>
+                    {!n.isRead && (
+                      <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[#DA251D]" aria-label="Chưa đọc" />
+                    )}
+                  </button>
+                )
+              })
+            )}
+          </div>
+        </motion.div>
+      </div>
 
       <CreateProjectModal
         open={showCreate}

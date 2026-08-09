@@ -22,7 +22,7 @@ import { formatError, formatSuccess } from '@/lib/format-error'
 import { resolveProvinceName } from '@/lib/vietnam-locations'
 import { mapProjectToCard } from '@/lib/projects'
 import { matchesOpenStatus } from '@/lib/housing-search'
-import { FLASH_CREATE_PROJECT_KEY } from '@/lib/constants'
+import { FLASH_CREATE_PROJECT_KEY, FLASH_DELETE_PROJECT_KEY } from '@/lib/constants'
 import { ensureVerifiedForApplication } from '@/lib/ekyc-gate'
 import { getRole, isLoggedIn } from '@/router'
 import {
@@ -40,6 +40,7 @@ export function ProjectsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [flashSuccess, setFlashSuccess] = useState<string | null>(null)
+  const [flashDelete, setFlashDelete] = useState(false)
   const [showCreateProject, setShowCreateProject] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const isApplicant = getRole() === 'Applicant'
@@ -75,6 +76,15 @@ export function ProjectsPage() {
     return () => window.clearTimeout(timer)
   }, [])
 
+  useEffect(() => {
+    const flag = sessionStorage.getItem(FLASH_DELETE_PROJECT_KEY)
+    if (!flag) return
+    sessionStorage.removeItem(FLASH_DELETE_PROJECT_KEY)
+    setFlashDelete(true)
+    const timer = window.setTimeout(() => setFlashDelete(false), 6000)
+    return () => window.clearTimeout(timer)
+  }, [])
+
   const cards = useMemo(() => all.map(mapProjectToCard), [all])
 
   return (
@@ -97,6 +107,28 @@ export function ProjectsPage() {
               className="rounded-lg p-1 text-green-700 hover:bg-green-100 dark:hover:bg-green-900/40"
               aria-label="Đóng thông báo"
               onClick={() => setFlashSuccess(null)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </Alert>
+        )}
+
+        {flashDelete && (
+          <Alert variant="success" className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2">
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+              <div>
+                <p className="font-semibold">Xoá dự án thành công!</p>
+                <p className="mt-0.5 text-green-800 dark:text-green-300">
+                  Dự án đã được xoá khỏi danh sách.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="rounded-lg p-1 text-green-700 hover:bg-green-100 dark:hover:bg-green-900/40"
+              aria-label="Đóng thông báo"
+              onClick={() => setFlashDelete(false)}
             >
               <X className="h-4 w-4" />
             </button>
@@ -503,6 +535,13 @@ function ProjectForm({ projectId, onDone }: { projectId?: string; onDone?: () =>
             if (!confirm('Bạn có chắc chắn muốn xóa dự án này?')) return
             try {
               await housingProjectsApi.delete(projectId)
+              // Lưu thông báo vào sessionStorage để trang projects hiện banner
+              // "Xoá dự án thành công" — vì trang này sẽ navigate ra projects
+              try {
+                sessionStorage.setItem(FLASH_DELETE_PROJECT_KEY, FLASH_DELETE_PROJECT_KEY)
+              } catch {
+                // sessionStorage có thể không khả dụng — bỏ qua
+              }
               navigate('projects')
             } catch (err) { setMsg({ type: 'error', text: formatError(err) }) }
           }}>Xóa</Button>

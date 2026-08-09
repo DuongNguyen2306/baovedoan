@@ -28,6 +28,18 @@ function describeType(t: string): { label: string; tone: 'default' | 'success' |
       return { label: 'Báo cáo sự cố', tone: 'warning' }
     case 'System':
       return { label: 'Hệ thống', tone: 'secondary' }
+    case 'NewApplication':
+      return { label: 'Hồ sơ mới nộp', tone: 'warning' }
+    case 'ProjectCreated':
+      return { label: 'Tạo dự án thành công', tone: 'success' }
+    case 'ProjectUpdated':
+      return { label: 'Cập nhật dự án', tone: 'default' }
+    case 'ProjectDeleted':
+      return { label: 'Xoá dự án', tone: 'danger' }
+    case 'SxdApproved':
+      return { label: 'SXD phê duyệt', tone: 'success' }
+    case 'SxdRejected':
+      return { label: 'SXD từ chối', tone: 'danger' }
     default:
       return { label: t || 'Thông báo', tone: 'secondary' }
   }
@@ -73,6 +85,7 @@ export function NotificationsPage() {
         title="Thông báo của tôi"
         subtitle={`${unreadCount > 0 ? `${unreadCount} thông báo chưa đọc` : 'Bạn đã xem hết thông báo'}`}
         compact
+        plain
       />
 
       <div className="gov-card overflow-hidden p-0">

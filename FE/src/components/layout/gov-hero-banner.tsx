@@ -7,10 +7,22 @@ interface GovHeroBannerProps {
   badge?: string
   className?: string
   compact?: boolean
+  /**
+   * `plain = true`: không dùng ảnh nền bitmap (hero-banner.jpg), chỉ gradient + pattern.
+   * Dùng cho các trang không liên quan đến nhà ở/dự án (ví dụ: Thông báo).
+   */
+  plain?: boolean
 }
 
-/** Banner ảnh nền kiểu hiện đại, nhẹ nhàng — không dùng strip bar cờ VN */
-export function GovHeroBanner({ title, subtitle, badge, className, compact }: GovHeroBannerProps) {
+/** Banner kiểu hiện đại, nhẹ nhàng — không dùng strip bar cờ VN */
+export function GovHeroBanner({
+  title,
+  subtitle,
+  badge,
+  className,
+  compact,
+  plain,
+}: GovHeroBannerProps) {
   return (
     <div
       className={cn(
@@ -19,15 +31,24 @@ export function GovHeroBanner({ title, subtitle, badge, className, compact }: Go
         className,
       )}
     >
-      {/* Ảnh nền */}
-      <img
-        src={GOV_IMAGES.heroBanner}
-        alt=""
-        className="absolute inset-0 h-full w-full object-cover"
-        loading="lazy"
+      {/* Ảnh nền bitmap — chỉ dùng khi không ở chế độ plain */}
+      {!plain && (
+        <img
+          src={GOV_IMAGES.heroBanner}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+          loading="lazy"
+        />
+      )}
+      {/* Nền gradient — dùng nhiều lớp để có chiều sâu */}
+      <div
+        className={cn(
+          'absolute inset-0',
+          plain
+            ? 'bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500'
+            : 'bg-gradient-to-r from-blue-600/75 via-blue-500/60 to-blue-400/40',
+        )}
       />
-      {/* Overlay xanh nhạt — không đậm như trước */}
-      <div className="absolute inset-0 bg-gradient-to-r from-blue-600/75 via-blue-500/60 to-blue-400/40" />
       {/* Pattern overlay mờ */}
       <div
         className="absolute inset-0 opacity-20"

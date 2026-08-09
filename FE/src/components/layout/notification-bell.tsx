@@ -30,6 +30,18 @@ function typeLabel(t: string): string {
       return 'Báo cáo sự cố'
     case 'System':
       return 'Hệ thống'
+    case 'NewApplication':
+      return 'Hồ sơ mới nộp'
+    case 'ProjectCreated':
+      return 'Tạo dự án thành công'
+    case 'ProjectUpdated':
+      return 'Cập nhật dự án'
+    case 'ProjectDeleted':
+      return 'Xoá dự án'
+    case 'SxdApproved':
+      return 'SXD phê duyệt'
+    case 'SxdRejected':
+      return 'SXD từ chối'
     default:
       return t || 'Thông báo'
   }

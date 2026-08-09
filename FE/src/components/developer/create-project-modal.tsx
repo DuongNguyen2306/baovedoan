@@ -22,6 +22,7 @@ import { Modal } from '@/components/ui/modal'
 import { Alert } from '@/components/ui/alert'
 import { ensureHcmLocationsLoaded, HCM_PROVINCE } from '@/lib/vietnam-locations'
 import { formatError } from '@/lib/format-error'
+import { FLASH_CREATE_PROJECT_KEY } from '@/lib/constants'
 import { navigate } from '@/hooks/useHashRoute'
 import type { CreateApartmentDto, CreateHousingProjectRequestDto } from '@/types'
 
@@ -207,6 +208,12 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       } catch (cbErr) {
         // onCreated có thể reload list, throw thì vẫn đóng modal — không để kẹt loading
         console.warn('[CreateProjectModal] onCreated callback error:', cbErr)
+      }
+      // Lưu tên dự án để trang projects hiện banner "Tạo dự án thành công"
+      try {
+        sessionStorage.setItem(FLASH_CREATE_PROJECT_KEY, body.projectName)
+      } catch {
+        // sessionStorage có thể không khả dụng (cookie tắt, private mode) — bỏ qua
       }
       onClose()
       setTimeout(() => navigate('projects'), 100)
