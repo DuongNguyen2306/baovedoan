@@ -142,7 +142,6 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
   const [stats, setStats] = useState<Stats>({
     pending: 0, approved: 0, rejected: 0, needMore: 0, submitted: 0, reviewing: 0, projects: 0,
   })
-  const [recent, setRecent] = useState<Array<{ applicationId: string; name: string; project: string; status: string; at: string }>>([])
   const [statusDist, setStatusDist] = useState<Array<{ label: string; value: number; color: string }>>([])
   const [weekly, setWeekly] = useState<{ submitted: number[]; approved: number[] }>({
     submitted: new Array(12).fill(0),
@@ -159,18 +158,15 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
           ? housingApplicationsApi.getSxdDashboard({ pageSize: 1000 })
           : housingApplicationsApi.getAll({ pageSize: 1000 })
 
-        const [pendingRes, approvedRes, rejectedRes, needMoreRes, submittedRes, reviewingRes, projectsRes, recentRes, allForWeeklyRes] = await Promise.allSettled([
+        const [pendingRes, approvedRes, rejectedRes, needMoreRes, submittedRes, reviewingRes, projectsRes, allForWeeklyRes] = await Promise.allSettled([
           baseList,
-          housingApplicationsApi.getAll({ pageSize: 1, status: isSxd ? 'PENDING_SXD_REVIEW' : 'PENDING_SXD_REVIEW' }),
+          housingApplicationsApi.getAll({ pageSize: 1, status: 'PENDING_SXD_REVIEW' }),
           housingApplicationsApi.getAll({ pageSize: 1, status: 'APPROVED' }),
           housingApplicationsApi.getAll({ pageSize: 1, status: 'REJECTED' }),
           housingApplicationsApi.getAll({ pageSize: 1, status: 'NEED_MORE_DOCUMENTS' }),
           housingApplicationsApi.getAll({ pageSize: 1, status: 'SUBMITTED' }),
           housingApplicationsApi.getAll({ pageSize: 1, status: 'REVIEWING' }),
           housingProjectsApi.list({ pageSize: 1 }),
-          isSxd
-            ? housingApplicationsApi.getSxdDashboard({ pageSize: 6, status: 'PENDING_SXD_REVIEW' })
-            : housingApplicationsApi.getAll({ pageSize: 6, status: 'SUBMITTED' }),
           baseList,
         ])
 
@@ -189,16 +185,6 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
             color: STATUS_COLOR[s] ?? 'from-slate-400/80 to-slate-500/80',
           }))
 
-        const recentList = recentRes.status === 'fulfilled'
-          ? parsePagedApplications(recentRes.value).map((a) => ({
-              applicationId: a.applicationId,
-              name: a.applicantFullName,
-              project: a.projectName,
-              status: STATUS_LABEL[a.applicationStatus] ?? a.applicationStatus,
-              at: a.submittedAt || a.createdAt,
-            }))
-          : []
-
         if (!cancelled) {
           setStats({
             pending: pendingRes.status === 'fulfilled' ? countFromPaged(pendingRes.value) : 0,
@@ -209,7 +195,6 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
             reviewing: reviewingRes.status === 'fulfilled' ? countFromPaged(reviewingRes.value) : 0,
             projects: projectsRes.status === 'fulfilled' ? countFromPaged(projectsRes.value) : 0,
           })
-          setRecent(recentList)
           setStatusDist(topStatus)
           setWeekly({ submitted: weeklySubmitted, approved: weeklyApproved })
           setLoading(false)
@@ -392,84 +377,6 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
           </div>
         </motion.div>
       </div>
-
-      {/* ── RECENT APPLICATIONS ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="glass-card"
-      >
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">
-            <Users className="h-4 w-4 text-blue-500" />
-            Hồ sơ chờ hậu kiểm
-          </h3>
-          <span className="rounded-lg bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400">
-            6 mới nhất
-          </span>
-        </div>
-        <div className="-mx-1 space-y-1">
-          {loading ? (
-            Array.from({ length: 4 }).map((_, idx) => (
-              <div key={idx} className="flex items-center gap-3 py-3">
-                <Skeleton className="h-10 w-10 rounded-xl" />
-                <div className="flex-1">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="mt-1 h-3 w-20" />
-                </div>
-                <Skeleton className="h-6 w-16 rounded-lg" />
-              </div>
-            ))
-          ) : recent.length === 0 ? (
-            <p className="py-6 text-center text-sm text-slate-500">
-              Không có hồ sơ nào đang chờ hậu kiểm.
-            </p>
-          ) : (
-            recent.map((a, idx) => (
-              <motion.button
-                key={idx}
-                type="button"
-                whileHover={{ x: 4 }}
-                onClick={() => navigate('applications')}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/50"
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-xs font-bold text-white shadow-sm">
-                  {(a.name || '?').charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{a.name}</p>
-                    {a.applicationId && (
-                      <span className="shrink-0 rounded bg-slate-100/80 px-1.5 py-0.5 font-mono text-[10px] text-slate-500 dark:bg-slate-800/80 dark:text-slate-400">
-                        #{a.applicationId.slice(0, 8)}
-                      </span>
-                    )}
-                  </div>
-                  <p className="truncate text-xs text-slate-500">{a.project || '—'}</p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <span className="inline-block rounded-lg bg-blue-500/10 px-2.5 py-1 text-[11px] font-medium text-blue-600 dark:text-blue-400">
-                    {a.status}
-                  </span>
-                  {a.at && (
-                    <p className="mt-0.5 text-[10px] text-slate-400">{new Date(a.at).toLocaleDateString('vi-VN')}</p>
-                  )}
-                </div>
-              </motion.button>
-            ))
-          )}
-        </div>
-        <div className="mt-3 -mx-1 border-t border-slate-100/50 px-1 pt-3 dark:border-slate-800/50">
-          <button
-            type="button"
-            onClick={() => navigate('applications')}
-            className="flex w-full items-center justify-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400"
-          >
-            Xem toàn bộ hồ sơ <ArrowRight className="h-3 w-3" />
-          </button>
-        </div>
-      </motion.div>
 
       {/* ── QUICK ACTIONS (SXD scope) ── */}
       <motion.div
