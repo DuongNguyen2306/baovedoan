@@ -85,7 +85,128 @@ function buildWeeks(items: Array<{ submittedAt?: string; createdAt?: string }>):
 }
 
 export function ApplicantHomePage() {
-  return <HousingShowcase />
+  return (
+    <div className="space-y-6">
+      <PaymentCalloutBanner />
+      <HousingShowcase />
+    </div>
+  )
+}
+
+/**
+ * Banner nổi bật: nếu Applicant có hồ sơ đang ở giai đoạn ký HĐ / thanh toán,
+ * hiện CTA lớn dẫn thẳng vào /contracts để ký hoặc thanh toán.
+ * Hiển thị cho cả role Applicant và Housing Developer (riêng label).
+ */
+function PaymentCalloutBanner() {
+  const [items, setItems] = useState<
+    { applicationId: string; status: string; projectName?: string }[]
+  >([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await housingApplicationsApi.getMy({ pageIndex: 1, pageSize: 50 })
+        const list = parsePagedApplications(res) ?? []
+        if (cancelled) return
+        setItems(
+          list
+            .filter((a) =>
+              [
+                'CONTRACT_PENDING',
+                'CONTRACT_SIGNED',
+                'DEPOSIT_PAID',
+                'INSTALLMENT_IN_PROGRESS',
+                'FULLY_PAID',
+              ].includes(a.applicationStatus),
+            )
+            .map((a) => ({
+              applicationId: a.applicationId,
+              status: a.applicationStatus,
+              projectName: a.projectName,
+            })),
+        )
+      } catch {
+        /* ignore */
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  if (loading || items.length === 0) return null
+
+  const first = items[0]
+  const tone = (() => {
+    if (first.status === 'CONTRACT_PENDING')
+      return 'from-amber-500 to-orange-500' // cần ký HĐ
+    if (first.status === 'FULLY_PAID') return 'from-emerald-500 to-teal-500'
+    return 'from-blue-500 to-indigo-500' // đang thanh toán
+  })()
+  const title = (() => {
+    if (first.status === 'CONTRACT_PENDING')
+      return 'Bạn có hợp đồng mua bán chờ ký'
+    if (first.status === 'FULLY_PAID') return 'Bạn đã hoàn tất thanh toán'
+    return 'Bạn có hồ sơ đang thanh toán theo đợt'
+  })()
+  const sub = (() => {
+    if (first.status === 'CONTRACT_PENDING')
+      return 'Mở Hợp đồng để đồng ý điều khoản và thanh toán đợt đầu (cọc 10%) trong 168 giờ.'
+    if (first.status === 'FULLY_PAID')
+      return 'Hồ sơ của bạn đã hoàn tất — hẹn gặp bạn tại lễ bàn giao nhà.'
+    return 'Theo dõi tiến độ các đợt thanh toán và thanh toán đợt đang mở.'
+  })()
+  const cta = first.status === 'FULLY_PAID' ? 'Xem chi tiết' : 'Mở hợp đồng'
+
+  const handleClick = () => {
+    sessionStorage.setItem('contractApplicationId', first.applicationId)
+    navigate('contracts')
+  }
+
+  return (
+    <motion.button
+      type="button"
+      onClick={handleClick}
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`relative w-full overflow-hidden rounded-2xl bg-gradient-to-r ${tone} p-5 text-left text-white shadow-lg sm:p-6`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 backdrop-blur">
+            <FileSignature className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold sm:text-lg">{title}</h3>
+            <p className="mt-0.5 text-sm text-white/90">
+              {sub}
+              {first.projectName && (
+                <>
+                  {' '}
+                  · Dự án: <strong>{first.projectName}</strong>
+                </>
+              )}
+            </p>
+            {items.length > 1 && (
+              <p className="mt-1 text-xs text-white/80">
+                +{items.length - 1} hồ sơ khác đang trong giai đoạn này
+              </p>
+            )}
+          </div>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/20 px-3 py-1.5 text-xs font-semibold backdrop-blur transition hover:bg-white/30">
+          {cta}
+          <ArrowRight className="h-3.5 w-3.5" />
+        </span>
+      </div>
+    </motion.button>
+  )
 }
 
 export function InterestedPage() {
