@@ -612,6 +612,21 @@ export function ContractDetailPage() {
               ))}
             </div>
           </div>
+        ) : status?.isSigned ? (
+          <Alert variant="warning">
+            <div className="space-y-2">
+              <p className="font-medium">
+                Hợp đồng đã ký nhưng hệ thống chưa sinh lịch thanh toán.
+              </p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Vui lòng liên hệ CĐT / Ban quản lý dự án để được tạo lịch 6 đợt.
+                (Mã hồ sơ: <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">{id.slice(0, 8)}…</code>)
+              </p>
+              <Button size="sm" variant="outline" onClick={() => void reload()}>
+                Tải lại
+              </Button>
+            </div>
+          </Alert>
         ) : (
           <Alert variant="info">
             Hồ sơ chưa có lịch thanh toán. Hệ thống sẽ tạo lịch sau khi hợp đồng được ký.
