@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bell, BellRing, Check, CheckCheck } from 'lucide-react'
+import {
+  Bell,
+  BellRing,
+  CheckCheck,
+  Wallet,
+  Unlock,
+  AlertTriangle,
+} from 'lucide-react'
 import { useNotifications } from '@/providers/notifications-provider'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -26,6 +33,12 @@ function typeLabel(t: string): string {
       return 'Cập nhật hồ sơ'
     case 'PaymentResult':
       return 'Thanh toán'
+    case 'InstallmentUnlocked':
+      return 'Mở đợt mới'
+    case 'InstallmentOverdue':
+      return 'Đợt quá hạn'
+    case 'ContractSigned':
+      return 'Ký hợp đồng'
     case 'IssueReport':
       return 'Báo cáo sự cố'
     case 'System':
@@ -44,6 +57,36 @@ function typeLabel(t: string): string {
       return 'SXD từ chối'
     default:
       return t || 'Thông báo'
+  }
+}
+
+function typeIcon(t: string): React.ReactNode {
+  switch (t) {
+    case 'PaymentResult':
+      return <Wallet className="h-3.5 w-3.5" />
+    case 'InstallmentUnlocked':
+      return <Unlock className="h-3.5 w-3.5" />
+    case 'InstallmentOverdue':
+      return <AlertTriangle className="h-3.5 w-3.5" />
+    case 'ContractSigned':
+      return <CheckCheck className="h-3.5 w-3.5" />
+    default:
+      return <Bell className="h-3.5 w-3.5" />
+  }
+}
+
+function typeIconTone(t: string): string {
+  switch (t) {
+    case 'PaymentResult':
+      return 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+    case 'InstallmentUnlocked':
+      return 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400'
+    case 'InstallmentOverdue':
+      return 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+    case 'ContractSigned':
+      return 'bg-sky-500/15 text-sky-600 dark:text-sky-400'
+    default:
+      return 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
   }
 }
 
@@ -151,10 +194,10 @@ export function NotificationBell() {
                   >
                     <div
                       className={`mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                        !n.isRead ? 'bg-primary/15 text-primary' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'
+                        !n.isRead ? typeIconTone(n.notificationType) : 'bg-slate-100 text-slate-400 dark:bg-slate-800'
                       }`}
                     >
-                      {!n.isRead ? <Check className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
+                      {typeIcon(n.notificationType)}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FileText, PenLine, Download, Wallet } from 'lucide-react'
+import { FileText, PenLine, Download, Wallet, Unlock, Hammer, HardHat, KeyRound, BookOpen } from 'lucide-react'
 import {
   contractApi,
   CONTRACT_STATUS_LABEL,
@@ -9,9 +9,12 @@ import {
   parseContractStatus,
   parseInstallments,
   summarizeInstallments,
+  UNLOCK_PHASE_LABEL,
+  UNLOCK_PHASE_ORDINAL,
   type ContractStatusDto,
   type PaymentInstallment,
   type ContractStatus,
+  type UnlockPhaseTrigger,
 } from '@/api/contracts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,13 +28,22 @@ import { housingApplicationsApi } from '@/api/housing-applications'
 import { openVnPayPopupAndWait, vnPayResultMessage } from '@/lib/vnpay-popup'
 import type { ApplicationSummaryDto } from '@/types'
 
-function persistApplicationId(id: string) {
-  if (id) sessionStorage.setItem('contractApplicationId', id)
-  else sessionStorage.removeItem('contractApplicationId')
+function persistApplicationId(id: string, projectId?: string) {
+  if (id) {
+    sessionStorage.setItem('contractApplicationId', id)
+    if (projectId) sessionStorage.setItem('contractProjectId', projectId)
+  } else {
+    sessionStorage.removeItem('contractApplicationId')
+    sessionStorage.removeItem('contractProjectId')
+  }
 }
 
 function readApplicationId(): string {
   return sessionStorage.getItem('contractApplicationId') ?? ''
+}
+
+function readProjectId(): string {
+  return sessionStorage.getItem('contractProjectId') ?? ''
 }
 
 function mapStatus(s: ContractStatusDto | null): ContractStatus {
@@ -132,7 +144,7 @@ export function ContractsPage() {
               type="button"
               className="glass-card flex w-full flex-wrap items-start justify-between gap-3 p-4 text-left transition hover:ring-2 hover:ring-primary/20"
               onClick={() => {
-                persistApplicationId(a.applicationId)
+                persistApplicationId(a.applicationId, a.projectId)
                 navigate('contract-detail')
               }}
             >
@@ -177,16 +189,182 @@ export function ContractCreatePage() {
   )
 }
 
+function DepositCountdown({
+  signedAt,
+  paid,
+  expired,
+}: {
+  signedAt: string | null | undefined
+  paid: boolean
+  expired?: boolean
+}) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (paid || expired || !signedAt) return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [paid, expired, signedAt])
+
+  if (paid) return null
+  if (expired) {
+    return (
+      <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">
+        ⛔ Đã hết hạn đặt cọc
+      </span>
+    )
+  }
+  if (!signedAt) return null
+
+  const deadline = new Date(signedAt).getTime() + 168 * 60 * 60 * 1000 // 7 ngày = 168h (PAY.MD)
+  const ms = deadline - now
+  if (ms <= 0) {
+    return (
+      <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">
+        ⛔ Đã hết hạn đặt cọc
+      </span>
+    )
+  }
+  const totalSec = Math.floor(ms / 1000)
+  const days = Math.floor(totalSec / 86400)
+  const hours = Math.floor((totalSec % 86400) / 3600)
+  const minutes = Math.floor((totalSec % 3600) / 60)
+  const seconds = totalSec % 60
+  const urgent = ms < 24 * 60 * 60 * 1000 // < 24h → vàng
+  const critical = ms < 6 * 60 * 60 * 1000 // < 6h → đỏ
+  const tone = critical
+    ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+    : urgent
+      ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
+      : 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300'
+  return (
+    <span
+      className={`ml-2 inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums ${tone}`}
+      title="Hạn 168h (7 ngày) kể từ khi ký hợp đồng"
+    >
+      ⏰ Còn {days > 0 ? `${days} ngày ` : ''}
+      {String(hours).padStart(2, '0')}:{String(minutes).padStart(2, '0')}:
+      {String(seconds).padStart(2, '0')} để đặt cọc
+    </span>
+  )
+}
+
+/**
+ * Thanh điều khiển của CĐT: mở (unlock) Đợt 3-6 theo tiến độ xây dựng.
+ * Hiển thị sau khi người dân đã ký HĐ (signedAt có).
+ * Quy tắc nghiệp vụ (PAY.MD):
+ *   - Đợt trước phải PAID thì mới được mở đợt sau.
+ *   - Đợt đã PAID/CANCELLED thì nút bị disable.
+ */
+function DeveloperUnlockBar({
+  projectId,
+  installments,
+  onUnlocked,
+}: {
+  projectId: string
+  installments: PaymentInstallment[]
+  onUnlocked: () => void
+}) {
+  const [busy, setBusy] = useState<UnlockPhaseTrigger | ''>('')
+  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const phases: { trigger: UnlockPhaseTrigger; icon: typeof Hammer; ordinal: number }[] = [
+    { trigger: 'CONSTRUCTION_ROUGH_FLOOR', icon: Hammer, ordinal: 3 },
+    { trigger: 'ROOFING_COMPLETED', icon: HardHat, ordinal: 4 },
+    { trigger: 'HANDOVER', icon: KeyRound, ordinal: 5 },
+    { trigger: 'RED_BOOK_ISSUED', icon: BookOpen, ordinal: 6 },
+  ]
+
+  const isPrevPaid = (ordinal: number): boolean => {
+    if (ordinal <= 1) return true // Đợt 3 cần Đợt 2 PAID; ordinal=3 → check ordinal=2
+    const prev = installments.find((i) => i.ordinal === ordinal - 1)
+    return !prev || prev.status === 'PAID'
+  }
+  const findInst = (ordinal: number) => installments.find((i) => i.ordinal === ordinal)
+
+  const handleUnlock = async (trigger: UnlockPhaseTrigger) => {
+    if (!projectId || busy) return
+    const ordinal = UNLOCK_PHASE_ORDINAL[trigger]
+    const inst = findInst(ordinal)
+    if (inst?.status === 'PAID' || inst?.status === 'CANCELLED') return
+    if (!isPrevPaid(ordinal)) {
+      setMsg({ type: 'error', text: `Đợt ${ordinal - 1} chưa thanh toán — không thể mở Đợt ${ordinal}.` })
+      return
+    }
+    setBusy(trigger)
+    setMsg(null)
+    try {
+      await contractApi.unlockPhase(projectId, trigger)
+      await onUnlocked()
+      setMsg({ type: 'success', text: `Đã mở Đợt ${ordinal} (${UNLOCK_PHASE_LABEL[trigger]}).` })
+    } catch (err) {
+      setMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setBusy('')
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-4 dark:border-indigo-800 dark:bg-indigo-950/20">
+      <div className="mb-2 flex items-center gap-2">
+        <Unlock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+        <h4 className="font-semibold">Mở đợt thanh toán theo tiến độ (CĐT)</h4>
+      </div>
+      <p className="mb-3 text-xs text-slate-600 dark:text-slate-400">
+        Bấm mở khi đến mốc tiến độ tương ứng. Đợt trước phải được người dân thanh toán trước.
+      </p>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {phases.map(({ trigger, icon: Icon, ordinal }) => {
+          const inst = findInst(ordinal)
+          const opened = !!inst // BE chỉ trả về khi unlock xong
+          const paid = inst?.status === 'PAID'
+          const cancelled = inst?.status === 'CANCELLED'
+          const disabled = !projectId || paid || cancelled || !isPrevPaid(ordinal) || !!busy
+          const label = `Đợt ${ordinal}`
+          const sub = UNLOCK_PHASE_LABEL[trigger]
+          return (
+            <button
+              key={trigger}
+              type="button"
+              disabled={disabled}
+              onClick={() => void handleUnlock(trigger)}
+              className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left text-sm transition ${
+                paid
+                  ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30'
+                  : disabled
+                    ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-700 dark:bg-slate-800/40'
+                    : 'border-indigo-200 bg-white hover:border-indigo-400 hover:bg-indigo-50 dark:border-indigo-800 dark:bg-slate-900 dark:hover:bg-indigo-950/40'
+              }`}
+            >
+              <span className="flex items-center gap-2 font-semibold">
+                <Icon className="h-4 w-4" />
+                {label}
+              </span>
+              <span className="text-xs">{sub}</span>
+              <span className="text-[11px]">
+                {paid ? '✓ Đã thanh toán' : cancelled ? '✗ Đã hủy' : opened ? '⏳ Chờ thanh toán' : '🔒 Chưa mở'}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'} className="mt-3">{msg.text}</Alert>}
+    </div>
+  )
+}
+
 function InstallmentRow({
   inst,
   onPaid,
+  signedAt,
 }: {
   inst: PaymentInstallment
   onPaid: () => void
+  signedAt?: string | null
 }) {
   const [paying, setPaying] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const isOverdue = inst.status === 'UNPAID' && new Date(inst.dueDate) < new Date()
+  const isDeposit = inst.ordinal === 1
   const tone = INSTALLMENT_STATUS_TONE[inst.status]
   const role = getRole()
   const canPay = role === 'Applicant' && inst.status !== 'PAID'
@@ -238,6 +416,13 @@ function InstallmentRow({
         </div>
         <div className="flex items-center gap-2">
           <Badge variant={tone}>{INSTALLMENT_STATUS_LABEL[inst.status]}</Badge>
+          {isDeposit && (
+            <DepositCountdown
+              signedAt={signedAt}
+              paid={inst.status === 'PAID'}
+              expired={inst.status === 'CANCELLED' || inst.status === 'OVERDUE'}
+            />
+          )}
           {canPay && (
             <Button variant="outline" size="sm" disabled={paying} onClick={() => void handlePay()}>
               {paying ? 'Đang xử lý...' : 'Thanh toán'}
@@ -336,6 +521,9 @@ export function ContractDetailPage() {
   const derivedStatus = mapStatus(status)
   const { paid, remaining, progress } = summarizeInstallments(installments)
   const canSign = role === 'Applicant' && !status?.isSigned
+  const projectId = readProjectId()
+  const canDeveloperUnlock =
+    role === 'Housing Developer' && !!projectId && !!status?.isSigned
 
   return (
     <div>
@@ -385,6 +573,15 @@ export function ContractDetailPage() {
           </a>
         )}
 
+        {/* CĐT: mở đợt 3-6 theo tiến độ */}
+        {canDeveloperUnlock && (
+          <DeveloperUnlockBar
+            projectId={projectId}
+            installments={installments}
+            onUnlocked={() => void reload()}
+          />
+        )}
+
         {/* Tiến độ thanh toán */}
         {installments.length > 0 && (
           <div>
@@ -409,6 +606,7 @@ export function ContractDetailPage() {
                 <InstallmentRow
                   key={inst.installmentId}
                   inst={inst}
+                  signedAt={status?.signedAt ?? null}
                   onPaid={() => void reload()}
                 />
               ))}

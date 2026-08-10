@@ -39,12 +39,15 @@ export interface PaymentInstallment {
   label?: string | null
   amount: number
   dueDate: string
-  status: 'UNPAID' | 'PAID' | 'OVERDUE' | 'PARTIAL'
+  status: InstallmentStatus
   paidAt?: string | null
   paidAmount?: number
   paymentOrderId?: string | null
   paymentUrl?: string | null
 }
+
+/** Status đợt thanh toán — mở rộng thêm LOCKED/CANCELLED theo PAY.MD. */
+export type InstallmentStatus = 'LOCKED' | 'UNPAID' | 'PAID' | 'OVERDUE' | 'PARTIAL' | 'CANCELLED'
 
 export interface ContractParty {
   id: string
@@ -94,7 +97,7 @@ export function parseInstallments(data: unknown): PaymentInstallment[] {
       label: (x.label ?? x.Label) as string | null | undefined,
       amount: Number(x.amount ?? x.Amount ?? 0),
       dueDate: String(x.dueDate ?? x.DueDate ?? ''),
-      status: (String(x.status ?? x.Status ?? 'UNPAID') as PaymentInstallment['status']),
+      status: (String(x.status ?? x.Status ?? 'UNPAID') as InstallmentStatus),
       paidAt: (x.paidAt ?? x.PaidAt) as string | null | undefined,
       paidAmount: Number(x.paidAmount ?? x.PaidAmount ?? 0) || undefined,
       paymentOrderId: (x.paymentOrderId ?? x.PaymentOrderId) as string | null | undefined,
@@ -137,6 +140,39 @@ export const contractApi = {
   downloadContract(applicationId: string) {
     return request<ApiResult>(`/api/Payment/download-contract/${applicationId}`, { auth: true })
   },
+
+  /**
+   * CĐT mở (unlock) đợt thanh toán theo tiến độ xây dựng (PAY.MD Đợt 3-6).
+   * BE: POST /api/housing-developer/projects/{projectId}/unlock-phase
+   * body: { triggerEvent: 'CONSTRUCTION_ROUGH_FLOOR' | 'ROOFING_COMPLETED' | 'HANDOVER' | 'RED_BOOK_ISSUED' }
+   */
+  unlockPhase(projectId: string, triggerEvent: UnlockPhaseTrigger) {
+    return request<ApiResult>(
+      `/api/housing-developer/projects/${projectId}/unlock-phase`,
+      { method: 'POST', body: JSON.stringify({ triggerEvent }), auth: true },
+    )
+  },
+}
+
+export type UnlockPhaseTrigger =
+  | 'CONSTRUCTION_ROUGH_FLOOR' // Đợt 3 (20%) — Xây thô
+  | 'ROOFING_COMPLETED'        // Đợt 4 (20%) — Cất nóc
+  | 'HANDOVER'                 // Đợt 5 (25% + 2% PBT) — Bàn giao
+  | 'RED_BOOK_ISSUED'          // Đợt 6 (5%) — Sổ hồng
+
+export const UNLOCK_PHASE_LABEL: Record<UnlockPhaseTrigger, string> = {
+  CONSTRUCTION_ROUGH_FLOOR: 'Xây thô (mở Đợt 3)',
+  ROOFING_COMPLETED: 'Cất nóc (mở Đợt 4)',
+  HANDOVER: 'Bàn giao (mở Đợt 5)',
+  RED_BOOK_ISSUED: 'Cấp sổ hồng (mở Đợt 6)',
+}
+
+/** Mapping phase → ordinal của đợt được unlock */
+export const UNLOCK_PHASE_ORDINAL: Record<UnlockPhaseTrigger, number> = {
+  CONSTRUCTION_ROUGH_FLOOR: 3,
+  ROOFING_COMPLETED: 4,
+  HANDOVER: 5,
+  RED_BOOK_ISSUED: 6,
 }
 
 export const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
@@ -164,21 +200,25 @@ export const CONTRACT_STATUS_TONE: Record<
   CANCELED: 'danger',
 }
 
-export const INSTALLMENT_STATUS_LABEL: Record<PaymentInstallment['status'], string> = {
+export const INSTALLMENT_STATUS_LABEL: Record<InstallmentStatus, string> = {
+  LOCKED: 'Chưa mở',
   UNPAID: 'Chưa thanh toán',
   PAID: 'Đã thanh toán',
   OVERDUE: 'Quá hạn',
   PARTIAL: 'Thanh toán một phần',
+  CANCELLED: 'Đã hủy',
 }
 
 export const INSTALLMENT_STATUS_TONE: Record<
-  PaymentInstallment['status'],
+  InstallmentStatus,
   'default' | 'success' | 'warning' | 'danger' | 'secondary'
 > = {
+  LOCKED: 'secondary',
   UNPAID: 'secondary',
   PAID: 'success',
   OVERDUE: 'danger',
   PARTIAL: 'warning',
+  CANCELLED: 'danger',
 }
 
 export function summarizeInstallments(items: PaymentInstallment[]): {
