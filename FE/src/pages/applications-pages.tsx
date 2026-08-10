@@ -879,7 +879,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                 </p>
               ) : (
                 <p className="mt-2 text-center text-xs text-slate-500 dark:text-slate-400">
-                  AI sẽ đọc {(app.documents ?? []).length} tài liệu và đưa ra cảnh báo rủi ro giúp CĐT duyệt nhanh hơn.
+                  AI sẽ đọc {(app.documents ?? []).length} tài liệu (PDF + ảnh) đối chiếu với thông tin đăng ký để cảnh báo rủi ro.
                 </p>
               )}
             </div>
@@ -1077,7 +1077,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
         open={aiAuditOpen}
         onClose={() => { if (!aiAuditing) setAiAuditOpen(false) }}
         title="Kết quả kiểm tra hồ sơ bằng AI"
-        description="AI đọc các tài liệu đính kèm và đưa ra cảnh báo rủi ro giúp CĐT duyệt nhanh hơn."
+        description="AI đọc các tài liệu đính kèm (PDF + ảnh) và đối chiếu với thông tin đăng ký để cảnh báo rủi ro."
         size="lg"
       >
         {aiAuditing && (
