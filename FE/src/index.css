@@ -91,7 +91,7 @@
 
   .glass-card {
     position: relative;
-    @apply rounded-xl border border-slate-200/90 bg-white shadow-[0_4px_20px_rgb(0_91_172_/_10%)] transition-all duration-300 dark:border-slate-700/60 dark:bg-slate-900/85;
+    @apply rounded-xl border border-slate-200/90 bg-white p-4 shadow-[0_4px_20px_rgb(0_91_172_/_10%)] transition-all duration-300 sm:p-5 dark:border-slate-700/60 dark:bg-slate-900/85;
   }
   .glass-card::before {
     content: '';

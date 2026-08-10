@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   ArrowRight,
   BadgeCheck,
-  Building2,
   FileSearch,
   FileSignature,
   Gavel,
@@ -232,8 +231,6 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
   const approvalRate = totalProcessed > 0 ? Math.round((stats.approved / totalProcessed) * 100) : 0
   const totalAll = stats.pending + stats.approved + stats.rejected + stats.needMore + stats.submitted + stats.reviewing
 
-  const primaryValue = isSxd ? stats.pending : stats.submitted
-
   return (
     <div className="w-full space-y-6">
       {/* ── HEADER ── */}
@@ -272,13 +269,14 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
         </div>
       </motion.div>
 
-      {/* ── GLASS STATS GRID ── */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      {/* ── KPI GRID (SXD-tuned) ── */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
         <GlassStatCard
           delay={0}
           icon={<Inbox className="h-5 w-5" />}
-          label={isSxd ? 'Chờ duyệt' : 'Chờ nhận'}
-          value={loading ? '—' : primaryValue}
+          label="Chờ duyệt"
+          value={loading ? '—' : stats.pending}
+          sub={isSxd ? 'Từ Chủ đầu tư' : 'Hồ sơ mới'}
           color="blue"
         />
         <GlassStatCard
@@ -286,43 +284,53 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
           icon={<BadgeCheck className="h-5 w-5" />}
           label="Đã duyệt"
           value={loading ? '—' : stats.approved}
-          sub={`${approvalRate}% duyệt`}
+          sub={`${approvalRate}% tỉ lệ duyệt`}
           color="emerald"
         />
         <GlassStatCard
           delay={0.1}
           icon={<AlertTriangle className="h-5 w-5" />}
-          label={isSxd ? 'Từ chối' : 'Cần bổ sung'}
-          value={loading ? '—' : (isSxd ? stats.rejected : stats.needMore)}
+          label="Từ chối"
+          value={loading ? '—' : stats.rejected}
+          sub="Cần xem lại"
           color="amber"
         />
         <GlassStatCard
           delay={0.15}
-          icon={<Building2 className="h-5 w-5" />}
-          label="Dự án"
-          value={loading ? '—' : stats.projects}
+          icon={<FileSearch className="h-5 w-5" />}
+          label="Đang thẩm định"
+          value={loading ? '—' : stats.reviewing}
+          sub="Đang xử lý"
+          color="indigo"
+        />
+        <GlassStatCard
+          delay={0.2}
+          icon={<Users className="h-5 w-5" />}
+          label="Tổng hồ sơ"
+          value={loading ? '—' : totalAll}
+          sub={`${stats.submitted} tiếp nhận`}
           color="blue"
         />
       </div>
 
-      {/* ── GLASS MAIN CONTENT ── */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      {/* ── MAIN GRID: chart + status + actions ── */}
+      <div className="grid gap-4 lg:grid-cols-3 lg:gap-5">
         {/* CHART */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="glass-card lg:col-span-2"
+          className="lg:col-span-2 glass-card overflow-hidden"
         >
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-blue-500" />
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">
+                <BarChart3 className="h-4 w-4 shrink-0 text-blue-500" />
                 Xu hướng 12 tuần
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">{isSxd ? 'Hồ sơ trình &amp; duyệt' : 'Tiếp nhận &amp; duyệt'}</p>
+              <p className="mt-0.5 text-xs text-slate-500">Hồ sơ trình SXD &amp; duyệt</p>
             </div>
-            <div className="flex items-center gap-3 text-xs">
+            <div className="flex shrink-0 items-center gap-2 text-xs">
               <span className="flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-2.5 py-1.5 font-medium text-blue-600 dark:text-blue-400">
                 <Send className="h-3 w-3" /> {weekly.submitted.reduce((a, b) => a + b, 0)}
               </span>
@@ -331,10 +339,12 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
               </span>
             </div>
           </div>
-          <AreaChart height={180} series={[
-            { name: isSxd ? 'Trình SXD' : 'Tiếp nhận', data: weekly.submitted, color: '#2563eb' },
-            { name: 'Đã duyệt', data: weekly.approved, color: '#10b981' },
-          ]} />
+          <div className="-mx-1">
+            <AreaChart height={200} series={[
+              { name: 'Trình SXD', data: weekly.submitted, color: '#2563eb' },
+              { name: 'Đã duyệt', data: weekly.approved, color: '#10b981' },
+            ]} />
+          </div>
         </motion.div>
 
         {/* STATUS DISTRIBUTION */}
@@ -344,16 +354,16 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
           transition={{ delay: 0.25 }}
           className="glass-card"
         >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">
               <Activity className="h-4 w-4 text-blue-500" />
               Phân bổ trạng thái
             </h3>
-            <span className="rounded-lg bg-slate-100/80 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800/80 dark:text-slate-400">
-              {totalAll} hồ sơ
+            <span className="rounded-lg bg-slate-100/80 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800/80 dark:text-slate-400">
+              {totalAll} HS
             </span>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-3.5">
             {statusDist.length === 0 ? (
               <p className="py-4 text-center text-xs text-slate-500">
                 {loading ? 'Đang tải…' : 'Chưa có dữ liệu'}
@@ -363,12 +373,12 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
               const pct = (row.value / max) * 100
               return (
                 <div key={row.label}>
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-300">
-                      <span className={`h-2 w-2 rounded-full bg-gradient-to-r ${row.color}`} />
-                      {row.label}
+                  <div className="mb-1.5 flex items-center justify-between gap-2 text-xs">
+                    <span className="flex min-w-0 items-center gap-2 font-medium text-slate-700 dark:text-slate-300">
+                      <span className={`h-2 w-2 shrink-0 rounded-full bg-gradient-to-r ${row.color}`} />
+                      <span className="truncate">{row.label}</span>
                     </span>
-                    <span className="font-semibold text-slate-600 dark:text-slate-400">{row.value}</span>
+                    <span className="shrink-0 font-semibold text-slate-600 dark:text-slate-400">{row.value}</span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-slate-100/50 dark:bg-slate-800/50">
                     <div
@@ -390,16 +400,16 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
         transition={{ delay: 0.3 }}
         className="glass-card"
       >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">
             <Users className="h-4 w-4 text-blue-500" />
-            {isSxd ? 'Hồ sơ chờ hậu kiểm' : 'Hồ sơ mới nhất'}
+            Hồ sơ chờ hậu kiểm
           </h3>
           <span className="rounded-lg bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400">
             6 mới nhất
           </span>
         </div>
-        <div className="space-y-1">
+        <div className="-mx-1 space-y-1">
           {loading ? (
             Array.from({ length: 4 }).map((_, idx) => (
               <div key={idx} className="flex items-center gap-3 py-3">
@@ -413,7 +423,7 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
             ))
           ) : recent.length === 0 ? (
             <p className="py-6 text-center text-sm text-slate-500">
-              {isSxd ? 'Không có hồ sơ nào đang chờ hậu kiểm.' : 'Không có hồ sơ nào đang chờ nhận.'}
+              Không có hồ sơ nào đang chờ hậu kiểm.
             </p>
           ) : (
             recent.map((a, idx) => (
@@ -450,7 +460,7 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
             ))
           )}
         </div>
-        <div className="mt-3 pt-3 border-t border-slate-100/50 dark:border-slate-800/50">
+        <div className="mt-3 -mx-1 border-t border-slate-100/50 px-1 pt-3 dark:border-slate-800/50">
           <button
             type="button"
             onClick={() => navigate('applications')}
@@ -461,36 +471,38 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
         </div>
       </motion.div>
 
-      {/* ── QUICK ACTIONS ── */}
+      {/* ── QUICK ACTIONS (SXD scope) ── */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.35 }}
       >
-        <h3 className="mb-4 text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-          <Home className="h-4 w-4 text-blue-500" />
-          Thao tác nhanh
-        </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">
+            <Home className="h-4 w-4 text-blue-500" />
+            Thao tác nhanh — Sở Xây dựng
+          </h3>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 sm:gap-4">
           {[
-            { icon: <Inbox className="h-5 w-5" />, title: 'Hồ sơ', desc: 'Xem &amp; xử lý', route: 'applications' as RouteId, gradient: 'from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 border-blue-200/50 dark:border-blue-700/50', iconColor: 'text-blue-600 dark:text-blue-400' },
-            { icon: <Activity className="h-5 w-5" />, title: 'Thẩm định', desc: 'Đang xử lý', route: 'applications' as RouteId, gradient: 'from-cyan-500/20 to-cyan-600/20 hover:from-cyan-500/30 hover:to-cyan-600/30 border-cyan-200/50 dark:border-cyan-700/50', iconColor: 'text-cyan-600 dark:text-cyan-400' },
-            { icon: <Gavel className="h-5 w-5" />, title: 'Bốc thăm', desc: 'Phiên bốc thăm', route: 'lottery-sessions' as RouteId, gradient: 'from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 border-blue-200/50 dark:border-blue-700/50', iconColor: 'text-blue-600 dark:text-blue-400' },
-            { icon: <FileSignature className="h-5 w-5" />, title: 'Hợp đồng', desc: 'Quản lý', route: 'contracts' as RouteId, gradient: 'from-emerald-500/20 to-emerald-600/20 hover:from-emerald-500/30 hover:to-emerald-600/30 border-emerald-200/50 dark:border-emerald-700/50', iconColor: 'text-emerald-600 dark:text-emerald-400' },
-            ...(isSxd
-              ? [{ icon: <FileSearch className="h-5 w-5" />, title: 'Hậu kiểm', desc: 'Công bố', route: 'audit-list' as RouteId, gradient: 'from-amber-500/20 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 border-amber-200/50 dark:border-amber-700/50', iconColor: 'text-amber-600 dark:text-amber-400' }]
-              : []),
-            { icon: <Building2 className="h-5 w-5" />, title: 'Dự án', desc: 'Quản lý', route: 'projects' as RouteId, gradient: 'from-slate-500/20 to-slate-600/20 hover:from-slate-500/30 hover:to-slate-600/30 border-slate-200/50 dark:border-slate-700/50', iconColor: 'text-slate-600 dark:text-slate-400' },
+            { icon: <Inbox className="h-5 w-5" />, title: 'Chờ duyệt', desc: 'Hồ sơ cần xử lý', route: 'applications' as RouteId, gradient: 'from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30 border-blue-200/50 dark:border-blue-700/50', iconColor: 'text-blue-600 dark:text-blue-400' },
+            { icon: <BadgeCheck className="h-5 w-5" />, title: 'Đã duyệt', desc: 'Lịch sử phê duyệt', route: 'applications' as RouteId, gradient: 'from-emerald-500/20 to-emerald-600/20 hover:from-emerald-500/30 hover:to-emerald-600/30 border-emerald-200/50 dark:border-emerald-700/50', iconColor: 'text-emerald-600 dark:text-emerald-400' },
+            { icon: <AlertTriangle className="h-5 w-5" />, title: 'Từ chối', desc: 'Hồ sơ bị reject', route: 'applications' as RouteId, gradient: 'from-amber-500/20 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 border-amber-200/50 dark:border-amber-700/50', iconColor: 'text-amber-600 dark:text-amber-400' },
+            { icon: <FileSearch className="h-5 w-5" />, title: 'Hậu kiểm', desc: 'Kiểm tra sau duyệt', route: 'audit-list' as RouteId, gradient: 'from-indigo-500/20 to-indigo-600/20 hover:from-indigo-500/30 hover:to-indigo-600/30 border-indigo-200/50 dark:border-indigo-700/50', iconColor: 'text-indigo-600 dark:text-indigo-400' },
+            { icon: <Gavel className="h-5 w-5" />, title: 'Bốc thăm', desc: 'Phiên bốc thăm', route: 'lottery-sessions' as RouteId, gradient: 'from-cyan-500/20 to-cyan-600/20 hover:from-cyan-500/30 hover:to-cyan-600/30 border-cyan-200/50 dark:border-cyan-700/50', iconColor: 'text-cyan-600 dark:text-cyan-400' },
+            { icon: <FileSignature className="h-5 w-5" />, title: 'Hợp đồng', desc: 'Quản lý HĐ', route: 'contracts' as RouteId, gradient: 'from-slate-500/20 to-slate-600/20 hover:from-slate-500/30 hover:to-slate-600/30 border-slate-200/50 dark:border-slate-700/50', iconColor: 'text-slate-600 dark:text-slate-400' },
           ].map((q) => (
             <button
               key={q.title}
               type="button"
               onClick={() => navigate(q.route)}
-              className={`glass-action rounded-xl border bg-gradient-to-br p-4 text-left transition-all ${q.gradient}`}
+              className={`glass-action rounded-xl border bg-gradient-to-br p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md sm:p-5 ${q.gradient}`}
             >
-              <div className={`mb-2.5 ${q.iconColor}`}>{q.icon}</div>
+              <div className={`mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/70 shadow-sm dark:bg-slate-900/60 ${q.iconColor}`}>
+                {q.icon}
+              </div>
               <p className="text-sm font-semibold text-slate-900 dark:text-white">{q.title}</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">{q.desc}</p>
+              <p className="mt-0.5 text-[11px] leading-tight text-slate-500">{q.desc}</p>
             </button>
           ))}
         </div>
