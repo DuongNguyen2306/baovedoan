@@ -235,7 +235,7 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
   const primaryValue = isSxd ? stats.pending : stats.submitted
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] space-y-6 px-2 sm:px-4 lg:px-6">
+    <div className="w-full space-y-6">
       {/* ── HEADER ── */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}

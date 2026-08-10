@@ -268,8 +268,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAuthForm = AUTH_FORM_ROUTES.has(route)
   const isApplicant = logged && role === 'Applicant'
   const isDeveloper = logged && role === 'Housing Developer'
-  // Developer & Applicant dùng layout rộng sát 2 cạnh (full màn hình)
-  const isWideScreen = !isFullBleed && (isApplicant || isDeveloper)
+  const isSxd = logged && role === 'SXD Staff'
+  // Developer / Applicant / Sở Xây dựng dùng layout rộng sát 2 cạnh (full màn hình)
+  const isWideScreen = !isFullBleed && (isApplicant || isDeveloper || isSxd)
   const ambientId = roleAmbientId(logged, role)
   const showFooter = !isFullBleed && !isAuthForm && route !== 'profile' && route !== 'change-password'
 
