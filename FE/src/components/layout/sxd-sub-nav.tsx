@@ -89,7 +89,7 @@ export function SxdSubNav() {
 
   return (
     <nav className={`${THEME.navBg}`} aria-label="Điều hướng Sở Xây dựng">
-      <div className="mx-auto flex w-full max-w-[1600px] items-center justify-center overflow-x-auto px-4 lg:px-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="mx-auto flex w-full max-w-[1600px] items-stretch overflow-x-auto px-4 lg:px-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {ITEMS.map((item) => {
           const active = isActive(route, item)
           const Icon = item.icon
@@ -98,10 +98,11 @@ export function SxdSubNav() {
               key={item.route}
               type="button"
               onClick={() => navigate(item.route)}
-              className={`group relative flex shrink-0 items-center gap-2 px-4 py-3 text-sm font-semibold transition-colors lg:px-6 ${
+              data-active={active}
+              className={`relative inline-flex flex-1 items-center justify-center gap-2 px-5 py-3 text-sm font-medium transition-colors min-w-[120px] ${
                 active
-                  ? `${THEME.navActiveTextColor} bg-white/15 dark:bg-white/10`
-                  : `${THEME.navTextColor} hover:bg-white/10 hover:text-white dark:hover:bg-white/5`
+                  ? `${THEME.navActiveBg} ${THEME.navActiveTextColor}`
+                  : `${THEME.navTextColor} ${THEME.navBgHover}`
               }`}
               aria-current={active ? 'page' : undefined}
             >
@@ -110,7 +111,7 @@ export function SxdSubNav() {
               {active && (
                 <span
                   aria-hidden
-                  className={`absolute inset-x-3 bottom-0 ${THEME.activeBar}`}
+                  className={`absolute inset-x-2 bottom-0 ${THEME.activeBar}`}
                 />
               )}
             </button>
