@@ -143,7 +143,7 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
   const [stats, setStats] = useState<Stats>({
     pending: 0, approved: 0, rejected: 0, needMore: 0, submitted: 0, reviewing: 0, projects: 0,
   })
-  const [recent, setRecent] = useState<Array<{ name: string; project: string; status: string; at: string }>>([])
+  const [recent, setRecent] = useState<Array<{ applicationId: string; name: string; project: string; status: string; at: string }>>([])
   const [statusDist, setStatusDist] = useState<Array<{ label: string; value: number; color: string }>>([])
   const [weekly, setWeekly] = useState<{ submitted: number[]; approved: number[] }>({
     submitted: new Array(12).fill(0),
@@ -192,6 +192,7 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
 
         const recentList = recentRes.status === 'fulfilled'
           ? parsePagedApplications(recentRes.value).map((a) => ({
+              applicationId: a.applicationId,
               name: a.applicantFullName,
               project: a.projectName,
               status: STATUS_LABEL[a.applicationStatus] ?? a.applicationStatus,
@@ -234,7 +235,7 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
   const primaryValue = isSxd ? stats.pending : stats.submitted
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 px-2 sm:px-4 lg:px-6">
       {/* ── HEADER ── */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -272,7 +273,7 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
       </motion.div>
 
       {/* ── GLASS STATS GRID ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <GlassStatCard
           delay={0}
           icon={<Inbox className="h-5 w-5" />}
@@ -427,8 +428,15 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
                   {(a.name || '?').charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{a.name}</p>
-                  <p className="truncate text-xs text-slate-500">{a.project}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{a.name}</p>
+                    {a.applicationId && (
+                      <span className="shrink-0 rounded bg-slate-100/80 px-1.5 py-0.5 font-mono text-[10px] text-slate-500 dark:bg-slate-800/80 dark:text-slate-400">
+                        #{a.applicationId.slice(0, 8)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="truncate text-xs text-slate-500">{a.project || '—'}</p>
                 </div>
                 <div className="shrink-0 text-right">
                   <span className="inline-block rounded-lg bg-blue-500/10 px-2.5 py-1 text-[11px] font-medium text-blue-600 dark:text-blue-400">
