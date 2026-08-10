@@ -243,10 +243,14 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
         className="flex flex-wrap items-center justify-between gap-4"
       >
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:border-blue-700/50 dark:bg-blue-950/40 dark:text-blue-300">
+            <Building2 className="h-3 w-3" />
             {isSxd ? 'Sở Xây dựng' : 'Chủ đầu tư'}
+          </div>
+          <h1 className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
+            {isSxd ? 'Trung tâm hậu kiểm hồ sơ' : 'Trung tâm điều hành dự án'}
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="mt-1 text-sm text-slate-500">
             {isSxd
               ? 'Hậu kiểm và phê duyệt cuối cùng các hồ sơ nhà ở xã hội.'
               : 'Tiếp nhận, thẩm định hồ sơ và gửi danh sách lên Sở Xây dựng.'}
@@ -264,44 +268,48 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
           )}
           <Button
             size="sm"
+            variant="outline"
             onClick={() => navigate('applications')}
-            className="rounded-xl bg-blue-600 font-semibold text-white shadow-lg hover:bg-blue-700"
+            className="rounded-xl font-semibold"
           >
             Hồ sơ <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
           </Button>
         </div>
       </motion.div>
 
-      {/* ── GLASS STATS GRID ── */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <GlassStatCard
+      {/* ── KPI GRID ── */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <KpiCard
           delay={0}
           icon={<Inbox className="h-5 w-5" />}
-          label={isSxd ? 'Chờ duyệt' : 'Chờ nhận'}
+          label={isSxd ? 'Chờ hậu kiểm' : 'Chờ nhận'}
           value={loading ? '—' : primaryValue}
-          color="blue"
+          sub={loading ? '' : isSxd ? 'hồ sơ từ Chủ đầu tư' : 'hồ sơ công dân nộp'}
+          tone="blue"
         />
-        <GlassStatCard
+        <KpiCard
           delay={0.05}
           icon={<BadgeCheck className="h-5 w-5" />}
           label="Đã duyệt"
           value={loading ? '—' : stats.approved}
-          sub={`${approvalRate}% duyệt`}
-          color="emerald"
+          sub={loading ? '' : `${approvalRate}% tỷ lệ duyệt`}
+          tone="emerald"
         />
-        <GlassStatCard
+        <KpiCard
           delay={0.1}
           icon={<AlertTriangle className="h-5 w-5" />}
           label={isSxd ? 'Từ chối' : 'Cần bổ sung'}
           value={loading ? '—' : (isSxd ? stats.rejected : stats.needMore)}
-          color="amber"
+          sub={loading ? '' : isSxd ? 'hồ sơ không đạt' : 'đang chờ công dân'}
+          tone="amber"
         />
-        <GlassStatCard
+        <KpiCard
           delay={0.15}
           icon={<Building2 className="h-5 w-5" />}
           label="Dự án"
           value={loading ? '—' : stats.projects}
-          color="blue"
+          sub={loading ? '' : isSxd ? 'dự án trong hệ thống' : 'dự án của tôi'}
+          tone="indigo"
         />
       </div>
 
@@ -507,34 +515,34 @@ export function StaffRoleHomePage({ routeId }: { routeId: 'home-developer' | 'ho
   )
 }
 
-function GlassStatCard({
+function KpiCard({
   icon,
   label,
   value,
   sub,
-  color,
+  tone,
   delay,
 }: {
   icon: React.ReactNode
   label: string
   value: string | number
   sub?: string
-  color: 'blue' | 'emerald' | 'amber' | 'indigo'
+  tone: 'blue' | 'emerald' | 'amber' | 'indigo'
   delay: number
 }) {
-  const colorMap = {
-    blue: { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-200/50 dark:border-blue-700/50' },
-    emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-200/50 dark:border-emerald-700/50' },
-    amber: { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-200/50 dark:border-amber-700/50' },
-    indigo: { bg: 'bg-indigo-500/10', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-200/50 dark:border-indigo-700/50' },
-  }
-
+  const toneMap = {
+    blue: { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400' },
+    emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400' },
+    amber: { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400' },
+    indigo: { bg: 'bg-indigo-500/10', text: 'text-indigo-600 dark:text-indigo-400' },
+  } as const
+  const t = toneMap[tone]
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay }}
-      className={`glass-card group hover:scale-[1.02] transition-transform`}
+      className="glass-card group p-5 hover:scale-[1.02] transition-transform sm:p-6"
     >
       <div className="flex items-start justify-between">
         <div>
@@ -542,7 +550,9 @@ function GlassStatCard({
           <p className="mt-1.5 text-2xl font-bold text-slate-900 dark:text-white">{value}</p>
           {sub && <p className="mt-1 text-xs text-slate-400">{sub}</p>}
         </div>
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${colorMap[color].bg} ${colorMap[color].text} shadow-sm group-hover:scale-110 transition-transform`}>
+        <div
+          className={`flex h-10 w-10 items-center justify-center rounded-xl ${t.bg} ${t.text} shadow-sm group-hover:scale-110 transition-transform`}
+        >
           {icon}
         </div>
       </div>
