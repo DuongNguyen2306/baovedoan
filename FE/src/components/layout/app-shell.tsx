@@ -288,9 +288,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         isFullBleed
           ? 'flex-1'
           : isWideScreen
-            ? isDeveloper
-              ? 'mx-auto w-full max-w-[1760px] flex-1 px-3 py-4 sm:px-4 sm:py-5 lg:px-5 lg:py-6'
-              : 'mx-auto w-full max-w-[1600px] flex-1 px-3 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8'
+            ? 'mx-auto w-full max-w-[1760px] flex-1 px-3 py-4 sm:px-4 sm:py-5 lg:px-5 lg:py-6'
             : 'mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:px-8 lg:py-8'
       }>
         {logged && !isFullBleed && <UserWelcomeBar />}
