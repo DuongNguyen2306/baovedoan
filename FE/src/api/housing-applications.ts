@@ -95,6 +95,54 @@ export function parseApplicationDetail(data: unknown): ApplicationDetailDto | nu
   }
 }
 
+/** Một mục check do AI trả về khi audit hồ sơ (giúp CĐT duyệt nhanh). */
+export interface AuditChecklistItem {
+  field: string
+  status: 'OK' | 'WARN' | 'FAIL' | string
+  note?: string | null
+  /** Tên tài liệu liên quan, nếu có */
+  documentName?: string | null
+}
+
+/** Response từ BE khi gọi API audit tài liệu hồ sơ. */
+export interface AuditChecklistResponse {
+  applicationId?: string
+  overallScore?: number
+  summary?: string
+  riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH' | string
+  checks?: AuditChecklistItem[]
+  rawText?: string
+}
+
+function pickAuditBody(data: unknown): Record<string, unknown> | null {
+  if (!data || typeof data !== 'object') return null
+  const o = data as Record<string, unknown>
+  return (o.data ?? o.Data ?? o) as Record<string, unknown>
+}
+
+/** Parse response trả về từ API POST /documents/audit (linh hoạt camelCase + PascalCase). */
+export function parseAuditChecklist(data: unknown): AuditChecklistResponse | null {
+  const o = pickAuditBody(data)
+  if (!o) return null
+  const checksRaw = (o.checks ?? o.Checks) as unknown
+  const checks: AuditChecklistItem[] = Array.isArray(checksRaw)
+    ? (checksRaw as Array<Record<string, unknown>>).map((c) => ({
+        field: String(c.field ?? c.Field ?? ''),
+        status: String(c.status ?? c.Status ?? 'OK').toUpperCase(),
+        note: (c.note ?? c.Note) as string | null | undefined,
+        documentName: (c.documentName ?? c.DocumentName) as string | null | undefined,
+      }))
+    : []
+  return {
+    applicationId: (o.applicationId ?? o.ApplicationId) as string | undefined,
+    overallScore: o.overallScore != null ? Number(o.overallScore) : o.OverallScore != null ? Number(o.OverallScore) : undefined,
+    summary: (o.summary ?? o.Summary) as string | undefined,
+    riskLevel: (o.riskLevel ?? o.RiskLevel) as string | undefined,
+    checks,
+    rawText: (o.rawText ?? o.RawText) as string | undefined,
+  }
+}
+
 export const housingApplicationsApi = {
   activeCheck: () =>
     request<{ hasActiveApplication?: boolean; HasActiveApplication?: boolean; message?: string }>(
@@ -220,6 +268,51 @@ export const housingApplicationsApi = {
   deleteDocument: (applicationId: string, documentId: string) =>
     request<ApiResult>(`/api/housing-applications/${applicationId}/documents/${documentId}`, {
       method: 'DELETE',
+      auth: true,
+    }),
+
+  /**
+   * Gửi yêu cầu AI kiểm tra/audit toàn bộ tài liệu hồ sơ.
+   * BE sẽ đọc các file PDF/ảnh CCCD, hộ khẩu, xác nhận thu nhập... rồi
+   * trả về checklist trắc ẩn/rủi ro để CĐT duyệt nhanh hơn.
+   *
+   * Body gửi đi gồm 2 phần để AI đối chiếu chéo:
+   *  - `context`: thông tin đăng ký (họ tên, CCCD, thu nhập, nơi ở...) do FE gửi kèm
+   *  - `documentIds`: danh sách ID tài liệu đính kèm (BE tự map sang URL file)
+   *
+   * Nếu FE không gửi body, BE vẫn chạy được (chỉ dựa trên documents + DB).
+   *
+   * - Endpoint: POST /api/housing-applications/{applicationId}/documents/audit
+   * - Trả về: ApiResult chứa AuditChecklistResponse (xem kiểu ở trên)
+   */
+  auditDocuments: (
+    applicationId: string,
+    context?: {
+      applicationInfo?: ApplicationDetailDto
+      documentIds?: string[]
+    },
+  ) =>
+    request<ApiResult>(`/api/housing-applications/${applicationId}/documents/audit`, {
+      method: 'POST',
+      body: JSON.stringify({
+              context: context?.applicationInfo
+          ? {
+              fullName: context.applicationInfo.fullName,
+              citizenId: context.applicationInfo.citizenId,
+              occupation: context.applicationInfo.occupation,
+              workPlace: context.applicationInfo.workPlace,
+              currentResidence: context.applicationInfo.currentResidence,
+              permanentAddress: context.applicationInfo.permanentAddress,
+              housingStatus: context.applicationInfo.housingStatus,
+              estimatedMonthlyIncome: context.applicationInfo.estimatedMonthlyIncome,
+              isViolation: context.applicationInfo.isViolation,
+              violationReason: context.applicationInfo.violationReason,
+              projectId: context.applicationInfo.projectId,
+              projectName: context.applicationInfo.projectName,
+            }
+          : undefined,
+        documentIds: context?.documentIds,
+      }),
       auth: true,
     }),
 }

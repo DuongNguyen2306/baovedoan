@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ApplicantSubNav, APPLICANT_SUB_NAV_ROUTES } from '@/components/layout/applicant-sub-nav'
 import { AdminSubNav, ADMIN_SUB_NAV_ROUTES } from '@/components/layout/admin-sub-nav'
 import { DeveloperSubNav, DEVELOPER_SUB_NAV_ROUTES } from '@/components/layout/developer-sub-nav'
+import { SxdSubNav, SXD_SUB_NAV_ROUTES } from '@/components/layout/sxd-sub-nav'
 import { BrandLogo } from '@/components/brand/brand-logo'
 import { BRAND } from '@/lib/brand'
 import { GovFooter } from '@/components/layout/gov-footer'
@@ -188,9 +189,11 @@ function InternalHeader({ logged, role, wideScreen = false }: { logged: boolean;
   const isApplicant = logged && role === 'Applicant'
   const isAdmin = logged && role === ADMIN_ROLE
   const isDeveloper = logged && role === 'Housing Developer'
+  const isSxd = logged && role === 'Department Of Construction'
   const showApplicantNav = isApplicant && APPLICANT_SUB_NAV_ROUTES.includes(route)
   const showAdminNav = isAdmin && ADMIN_SUB_NAV_ROUTES.includes(route)
   const showDeveloperNav = isDeveloper && DEVELOPER_SUB_NAV_ROUTES.includes(route)
+  const showSxdNav = isSxd && SXD_SUB_NAV_ROUTES.includes(route)
   const ambientId = roleAmbientId(logged, role)
   const containerMax = wideScreen ? 'max-w-[1760px]' : 'max-w-full'
 
@@ -250,6 +253,7 @@ function InternalHeader({ logged, role, wideScreen = false }: { logged: boolean;
         {showApplicantNav && <ApplicantSubNav />}
         {showAdminNav && <AdminSubNav />}
         {showDeveloperNav && <DeveloperSubNav />}
+        {showSxdNav && <SxdSubNav />}
       </header>
     </div>
   )

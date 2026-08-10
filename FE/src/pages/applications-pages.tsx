@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Eye, FileText, Printer, Send } from 'lucide-react'
-import { housingApplicationsApi, parseApplicationDetail, parsePagedApplications } from '@/api/housing-applications'
+import { Eye, FileText, Printer, Send, Sparkles, Loader2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import {
+  housingApplicationsApi,
+  parseApplicationDetail,
+  parseAuditChecklist,
+  parsePagedApplications,
+  type AuditChecklistResponse,
+} from '@/api/housing-applications'
 import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { reportsApi } from '@/api/reports'
 import { CreateApplicationWizard } from '@/components/ekyc/create-application-wizard'
@@ -9,6 +15,7 @@ import { FileDropzone } from '@/components/shared/file-dropzone'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Alert } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/label'
 import { Input, Select, Textarea } from '@/components/ui/input'
@@ -404,6 +411,10 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
   const [apartments, setApartments] = useState<ApartmentDto[]>([])
   const [selectedApartmentId, setSelectedApartmentId] = useState('')
   const [assigningApt, setAssigningApt] = useState(false)
+  const [aiAuditing, setAiAuditing] = useState(false)
+  const [aiAuditResult, setAiAuditResult] = useState<AuditChecklistResponse | null>(null)
+  const [aiAuditOpen, setAiAuditOpen] = useState(false)
+  const [aiAuditError, setAiAuditError] = useState('')
 
   const refresh = async () => {
     const data = await housingApplicationsApi.getById(appId)
@@ -466,6 +477,33 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
       cancelled = true
     }
   }, [app?.projectId, app?.applicationStatus, app?.apartmentId, app?.lotteryResult])
+
+  const runAiAudit = async () => {
+    if (aiAuditing) return
+    setAiAuditing(true)
+    setAiAuditError('')
+    setAiAuditResult(null)
+    setAiAuditOpen(true)
+    try {
+      const data = await housingApplicationsApi.auditDocuments(appId, app ? {
+        // Gửi kèm thông tin đăng ký + danh sách tài liệu để AI đối chiếu chéo
+        // với nội dung PDF (ví dụ: tên trên CCCD vs tên đăng ký, thu nhập vs chứng từ...)
+        applicationInfo: app,
+        documentIds: (app.documents ?? []).map((d) => d.documentId),
+      } : undefined)
+      const parsed = parseAuditChecklist(data)
+      setAiAuditResult(
+        parsed ?? {
+          summary: 'AI không trả về checklist. Hãy xem lại t�ng mục trong hồ sơ.',
+          checks: [],
+        },
+      )
+    } catch (err) {
+      setAiAuditError(formatError(err))
+    } finally {
+      setAiAuditing(false)
+    }
+  }
 
   const assignApartment = async () => {
     if (!selectedApartmentId || assigningApt) return
@@ -791,9 +829,21 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="min-w-0">{profilePanel}</div>
           <div className="glass-card flex min-h-[480px] flex-col overflow-hidden p-0">
-            <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
-              <FileText className="h-4 w-4 text-slate-500" />
-              <span className="text-sm font-semibold">Xem trước tài liệu PDF</span>
+            <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-slate-500" />
+                <span className="text-sm font-semibold">Xem trước tài liệu PDF</span>
+              </div>
+              {pdfDoc && (
+                <a
+                  href={pdfDoc.fileUrl}
+                  target="_blank"
+                  rel="noopener"
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  Mở tab mới ↗
+                </a>
+              )}
             </div>
             {pdfDoc ? (
               <iframe title="PDF hồ sơ" src={pdfDoc.fileUrl} className="min-h-[440px] w-full flex-1 bg-slate-100" />
@@ -802,6 +852,37 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
                 Chưa có file PDF để xem. Mở từng tài liệu ở cột trái.
               </div>
             )}
+            {/* Nút kiểm tra hồ sơ bằng AI — hỗ tr� CĐT duyệt nhanh */}
+            <div className="border-t border-slate-200 bg-gradient-to-r from-indigo-50/60 to-sky-50/60 p-3 dark:border-slate-700 dark:from-indigo-950/30 dark:to-sky-950/30">
+              <Button
+                type="button"
+                variant="accent"
+                className="w-full bg-gradient-to-r from-indigo-600 via-violet-600 to-sky-600 text-white shadow-lg shadow-violet-500/25 hover:opacity-95"
+                disabled={aiAuditing || (app.documents ?? []).length === 0}
+                onClick={() => void runAiAudit()}
+              >
+                {aiAuditing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Đang phân tích tài liệu...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Kiểm tra hồ sơ bằng AI
+                  </>
+                )}
+              </Button>
+              {(app.documents ?? []).length === 0 ? (
+                <p className="mt-2 text-center text-xs text-slate-500 dark:text-slate-400">
+                  Hồ sơ chưa có tài liệu nào để AI phân tích.
+                </p>
+              ) : (
+                <p className="mt-2 text-center text-xs text-slate-500 dark:text-slate-400">
+                  AI sẽ đọc {(app.documents ?? []).length} tài liệu và đưa ra cảnh báo rủi ro giúp CĐT duyệt nhanh hơn.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       ) : (
@@ -990,7 +1071,216 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
           </Button>
         </div>
       </Modal>
+
+      {/* Modal kết quả kiểm tra hồ sơ bằng AI */}
+      <Modal
+        open={aiAuditOpen}
+        onClose={() => { if (!aiAuditing) setAiAuditOpen(false) }}
+        title="Kết quả kiểm tra hồ sơ bằng AI"
+        description="AI đọc các tài liệu đính kèm và đưa ra cảnh báo rủi ro giúp CĐT duyệt nhanh hơn."
+        size="lg"
+      >
+        {aiAuditing && (
+          <div className="flex flex-col items-center gap-3 py-10 text-slate-600 dark:text-slate-300">
+            <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+            <p className="text-sm">Đang phân tích tài liệu hồ sơ, vui lòng đợi trong giây lát…</p>
+          </div>
+        )}
+        {!aiAuditing && aiAuditError && (
+          <Alert variant="error">
+            Không thể phân tích hồ sơ: {aiAuditError}
+          </Alert>
+        )}
+        {!aiAuditing && !aiAuditError && aiAuditResult && (
+          <AiAuditResultPanel result={aiAuditResult} />
+        )}
+        <div className="mt-5 flex justify-end gap-2">
+          <Button
+            variant="outline"
+            disabled={aiAuditing}
+            onClick={() => setAiAuditOpen(false)}
+          >
+            Đóng
+          </Button>
+          <Button
+            variant="accent"
+            disabled={aiAuditing}
+            onClick={() => void runAiAudit()}
+          >
+            <Sparkles className="h-4 w-4" /> Phân tích lại
+          </Button>
+        </div>
+      </Modal>
     </div>
+  )
+}
+
+/**
+ * Panel hiển thị kết quả AI audit: tổng quan + danh sách checklist.
+ * Thiết kế gọn 2 phần: (1) card tóm tắt có risk + counters, (2) grid checklist.
+ */
+function AiAuditResultPanel({ result }: { result: AuditChecklistResponse }) {
+  const checks = result.checks ?? []
+
+  // Đếm số mục theo trạng thái
+  const counts = checks.reduce(
+    (acc, c) => {
+      const s = String(c.status).toUpperCase()
+      if (s === 'OK') acc.ok += 1
+      else if (s === 'FAIL') acc.fail += 1
+      else if (s === 'WARN') acc.warn += 1
+      else acc.other += 1
+      return acc
+    },
+    { ok: 0, fail: 0, warn: 0, other: 0 },
+  )
+
+  const risk = String(result.riskLevel ?? '').toUpperCase()
+  const RISK_META: Record<string, { label: string; tone: 'success' | 'warning' | 'danger' | 'secondary'; bar: string }> = {
+    LOW: { label: 'Rủi ro thấp', tone: 'success', bar: 'bg-emerald-500' },
+    MEDIUM: { label: 'Rủi ro trung bình', tone: 'warning', bar: 'bg-amber-500' },
+    HIGH: { label: 'Rủi ro cao', tone: 'danger', bar: 'bg-red-500' },
+  }
+  const riskMeta = RISK_META[risk]
+
+  // Cấu hình tone cho từng status (gộp mọi style vào 1 chỗ)
+  const STATUS_META: Record<string, { icon: typeof CheckCircle2; badge: 'success' | 'warning' | 'danger' | 'secondary'; card: string; iconTone: string; label: string }> = {
+    OK: {
+      icon: CheckCircle2,
+      badge: 'success',
+      label: 'Đạt',
+      card: 'border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/50 dark:bg-emerald-950/30',
+      iconTone: 'text-emerald-600 dark:text-emerald-300',
+    },
+    WARN: {
+      icon: AlertTriangle,
+      badge: 'warning',
+      label: 'Cảnh báo',
+      card: 'border-amber-200 bg-amber-50/60 dark:border-amber-900/50 dark:bg-amber-950/30',
+      iconTone: 'text-amber-600 dark:text-amber-300',
+    },
+    FAIL: {
+      icon: XCircle,
+      badge: 'danger',
+      label: 'Không đạt',
+      card: 'border-red-200 bg-red-50/60 dark:border-red-900/50 dark:bg-red-950/30',
+      iconTone: 'text-red-600 dark:text-red-300',
+    },
+  }
+  const otherMeta = {
+    icon: AlertTriangle,
+    badge: 'secondary' as const,
+    label: 'Khác',
+    card: 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50',
+    iconTone: 'text-slate-500 dark:text-slate-300',
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* ===== Card tổng quan ===== */}
+      <div className="relative overflow-hidden rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50/80 to-sky-50/60 p-4 dark:border-violet-900/50 dark:from-violet-950/30 dark:to-sky-950/30">
+        {riskMeta && (
+          <span
+            aria-hidden
+            className={`absolute inset-x-0 top-0 h-1 ${riskMeta.bar}`}
+          />
+        )}
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-300" />
+            <span className="text-sm font-semibold text-violet-900 dark:text-violet-200">
+              Tổng quan từ AI
+            </span>
+          </div>
+          {riskMeta ? (
+            <Badge variant={riskMeta.tone}>{riskMeta.label}</Badge>
+          ) : (
+            <Badge variant="secondary">Chưa xác định mức rủi ro</Badge>
+          )}
+        </div>
+
+        {result.summary && (
+          <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+            {result.summary}
+          </p>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          {result.overallScore != null && (
+            <span className="rounded-full bg-white/70 px-2.5 py-1 font-semibold text-slate-700 dark:bg-slate-800/70 dark:text-slate-200">
+              Điểm tổng: <strong>{result.overallScore}</strong>
+            </span>
+          )}
+          <CounterChip tone="ok" value={counts.ok} />
+          {counts.warn > 0 && <CounterChip tone="warn" value={counts.warn} />}
+          {counts.fail > 0 && <CounterChip tone="fail" value={counts.fail} />}
+          {counts.other > 0 && <CounterChip tone="other" value={counts.other} />}
+          {checks.length === 0 && (
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+              Không có checklist chi tiết
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ===== Danh sách checklist ===== */}
+      {checks.length > 0 && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {checks.map((c, i) => {
+            const key = String(c.status).toUpperCase()
+            const meta = STATUS_META[key] ?? otherMeta
+            const Icon = meta.icon
+            return (
+              <div
+                key={`${c.field}-${i}`}
+                className={`flex items-start gap-3 rounded-xl border p-3 ${meta.card}`}
+              >
+                <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${meta.iconTone}`} />
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                      {c.field}
+                    </span>
+                    <Badge variant={meta.badge}>{meta.label}</Badge>
+                  </div>
+                  {c.documentName && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Tài liệu: <span className="font-mono">{c.documentName}</span>
+                    </p>
+                  )}
+                  {c.note && (
+                    <p className="text-sm text-slate-700 dark:text-slate-200">{c.note}</p>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      </div>
+  )
+}
+
+/** Chip đếm số mục theo trạng thái — gọn và tái sử dụng được. */
+function CounterChip({
+  tone,
+  value,
+}: {
+  tone: 'ok' | 'warn' | 'fail' | 'other'
+  value: number
+}) {
+  const META = {
+    ok: { label: 'đạt', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200', icon: '✓' },
+    warn: { label: 'cảnh báo', className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200', icon: '!' },
+    fail: { label: 'không đạt', className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200', icon: '✗' },
+    other: { label: 'khác', className: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300', icon: '·' },
+  } as const
+  const m = META[tone]
+  return (
+    <span className={`rounded-full px-2.5 py-1 font-semibold ${m.className}`}>
+      {m.icon} {value} {m.label}
+    </span>
   )
 }
 
