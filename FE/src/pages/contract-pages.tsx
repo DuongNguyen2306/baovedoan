@@ -413,6 +413,11 @@ function InstallmentRow({
               </span>
             )}
           </p>
+          {inst.ordinal === 5 && (
+            <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
+              Bao gồm 25% tiền bàn giao + 2% phí bảo trì (PBT theo Luật Nhà ở)
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Badge variant={tone}>{INSTALLMENT_STATUS_LABEL[inst.status]}</Badge>
@@ -650,16 +655,24 @@ export function ContractDetailPage() {
                     return Number(ref || 0).toLocaleString('vi-VN') + ' VNĐ'
                   })()}
                 </p>
-                {(housePrice != null || contractPrice != null) && (
-                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                    {housePrice != null && (
-                      <span>Giá niêm yết: {housePrice.toLocaleString('vi-VN')} · </span>
-                    )}
-                    {contractPrice != null && (
-                      <span>Giá HĐ: {contractPrice.toLocaleString('vi-VN')}</span>
-                    )}
-                  </p>
-                )}
+                {(() => {
+                  // Phí bảo trì 2% theo Luật Nhà ở:
+                  // 1.142.400.000 = 1.120.000.000 giá căn + 22.400.000 PBT (2%)
+                  const sumPhases = installments.reduce((s, i) => s + (i.amount || 0), 0)
+                  const hp = housePrice ?? contractPrice
+                  const pbt =
+                    hp != null && sumPhases > hp
+                      ? Math.max(0, sumPhases - hp)
+                      : hp != null
+                      ? Math.round((hp * 0.02) / 1000) * 1000
+                      : null
+                  if (pbt == null) return null
+                  return (
+                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                      Kèm 2% phí bảo trì ({pbt.toLocaleString('vi-VN')} VNĐ)
+                    </p>
+                  )
+                })()}
               </div>
               <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
                 <p className="text-xs text-slate-500 dark:text-slate-400">Đã đóng</p>
