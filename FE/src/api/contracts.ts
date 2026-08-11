@@ -106,7 +106,13 @@ function pickArray(data: unknown): unknown[] {
 
 export function parseInstallments(data: unknown): PaymentInstallment[] {
   const arr = pickArray(data)
-  return arr.map((it) => {
+  // Debug: 1 lần / page load, in raw payload để FE biết BE thật trả field gì.
+  if (typeof window !== 'undefined' && arr.length > 0 && !(window as any).__paymentsParsed) {
+    // eslint-disable-next-line no-console
+    console.info('[parseInstallments] raw sample (đợt đầu):', JSON.stringify(arr[0], null, 2))
+    ;(window as any).__paymentsParsed = true
+  }
+  return arr.map((it, idx) => {
     const x = it as Record<string, unknown>
     // BE đặt tên theo C# (PascalCase): PhaseId/PhaseNo/Amount/DueDate/Status/...
     const phaseId =
@@ -121,8 +127,21 @@ export function parseInstallments(data: unknown): PaymentInstallment[] {
       (x.applicationId as string | undefined) ??
       (x.ApplicationId as string | undefined) ??
       ''
-    const ord =
-      x.ordinal ?? x.Ordinal ?? x.phaseNo ?? x.PhaseNo ?? x.PhaseNo ?? 0
+    // ordinal: thử nhiều key; fall-back "Đợt N" trong label; cuối cùng lấy idx+1 (theo vị trí array).
+    let ordRaw: unknown =
+      x.ordinal ?? x.Ordinal ?? x.phaseNo ?? x.PhaseNo ?? x.no ?? x.No ?? x.index ?? x.Index
+    let ord = Number(ordRaw) || 0
+    if (ord === 0) {
+      const labelStr =
+        (x.label as string | undefined) ??
+        (x.Label as string | undefined) ??
+        (x.name as string | undefined) ??
+        (x.Name as string | undefined) ??
+        ''
+      const m = /đợt\s*(\d+)/i.exec(labelStr)
+      if (m) ord = parseInt(m[1], 10)
+      else if (arr.length <= 6) ord = idx + 1
+    }
     const labelVal =
       (x.label as string | undefined) ??
       (x.Label as string | undefined) ??
@@ -167,7 +186,7 @@ export function parseInstallments(data: unknown): PaymentInstallment[] {
     return {
       installmentId: phaseId,
       applicationId: appId,
-      ordinal: Number(ord) || 0,
+      ordinal: ord,
       label: labelVal,
       amount: Number(amount) || 0,
       dueDate,

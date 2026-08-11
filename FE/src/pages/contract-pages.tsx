@@ -582,15 +582,10 @@ export function ContractDetailPage() {
           />
         )}
 
-        {/* Tiến độ thanh toán */}
+        {/* Tiến độ thanh toán (thanh bar) */}
         {installments.length > 0 && (
           <div>
             <h4 className="mb-2 font-semibold">Tiến độ thanh toán</h4>
-            <div className="mb-2 flex items-center justify-between text-sm">
-              <span>Đã đóng: {Number(paid).toLocaleString('vi-VN')} VNĐ</span>
-              <span className="font-medium">{progress}%</span>
-              <span>Còn lại: {Number(remaining).toLocaleString('vi-VN')} VNĐ</span>
-            </div>
             <div className="h-2.5 w-full rounded-full bg-slate-200 dark:bg-slate-700">
               <div className="h-2.5 rounded-full bg-emerald-500" style={{ width: `${progress}%` }} />
             </div>
@@ -601,6 +596,35 @@ export function ContractDetailPage() {
         {installments.length > 0 ? (
           <div>
             <h4 className="mb-3 font-semibold">Lịch thanh toán ({installments.length} đợt)</h4>
+            {/* Tổng quan hợp đồng: tổng tiền (giá nhà chính thức) + đếm theo status */}
+            <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Giá nhà chính thức
+                </p>
+                <p className="mt-1 text-base font-bold text-slate-900 dark:text-slate-100">
+                  {Number(installments.reduce((s, i) => s + (i.amount || 0), 0)).toLocaleString('vi-VN')} VNĐ
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                <p className="text-xs text-slate-500 dark:text-slate-400">Đã đóng</p>
+                <p className="mt-1 text-base font-bold text-emerald-600 dark:text-emerald-400">
+                  {Number(paid).toLocaleString('vi-VN')} VNĐ
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                <p className="text-xs text-slate-500 dark:text-slate-400">Còn lại</p>
+                <p className="mt-1 text-base font-bold text-amber-600 dark:text-amber-400">
+                  {Number(remaining).toLocaleString('vi-VN')} VNĐ
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                <p className="text-xs text-slate-500 dark:text-slate-400">Tiến độ</p>
+                <p className="mt-1 text-base font-bold text-blue-600 dark:text-blue-400">
+                  {progress}%
+                </p>
+              </div>
+            </div>
             <div className="space-y-2">
               {installments.map((inst) => (
                 <InstallmentRow
