@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Loader2,
   Sparkles,
@@ -43,6 +43,8 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
   const [error, setError] = useState('')
   const [statuses, setStatuses] = useState<{ id: string; label: string }[]>([])
   const [step, setStep] = useState<1 | 2>(1)
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const errorRef = useRef<HTMLDivElement>(null)
 
   const [projectName, setProjectName] = useState('')
   const [description, setDescription] = useState('')
@@ -95,6 +97,14 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       .catch(() => setWards([]))
   }, [open])
 
+  // Khi có lỗi validate, đảm bảo user nhìn thấy alert ngay — scroll tới vị trí alert
+  // trong body container (đặc biệt step 2 có nhiều trường, alert nằm xa nút submit).
+  useEffect(() => {
+    if (!error || !errorRef.current || !bodyRef.current) return
+    const alertTop = errorRef.current.offsetTop
+    bodyRef.current.scrollTo({ top: Math.max(0, alertTop - 12), behavior: 'smooth' })
+  }, [error])
+
   const validateStep1 = (): string | null => {
     if (!projectName.trim()) return 'Vui lòng nhập tên dự án.'
     if (projectName.trim().length < 5) return 'Tên dự án phải có ít nhất 5 ký tự.'
@@ -143,6 +153,29 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     setStep(1)
   }
 
+  // Xoá lỗi khi user sửa bất kỳ field nào (step 1 hoặc step 2).
+  // effect phụ thuộc vào giá trị từng field → chạy đúng lúc user thay đổi.
+  useEffect(() => {
+    setError('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    projectName,
+    ward,
+    decisionNumber,
+    approvalDate,
+    housingProjectStatusId,
+    isConfirmed,
+    phase1Percentage,
+    apartments,
+  ])
+
+  // Realtime validity cho step 2 — dùng để disable nút submit khi form invalid.
+  // Trùng logic với validateStep2() nhưng trả boolean để dùng trong JSX.
+  const isStep2Valid = useMemo(() => validateStep2() === null, [
+    phase1Percentage,
+    apartments,
+  ])
+
   const buildApartmentsPayload = (): CreateApartmentDto[] =>
     apartments
       .filter((r) => r.unitName.trim())
@@ -165,6 +198,14 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (submitting) return
+    // FIX: Khi ở step 1, Enter trong input sẽ trigger implicit form submission
+    // (HTML mặc định khi không có button submit trong form). Trước đây code chạy
+    // validateStep2() ngay → báo "chưa thêm căn" dù user chưa sang step 2.
+    // → Redirect sang goNext để đồng nhất UX với click nút "Tiếp tục".
+    if (step === 1) {
+      goNext()
+      return
+    }
     const err = validateStep2()
     if (err) {
       setError(err)
@@ -311,13 +352,13 @@ useEffect(() => {
         </div>
 
         {error && (
-          <div className="mb-1">
+          <div ref={errorRef} className="mb-1">
             <Alert variant="error">{error}</Alert>
           </div>
         )}
 
         {/* === Body: Step 1 — Thông tin dự án (1 viewport, flat grid, không scroll) === */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden pr-1">
+        <div ref={bodyRef} className="flex-1 overflow-y-auto overflow-x-hidden pr-1">
           {step === 1 && (
             <div className="grid gap-x-3 gap-y-2 md:grid-cols-12">
               {/* === Row 1: Tên dự án (col-7) | Trạng thái (col-5) === */}
@@ -712,10 +753,21 @@ useEffect(() => {
         </div>
 
         {/* === Footer === */}
-        <div className="sticky bottom-0 mt-1 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200/80 bg-gradient-to-r from-indigo-50/80 via-white to-violet-50/80 px-3.5 py-1 shadow-md dark:border-slate-700/60 dark:from-indigo-950/40 dark:via-slate-900/60 dark:to-violet-950/30">
+        <div
+          className={`sticky bottom-0 mt-1 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3.5 py-1 shadow-md transition-colors ${
+            step === 2 && !isStep2Valid && !submitting
+              ? 'border-amber-300/80 bg-gradient-to-r from-amber-50/80 via-white to-rose-50/70 dark:border-amber-700/60 dark:from-amber-950/30 dark:via-slate-900/60 dark:to-rose-950/20'
+              : 'border-slate-200/80 bg-gradient-to-r from-indigo-50/80 via-white to-violet-50/80 dark:border-slate-700/60 dark:from-indigo-950/40 dark:via-slate-900/60 dark:to-violet-950/30'
+          }`}
+        >
           <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
             <ListChecks className="mr-1 inline h-3 w-3 text-indigo-500" />
             Bước {step}/2 · {filledCount} căn · Đợt 1: {p1Valid ? `${p1}%` : '—'}
+            {step === 2 && !isStep2Valid && !submitting && (
+              <span className="ml-2 text-amber-700 dark:text-amber-400">
+                · chưa sẵn sàng để tạo
+              </span>
+            )}
           </p>
           <div className="flex items-center gap-2">
             {step === 2 && (
@@ -742,26 +794,31 @@ useEffect(() => {
                 type="button"
                 onClick={goNext}
                 disabled={submitting}
-                className="inline-flex items-center gap-1 rounded-md bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-4 py-1.5 text-xs font-bold text-white shadow-md transition hover:shadow-lg hover:brightness-110 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-1.5 text-xs font-bold text-white shadow-md transition hover:shadow-lg hover:brightness-110 disabled:opacity-50"
               >
-                Tiếp tục
+                Tiếp tục: Chi tiết & lịch trình
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
             ) : (
               <button
                 type="submit"
-                disabled={submitting}
-                className="inline-flex items-center gap-1 rounded-md bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-4 py-1.5 text-xs font-bold text-white shadow-md transition hover:shadow-lg hover:brightness-110 disabled:opacity-50"
+                disabled={submitting || !isStep2Valid}
+                title={
+                  !isStep2Valid
+                    ? 'Vui lòng nhập đầy đủ: tỉ lệ Đợt 1 (1–30%) và ít nhất 1 căn hợp lệ (tên + diện tích + giá).'
+                    : undefined
+                }
+                className="inline-flex items-center gap-1.5 rounded-md bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-1.5 text-xs font-bold text-white shadow-md transition hover:shadow-lg hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {submitting ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Đang tạo...
+                    Đang tạo dự án...
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-3.5 w-3.5" />
-                    Tạo dự án
+                    Tạo dự án (Bước cuối)
                   </>
                 )}
               </button>
