@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { FileText, PenLine, Download, Wallet, Unlock, Hammer, HardHat, KeyRound, BookOpen } from 'lucide-react'
 import {
   contractApi,
@@ -16,6 +16,9 @@ import {
   type ContractStatus,
   type UnlockPhaseTrigger,
 } from '@/api/contracts'
+import { parseApplicationDetail } from '@/api/housing-applications'
+import { request } from '@/api/http'
+import type { ApplicationDetailDto } from '@/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert } from '@/components/ui/alert'
@@ -440,6 +443,99 @@ function InstallmentRow({
   )
 }
 
+function InfoRow({ label, value, mono }: { label: string; value: ReactNode; mono?: boolean }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</span>
+      <span className={`text-sm ${mono ? 'font-mono' : 'font-medium'} text-slate-900 dark:text-slate-100 break-all`}>
+        {value || <span className="text-slate-400">—</span>}
+      </span>
+    </div>
+  )
+}
+
+function ApplicationSummaryCard({
+  appDetail,
+  status,
+  installments,
+}: {
+  appDetail: ApplicationDetailDto | null
+  status: ContractStatusDto | null
+  installments: PaymentInstallment[]
+}) {
+  // parseApplicationDetail chuẩn hoá các field apartment (xem FE/src/api/housing-applications.ts).
+  // Type gốc ApplicationDetailDto không khai báo các field runtime này nên cast qua unknown.
+  const apt = appDetail as unknown as {
+    apartmentArea?: number | null
+    apartmentUnitName?: string | null
+    apartmentCode?: string | null
+    apartmentPrice?: number | null
+  } | null
+  const sumPhases = installments.reduce((s, i) => s + (i.amount || 0), 0)
+  const basePrice = apt?.apartmentPrice ?? null
+  const pbt =
+    basePrice != null && sumPhases > basePrice
+      ? Math.max(0, sumPhases - basePrice)
+      : basePrice != null
+      ? Math.round((basePrice * 0.02) / 1000) * 1000
+      : null
+  const apartmentArea = apt?.apartmentArea ?? null
+  const apartmentCode = apt?.apartmentUnitName ?? apt?.apartmentCode ?? null
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/40">
+      <div className="mb-3 flex items-center gap-2">
+        <FileText className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+        <h4 className="font-semibold">Thông tin hồ sơ mua nhà</h4>
+      </div>
+
+      <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+        <InfoRow label="Mã hồ sơ" value={appDetail?.applicationId} mono />
+        <InfoRow label="Trạng thái hồ sơ" value={appDetail?.applicationStatus ?? status?.applicationStatus} />
+        <InfoRow label="Dự án" value={appDetail?.projectName} />
+        <InfoRow label="Mã dự án" value={appDetail?.projectId} mono />
+        <InfoRow label="Người mua" value={appDetail?.fullName} />
+        <InfoRow label="CCCD/CMND" value={appDetail?.citizenId} mono />
+        <InfoRow label="Số căn hộ" value={apartmentCode} mono />
+        <InfoRow
+          label="Diện tích"
+          value={apartmentArea != null ? `${apartmentArea} m²` : null}
+        />
+        <InfoRow
+          label="Giá niêm yết căn"
+          value={basePrice != null ? `${basePrice.toLocaleString('vi-VN')} VNĐ` : null}
+        />
+        <InfoRow
+          label="Tổng 6 đợt phải trả"
+          value={sumPhases > 0 ? `${sumPhases.toLocaleString('vi-VN')} VNĐ` : null}
+        />
+        {pbt != null && (
+          <InfoRow
+            label="Phí bảo trì 2% (PBT)"
+            value={`${pbt.toLocaleString('vi-VN')} VNĐ`}
+          />
+        )}
+        <InfoRow
+          label="Ngày nộp hồ sơ"
+          value={appDetail?.submittedAt ? new Date(appDetail.submittedAt).toLocaleDateString('vi-VN') : null}
+        />
+        <InfoRow
+          label="Ngày quyết định"
+          value={
+            appDetail?.finalDecisionDate
+              ? new Date(appDetail.finalDecisionDate).toLocaleDateString('vi-VN')
+              : null
+          }
+        />
+        <InfoRow
+          label="Ký HĐ lúc"
+          value={status?.signedAt ? new Date(status.signedAt).toLocaleString('vi-VN') : null}
+        />
+      </div>
+    </div>
+  )
+}
+
 export function ContractDetailPage() {
   const id = readApplicationId()
   const role = getRole()
@@ -452,6 +548,7 @@ export function ContractDetailPage() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [appDetail, setAppDetail] = useState<ApplicationDetailDto | null>(null)
 
   const reload = async () => {
     if (!id) return
@@ -473,6 +570,12 @@ export function ContractDetailPage() {
         setContractPrice(env.contractPrice ?? null)
       } catch {
         setInstallments([])
+      }
+      try {
+        const d = await request<unknown>(`/api/housing-applications/${id}`, { auth: true })
+        setAppDetail(parseApplicationDetail(d) ?? null)
+      } catch {
+        setAppDetail(null)
       }
     } catch (err) {
       setError(formatError(err))
@@ -557,6 +660,9 @@ export function ContractDetailPage() {
           </div>
           <ContractStatusBadge status={derivedStatus} />
         </div>
+
+        {/* Thông tin hồ sơ đầy đủ (mã hồ sơ, căn hộ, dự án, giá) */}
+        <ApplicationSummaryCard appDetail={appDetail} status={status} installments={installments} />
 
         {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'}>{msg.text}</Alert>}
 
