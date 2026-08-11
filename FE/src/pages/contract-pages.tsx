@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { FileText, PenLine, Download, Wallet, Unlock, Hammer, HardHat, KeyRound, BookOpen } from 'lucide-react'
+import { FileText, PenLine, Download, Wallet, Unlock, Hammer, HardHat, KeyRound, BookOpen, CheckCircle2, Clock, AlertTriangle, XCircle, Lock, Calendar, Banknote, TrendingUp, CircleDot } from 'lucide-react'
 import {
   contractApi,
   CONTRACT_STATUS_LABEL,
@@ -359,18 +359,25 @@ function InstallmentRow({
   inst,
   onPaid,
   signedAt,
+  totalAmount,
 }: {
   inst: PaymentInstallment
   onPaid: () => void
-  signedAt?: string | null
+  signedAt: string | null
+  totalAmount: number
 }) {
   const [paying, setPaying] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const isOverdue = inst.status === 'UNPAID' && new Date(inst.dueDate) < new Date()
+  const isOverdue = inst.status !== 'PAID' && new Date(inst.dueDate) < new Date()
   const isDeposit = inst.ordinal === 1
   const tone = INSTALLMENT_STATUS_TONE[inst.status]
   const role = getRole()
   const canPay = role === 'Applicant' && inst.status !== 'PAID'
+  const isPaid = inst.status === 'PAID'
+  const isLocked = inst.status === 'LOCKED'
+  const isCancelled = inst.status === 'CANCELLED'
+
+  const phasePct = totalAmount > 0 ? Math.round((inst.amount / totalAmount) * 100) : 0
 
   const handlePay = async () => {
     setPaying(true)
@@ -399,46 +406,145 @@ function InstallmentRow({
     }
   }
 
+  const borderClass = isPaid
+    ? 'border-emerald-300 dark:border-emerald-700/60'
+    : isOverdue
+    ? 'border-rose-300 dark:border-rose-700/60'
+    : isLocked
+    ? 'border-slate-200 dark:border-slate-700'
+    : isCancelled
+    ? 'border-slate-200 dark:border-slate-700 opacity-70'
+    : 'border-amber-300 dark:border-amber-700/60'
+
+  const toneBadgeText = isPaid
+    ? 'Đã đóng'
+    : isOverdue
+    ? 'Quá hạn'
+    : INSTALLMENT_STATUS_LABEL[inst.status]
+
+  const badgeTone = isOverdue ? 'danger' : tone
+
+  const dueDate = new Date(inst.dueDate)
+  const dueLabel = dueDate.toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+  const daysLeft = Math.ceil((dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+  const countdownLabel =
+    isPaid
+      ? null
+      : isOverdue
+      ? `Quá hạn ${Math.abs(daysLeft)} ngày`
+      : daysLeft >= 0
+      ? `Còn ${daysLeft} ngày`
+      : null
+
   return (
-    <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="font-medium">{inst.label || `Đợt ${inst.ordinal}`}</p>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Hạn: {new Date(inst.dueDate).toLocaleDateString('vi-VN')}
-            {isOverdue && <span className="ml-2 text-xs text-rose-600 dark:text-rose-400">⚠ Quá hạn</span>}
-          </p>
-          <p className="text-sm">
-            {Number(inst.amount).toLocaleString('vi-VN')} VNĐ
-            {inst.paidAmount != null && inst.paidAmount > 0 && (
-              <span className="ml-2 text-emerald-600 dark:text-emerald-400">
-                · Đã đóng: {Number(inst.paidAmount).toLocaleString('vi-VN')}
+    <div
+      className={`rounded-xl border-l-4 border ${borderClass} bg-white p-4 shadow-sm transition hover:shadow-md dark:bg-slate-900/40`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        {/* Left: ordinal + info */}
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <div
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-base font-bold ${
+              isPaid
+                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                : isOverdue
+                ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                : isLocked
+                ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+            }`}
+            aria-hidden
+          >
+            {inst.ordinal}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-semibold text-slate-900 dark:text-slate-100">
+                {inst.label || `Đợt ${inst.ordinal}`}
+              </p>
+              <Badge variant={badgeTone}>{toneBadgeText}</Badge>
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+              <span className="inline-flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" />
+                Hạn: {dueLabel}
               </span>
+              {countdownLabel && (
+                <span
+                  className={`inline-flex items-center gap-1 font-medium ${
+                    isOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'
+                  }`}
+                >
+                  <Clock className="h-3.5 w-3.5" />
+                  {countdownLabel}
+                </span>
+              )}
+              {isDeposit && (
+                <DepositCountdown
+                  signedAt={signedAt}
+                  paid={isPaid}
+                  expired={isCancelled || inst.status === 'OVERDUE'}
+                />
+              )}
+            </div>
+            {inst.ordinal === 5 && (
+              <p className="mt-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+                Bao gồm 25% tiền bàn giao + 2% phí bảo trì (PBT theo Luật Nhà ở)
+              </p>
             )}
+          </div>
+        </div>
+
+        {/* Right: amount + action */}
+        <div className="flex flex-col items-end gap-1">
+          <p className="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums">
+            {Number(inst.amount).toLocaleString('vi-VN')}
+            <span className="ml-1 text-xs font-medium text-slate-500 dark:text-slate-400">VNĐ</span>
           </p>
-          {inst.ordinal === 5 && (
-            <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
-              Bao gồm 25% tiền bàn giao + 2% phí bảo trì (PBT theo Luật Nhà ở)
+          {inst.paidAmount != null && inst.paidAmount > 0 && (
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 tabular-nums">
+              Đã đóng: {Number(inst.paidAmount).toLocaleString('vi-VN')} VNĐ
             </p>
           )}
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant={tone}>{INSTALLMENT_STATUS_LABEL[inst.status]}</Badge>
-          {isDeposit && (
-            <DepositCountdown
-              signedAt={signedAt}
-              paid={inst.status === 'PAID'}
-              expired={inst.status === 'CANCELLED' || inst.status === 'OVERDUE'}
-            />
-          )}
           {canPay && (
-            <Button variant="outline" size="sm" disabled={paying} onClick={() => void handlePay()}>
+            <Button variant="accent" size="sm" disabled={paying} onClick={() => void handlePay()} className="mt-1">
               {paying ? 'Đang xử lý...' : 'Thanh toán'}
             </Button>
           )}
         </div>
       </div>
-      {msg && <Alert variant={msg.type === 'error' ? 'error' : 'success'} className="mt-2">{msg.text}</Alert>}
+
+      {/* Mini bar: phần trăm đợt này vs tổng */}
+      <div className="mt-3">
+        <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+          <span>Tỉ trọng đợt trong tổng giá</span>
+          <span className="font-medium tabular-nums">{phasePct}%</span>
+        </div>
+        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+          <div
+            className={`h-full rounded-full ${
+              isPaid
+                ? 'bg-emerald-500'
+                : isOverdue
+                ? 'bg-rose-500'
+                : isLocked
+                ? 'bg-slate-300 dark:bg-slate-600'
+                : 'bg-amber-400'
+            }`}
+            style={{ width: `${phasePct}%` }}
+          />
+        </div>
+      </div>
+
+      {msg && (
+        <Alert variant={msg.type === 'error' ? 'error' : 'success'} className="mt-3">
+          {msg.text}
+        </Alert>
+      )}
     </div>
   )
 }
@@ -450,6 +556,203 @@ function InfoRow({ label, value, mono }: { label: string; value: ReactNode; mono
       <span className={`text-sm ${mono ? 'font-mono' : 'font-medium'} text-slate-900 dark:text-slate-100 break-all`}>
         {value || <span className="text-slate-400">—</span>}
       </span>
+    </div>
+  )
+}
+
+function PaymentProgressCard({
+  installments,
+  paid,
+  remaining,
+  progress,
+  contractPrice,
+  officialPrice,
+  housePrice,
+}: {
+  installments: PaymentInstallment[]
+  paid: number
+  remaining: number
+  progress: number
+  contractPrice: number | null
+  officialPrice: number | null
+  housePrice: number | null
+}) {
+  const sumPhases = installments.reduce((s, i) => s + (i.amount || 0), 0)
+  const totalRef =
+    contractPrice != null
+      ? contractPrice
+      : officialPrice != null
+      ? officialPrice
+      : housePrice != null
+      ? housePrice
+      : sumPhases
+  const hp = housePrice ?? contractPrice
+  const pbt =
+    hp != null && sumPhases > hp
+      ? Math.max(0, sumPhases - hp)
+      : hp != null
+      ? Math.round((hp * 0.02) / 1000) * 1000
+      : null
+  const paidCount = installments.filter((i) => i.status === 'PAID').length
+  const fmt = (n: number) => `${n.toLocaleString('vi-VN')} VNĐ`
+
+  const pct = Math.max(0, Math.min(100, Number(progress) || 0))
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-indigo-50 via-white to-emerald-50 dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
+      <div className="p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400">
+              <TrendingUp className="h-4 w-4" />
+              Tiến độ thanh toán
+            </div>
+            <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              {pct}%
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {paidCount}/{installments.length} đợt đã hoàn thành
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-slate-500 dark:text-slate-400">Tổng giá nhà</p>
+            <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">
+              {fmt(totalRef)}
+            </p>
+            {pbt != null && (
+              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                bao gồm 2% PBT ({fmt(pbt)})
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Progress bar lớn + tick mark mỗi đợt */}
+        <div className="mt-5">
+          <div className="relative h-3 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-emerald-500 to-emerald-400 transition-all duration-500"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          {/* Tick marks (chia đều theo số đợt) */}
+          {installments.length > 1 && (
+            <div className="mt-1 grid w-full" style={{ gridTemplateColumns: `repeat(${installments.length}, minmax(0, 1fr))` }}>
+              {installments.map((inst, idx) => {
+                const isPaid = inst.status === 'PAID'
+                return (
+                  <div key={inst.installmentId} className="text-center">
+                    <span className={`inline-block h-1.5 w-1.5 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                    {idx === installments.length - 1 ? null : null}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Stats */}
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="rounded-xl bg-white/70 p-3 ring-1 ring-slate-200 dark:bg-slate-900/50 dark:ring-slate-700">
+            <p className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              Đã đóng
+            </p>
+            <p className="mt-1 text-base font-semibold text-emerald-700 dark:text-emerald-400">
+              {fmt(paid)}
+            </p>
+          </div>
+          <div className="rounded-xl bg-white/70 p-3 ring-1 ring-slate-200 dark:bg-slate-900/50 dark:ring-slate-700">
+            <p className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              Còn lại
+            </p>
+            <p className="mt-1 text-base font-semibold text-amber-700 dark:text-amber-400">
+              {fmt(remaining)}
+            </p>
+          </div>
+          <div className="col-span-2 rounded-xl bg-white/70 p-3 ring-1 ring-slate-200 sm:col-span-1 dark:bg-slate-900/50 dark:ring-slate-700">
+            <p className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <Banknote className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+              Số đợt
+            </p>
+            <p className="mt-1 text-base font-semibold text-indigo-700 dark:text-indigo-400">
+              {installments.length} đợt theo Luật Nhà ở
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function InstallmentTimeline({
+  installments,
+  signedAt,
+  onPaid,
+  totalAmount,
+}: {
+  installments: PaymentInstallment[]
+  signedAt: string | null
+  onPaid: () => void
+  totalAmount: number
+}) {
+  return (
+    <ol className="relative space-y-3 border-l-2 border-dashed border-slate-200 pl-6 dark:border-slate-700 sm:pl-8">
+      {installments.map((inst) => (
+        <li key={inst.installmentId} className="relative">
+          <InstallmentTimelineDot inst={inst} />
+          <InstallmentRow
+            inst={inst}
+            signedAt={signedAt}
+            onPaid={onPaid}
+            totalAmount={totalAmount}
+          />
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function InstallmentTimelineDot({ inst }: { inst: PaymentInstallment }) {
+  const isPaid = inst.status === 'PAID'
+  const isOverdue = inst.status !== 'PAID' && new Date(inst.dueDate) < new Date()
+  const isCancelled = inst.status === 'CANCELLED'
+  const isLocked = inst.status === 'LOCKED'
+
+  let bg = 'bg-slate-100 dark:bg-slate-800'
+  let ring = 'ring-white dark:ring-slate-900'
+  let Icon: typeof CheckCircle2 = CircleDot
+  let iconColor = 'text-slate-400'
+
+  if (isPaid) {
+    bg = 'bg-emerald-500'
+    Icon = CheckCircle2
+    iconColor = 'text-white'
+  } else if (isOverdue) {
+    bg = 'bg-rose-500'
+    Icon = AlertTriangle
+    iconColor = 'text-white'
+  } else if (isCancelled) {
+    bg = 'bg-slate-400'
+    Icon = XCircle
+    iconColor = 'text-white'
+  } else if (isLocked) {
+    bg = 'bg-slate-200 dark:bg-slate-700'
+    Icon = Lock
+    iconColor = 'text-slate-500 dark:text-slate-400'
+  } else {
+    bg = 'bg-amber-100 dark:bg-amber-900/40'
+    Icon = Clock
+    iconColor = 'text-amber-600 dark:text-amber-400'
+  }
+
+  return (
+    <div
+      className={`absolute -left-[37px] flex h-7 w-7 items-center justify-center rounded-full ring-4 ${bg} ${ring} sm:-left-[45px]`}
+      aria-hidden
+    >
+      <Icon className={`h-3.5 w-3.5 ${iconColor}`} />
     </div>
   )
 }
@@ -689,116 +992,73 @@ export function ContractDetailPage() {
           />
         )}
 
-        {/* Tiến độ thanh toán (thanh bar) */}
-        {installments.length > 0 && (
-          <div>
-            <h4 className="mb-2 font-semibold">Tiến độ thanh toán</h4>
-            <div className="h-2.5 w-full rounded-full bg-slate-200 dark:bg-slate-700">
-              <div className="h-2.5 rounded-full bg-emerald-500" style={{ width: `${progress}%` }} />
-            </div>
-          </div>
-        )}
-
-        {/* Lịch thanh toán */}
+        {/* Tiến độ thanh toán + Lịch thanh toán (redesign) */}
         {installments.length > 0 ? (
-          <div>
-            <h4 className="mb-3 font-semibold">Lịch thanh toán ({installments.length} đợt)</h4>
-            {/* Cảnh báo nếu sum(đợt) != contractPrice (BE bug) */}
-            {(() => {
-              const sumPhases = installments.reduce((s, i) => s + (i.amount || 0), 0)
-              const ref =
-                contractPrice != null
-                  ? contractPrice
-                  : housePrice != null
-                  ? housePrice
-                  : null
-              if (ref == null) return null
-              const diff = Math.abs(sumPhases - ref)
-              const mismatch = diff > 1000 // bỏ qua sai số do làm tròn
-              return mismatch ? (
-                <Alert variant="warning" className="mb-3">
-                  <div>
-                    <p className="font-medium">
-                      Số tiền lịch thanh toán không khớp giá nhà chính thức.
-                    </p>
-                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-                      Tổng 6 đợt: <b>{sumPhases.toLocaleString('vi-VN')}</b> VNĐ —
-                      Giá nhà: <b>{ref.toLocaleString('vi-VN')}</b> VNĐ
-                      (chênh {(sumPhases - ref > 0 ? '+' : '') + (sumPhases - ref).toLocaleString('vi-VN')} VNĐ).
-                      Vui lòng báo CĐT/ban quản lý đối soát.
-                    </p>
-                  </div>
-                </Alert>
-              ) : null
-            })()}
-            {/* Tổng quan hợp đồng */}
-            <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Giá nhà chính thức
-                </p>
-                <p className="mt-1 text-base font-bold text-slate-900 dark:text-slate-100">
-                  {(() => {
-                    const ref =
-                      contractPrice != null
-                        ? contractPrice
-                        : officialPrice != null
-                        ? officialPrice
-                        : housePrice != null
-                        ? housePrice
-                        : installments.reduce((s, i) => s + (i.amount || 0), 0)
-                    return Number(ref || 0).toLocaleString('vi-VN') + ' VNĐ'
-                  })()}
-                </p>
-                {(() => {
-                  // Phí bảo trì 2% theo Luật Nhà ở:
-                  // 1.142.400.000 = 1.120.000.000 giá căn + 22.400.000 PBT (2%)
-                  const sumPhases = installments.reduce((s, i) => s + (i.amount || 0), 0)
-                  const hp = housePrice ?? contractPrice
-                  const pbt =
-                    hp != null && sumPhases > hp
-                      ? Math.max(0, sumPhases - hp)
-                      : hp != null
-                      ? Math.round((hp * 0.02) / 1000) * 1000
-                      : null
-                  if (pbt == null) return null
-                  return (
-                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                      Kèm 2% phí bảo trì ({pbt.toLocaleString('vi-VN')} VNĐ)
-                    </p>
-                  )
-                })()}
+          <section className="space-y-5">
+            <PaymentProgressCard
+              installments={installments}
+              paid={paid}
+              remaining={remaining}
+              progress={progress}
+              contractPrice={contractPrice}
+              officialPrice={officialPrice}
+              housePrice={housePrice}
+            />
+
+            <div>
+              <div className="mb-3 flex items-baseline justify-between">
+                <h4 className="text-base font-semibold">Lịch thanh toán</h4>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {installments.length} đợt · theo Luật Nhà ở
+                </span>
               </div>
-              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-                <p className="text-xs text-slate-500 dark:text-slate-400">Đã đóng</p>
-                <p className="mt-1 text-base font-bold text-emerald-600 dark:text-emerald-400">
-                  {Number(paid).toLocaleString('vi-VN')} VNĐ
-                </p>
-              </div>
-              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-                <p className="text-xs text-slate-500 dark:text-slate-400">Còn lại</p>
-                <p className="mt-1 text-base font-bold text-amber-600 dark:text-amber-400">
-                  {Number(remaining).toLocaleString('vi-VN')} VNĐ
-                </p>
-              </div>
-              <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-                <p className="text-xs text-slate-500 dark:text-slate-400">Tiến độ</p>
-                <p className="mt-1 text-base font-bold text-blue-600 dark:text-blue-400">
-                  {progress}%
-                </p>
-              </div>
+
+              {/* Cảnh báo BE nếu sum(đợt) không khớp giá nhà */}
+              {(() => {
+                const sumPhases = installments.reduce((s, i) => s + (i.amount || 0), 0)
+                const ref =
+                  contractPrice != null
+                    ? contractPrice
+                    : housePrice != null
+                    ? housePrice
+                    : null
+                if (ref == null) return null
+                const diff = Math.abs(sumPhases - ref)
+                const mismatch = diff > 1000
+                if (!mismatch) return null
+                return (
+                  <Alert variant="warning" className="mb-4">
+                    <div>
+                      <p className="font-medium">
+                        Số tiền lịch thanh toán không khớp giá nhà chính thức.
+                      </p>
+                      <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                        Tổng 6 đợt: <b>{sumPhases.toLocaleString('vi-VN')}</b> VNĐ —
+                        Giá nhà: <b>{ref.toLocaleString('vi-VN')}</b> VNĐ
+                        (chênh {(sumPhases - ref > 0 ? '+' : '') + (sumPhases - ref).toLocaleString('vi-VN')} VNĐ).
+                        Vui lòng báo CĐT/ban quản lý đối soát.
+                      </p>
+                    </div>
+                  </Alert>
+                )
+              })()}
+
+              <InstallmentTimeline
+                installments={installments}
+                signedAt={status?.signedAt ?? null}
+                onPaid={() => void reload()}
+                totalAmount={
+                  contractPrice != null
+                    ? contractPrice
+                    : officialPrice != null
+                    ? officialPrice
+                    : housePrice != null
+                    ? housePrice
+                    : installments.reduce((s, i) => s + (i.amount || 0), 0)
+                }
+              />
             </div>
-            <div className="space-y-2">
-              {installments.map((inst) => (
-                <InstallmentRow
-                  key={inst.installmentId}
-                  inst={inst}
-                  signedAt={status?.signedAt ?? null}
-                  onPaid={() => void reload()}
-                />
-              ))}
-            </div>
-          </div>
+          </section>
         ) : status?.isSigned ? (
           <Alert variant="warning">
             <div className="space-y-2">
