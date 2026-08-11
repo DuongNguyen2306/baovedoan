@@ -7,7 +7,7 @@ import {
   INSTALLMENT_STATUS_LABEL,
   INSTALLMENT_STATUS_TONE,
   parseContractStatus,
-  parseInstallments,
+  parseInstallmentsEnvelope,
   summarizeInstallments,
   UNLOCK_PHASE_LABEL,
   UNLOCK_PHASE_ORDINAL,
@@ -440,6 +440,9 @@ export function ContractDetailPage() {
   const role = getRole()
   const [status, setStatus] = useState<ContractStatusDto | null>(null)
   const [installments, setInstallments] = useState<PaymentInstallment[]>([])
+  const [officialPrice, setOfficialPrice] = useState<number | null>(null)
+  const [housePrice, setHousePrice] = useState<number | null>(null)
+  const [contractPrice, setContractPrice] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -458,7 +461,11 @@ export function ContractDetailPage() {
       }
       try {
         const i = await contractApi.getInstallments(id)
-        setInstallments(parseInstallments(i))
+        const env = parseInstallmentsEnvelope(i)
+        setInstallments(env.installments)
+        setOfficialPrice(env.officialPrice ?? null)
+        setHousePrice(env.housePrice ?? null)
+        setContractPrice(env.contractPrice ?? null)
       } catch {
         setInstallments([])
       }
@@ -596,15 +603,63 @@ export function ContractDetailPage() {
         {installments.length > 0 ? (
           <div>
             <h4 className="mb-3 font-semibold">Lịch thanh toán ({installments.length} đợt)</h4>
-            {/* Tổng quan hợp đồng: tổng tiền (giá nhà chính thức) + đếm theo status */}
+            {/* Cảnh báo nếu sum(đợt) != contractPrice (BE bug) */}
+            {(() => {
+              const sumPhases = installments.reduce((s, i) => s + (i.amount || 0), 0)
+              const ref =
+                contractPrice != null
+                  ? contractPrice
+                  : housePrice != null
+                  ? housePrice
+                  : null
+              if (ref == null) return null
+              const diff = Math.abs(sumPhases - ref)
+              const mismatch = diff > 1000 // bỏ qua sai số do làm tròn
+              return mismatch ? (
+                <Alert variant="warning" className="mb-3">
+                  <div>
+                    <p className="font-medium">
+                      Số tiền lịch thanh toán không khớp giá nhà chính thức.
+                    </p>
+                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                      Tổng 6 đợt: <b>{sumPhases.toLocaleString('vi-VN')}</b> VNĐ —
+                      Giá nhà: <b>{ref.toLocaleString('vi-VN')}</b> VNĐ
+                      (chênh {(sumPhases - ref > 0 ? '+' : '') + (sumPhases - ref).toLocaleString('vi-VN')} VNĐ).
+                      Vui lòng báo CĐT/ban quản lý đối soát.
+                    </p>
+                  </div>
+                </Alert>
+              ) : null
+            })()}
+            {/* Tổng quan hợp đồng */}
             <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   Giá nhà chính thức
                 </p>
                 <p className="mt-1 text-base font-bold text-slate-900 dark:text-slate-100">
-                  {Number(installments.reduce((s, i) => s + (i.amount || 0), 0)).toLocaleString('vi-VN')} VNĐ
+                  {(() => {
+                    const ref =
+                      contractPrice != null
+                        ? contractPrice
+                        : officialPrice != null
+                        ? officialPrice
+                        : housePrice != null
+                        ? housePrice
+                        : installments.reduce((s, i) => s + (i.amount || 0), 0)
+                    return Number(ref || 0).toLocaleString('vi-VN') + ' VNĐ'
+                  })()}
                 </p>
+                {(housePrice != null || contractPrice != null) && (
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    {housePrice != null && (
+                      <span>Giá niêm yết: {housePrice.toLocaleString('vi-VN')} · </span>
+                    )}
+                    {contractPrice != null && (
+                      <span>Giá HĐ: {contractPrice.toLocaleString('vi-VN')}</span>
+                    )}
+                  </p>
+                )}
               </div>
               <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
                 <p className="text-xs text-slate-500 dark:text-slate-400">Đã đóng</p>

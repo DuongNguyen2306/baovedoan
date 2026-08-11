@@ -339,6 +339,69 @@ export function summarizeInstallments(items: PaymentInstallment[]): {
   }
 }
 
+/**
+ * BE có thể trả thêm các field ở envelope `data`:
+ *   - housePrice / HousePrice: giá căn theo Apartment (catalog)
+ *   - contractPrice / ContractPrice / totalPrice / TotalPrice: giá bán chính thức tính 6 đợt
+ *   - apartmentId / ApartmentId / apartmentCode / ApartmentCode
+ *
+ * FE dùng các field này để hiển thị "Giá nhà chính thức" và cảnh báo khi
+ * sum(phase.amounts) ≠ contractPrice.
+ */
+export interface InstallmentsEnvelope {
+  installments: PaymentInstallment[]
+  housePrice?: number | null
+  contractPrice?: number | null
+  officialPrice?: number | null
+  apartmentId?: string | null
+  apartmentCode?: string | null
+}
+
+function num(v: unknown): number | undefined {
+  if (typeof v === 'number' && !Number.isNaN(v)) return v
+  if (typeof v === 'string') {
+    const n = Number(v.replace(/[^\d.-]/g, ''))
+    return Number.isFinite(n) ? n : undefined
+  }
+  return undefined
+}
+
+export function parseInstallmentsEnvelope(raw: unknown): InstallmentsEnvelope {
+  const installments = parseInstallments(raw)
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  const inner = (o.data ?? o.Data) as Record<string, unknown> | undefined
+  const src = inner ?? o
+  const housePrice =
+    num(src.housePrice) ?? num(src.HousePrice) ?? num(src.listPrice) ?? num(src.ListPrice) ?? null
+  const contractPrice =
+    num(src.contractPrice) ??
+    num(src.ContractPrice) ??
+    num(src.totalPrice) ??
+    num(src.TotalPrice) ??
+    num(src.officialPrice) ??
+    num(src.OfficialPrice) ??
+    null
+  const officialPrice = contractPrice ?? housePrice ?? null
+  const apartmentId =
+    (src.apartmentId as string | undefined) ??
+    (src.ApartmentId as string | undefined) ??
+    null
+  const apartmentCode =
+    (src.apartmentCode as string | undefined) ??
+    (src.ApartmentCode as string | undefined) ??
+    (src.unitCode as string | undefined) ??
+    (src.UnitCode as string | undefined) ??
+    null
+  return {
+    installments,
+    housePrice: housePrice ?? null,
+    contractPrice: contractPrice ?? null,
+    officialPrice,
+    apartmentId,
+    apartmentCode,
+  }
+}
+
 // Aliases giữ tương thích với code cũ
 export const summarizeContract = summarizeInstallments
 export type { ContractDto as ContractLegacyDto }
