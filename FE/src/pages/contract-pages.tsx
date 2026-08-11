@@ -647,17 +647,6 @@ export function ContractDetailPage() {
         <Button variant="ghost" className="mb-2" onClick={() => navigate('contracts')}>← Danh sách hợp đồng</Button>
 
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-bold">Hồ sơ: {id.slice(0, 8)}…</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Trạng thái hồ sơ: {status?.applicationStatus ?? 'Không rõ'}
-            </p>
-            {status?.signedAt && (
-              <p className="mt-1 text-sm text-emerald-600 dark:text-emerald-400">
-                Đã ký: {new Date(status.signedAt).toLocaleString('vi-VN')}
-              </p>
-            )}
-          </div>
           <ContractStatusBadge status={derivedStatus} />
         </div>
 
