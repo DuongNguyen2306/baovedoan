@@ -80,8 +80,26 @@ function pickArray(data: unknown): unknown[] {
   if (Array.isArray(data)) return data
   if (data && typeof data === 'object') {
     const o = data as Record<string, unknown>
-    const items = o.items ?? o.Items ?? o.data ?? o.Data
-    if (Array.isArray(items)) return items
+    // BE trả { success, data: { applicationId, phases: [...] } } → unwrap 2 cấp.
+    const inner = o.data ?? o.Data
+    if (inner && typeof inner === 'object') {
+      const io = inner as Record<string, unknown>
+      const candidates = [
+        io.phases,
+        io.Phases,
+        io.installments,
+        io.Installments,
+        io.items,
+        io.Items,
+      ]
+      for (const c of candidates) {
+        if (Array.isArray(c)) return c
+      }
+    }
+    const top = [o.items, o.Items, o.phases, o.Phases, o.data, o.Data]
+    for (const c of top) {
+      if (Array.isArray(c)) return c
+    }
   }
   return []
 }
@@ -90,18 +108,75 @@ export function parseInstallments(data: unknown): PaymentInstallment[] {
   const arr = pickArray(data)
   return arr.map((it) => {
     const x = it as Record<string, unknown>
+    // BE đặt tên theo C# (PascalCase): PhaseId/PhaseNo/Amount/DueDate/Status/...
+    const phaseId =
+      (x.id as string | undefined) ??
+      (x.Id as string | undefined) ??
+      (x.phaseId as string | undefined) ??
+      (x.PhaseId as string | undefined) ??
+      (x.installmentId as string | undefined) ??
+      (x.InstallmentId as string | undefined) ??
+      ''
+    const appId =
+      (x.applicationId as string | undefined) ??
+      (x.ApplicationId as string | undefined) ??
+      ''
+    const ord =
+      x.ordinal ?? x.Ordinal ?? x.phaseNo ?? x.PhaseNo ?? x.PhaseNo ?? 0
+    const labelVal =
+      (x.label as string | undefined) ??
+      (x.Label as string | undefined) ??
+      (x.name as string | undefined) ??
+      (x.Name as string | undefined) ??
+      null
+    const amount =
+      x.amount ?? x.Amount ?? x.value ?? x.Value ?? 0
+    const dueDate =
+      (x.dueDate as string | undefined) ??
+      (x.DueDate as string | undefined) ??
+      (x.dueAt as string | undefined) ??
+      (x.DueAt as string | undefined) ??
+      ''
+    const statusRaw = String(
+      x.status ?? x.Status ?? x.state ?? x.State ?? 'UNPAID',
+    ).toUpperCase()
+    const status = ((): InstallmentStatus => {
+      // Map "PENDING" (BE) → "UNPAID" (FE) theo PAY.MD.
+      if (statusRaw === 'PENDING') return 'UNPAID'
+      if (statusRaw === 'LOCKED') return 'LOCKED'
+      if (statusRaw === 'PAID') return 'PAID'
+      if (statusRaw === 'OVERDUE') return 'OVERDUE'
+      if (statusRaw === 'CANCELLED' || statusRaw === 'CANCELED') return 'CANCELLED'
+      if (statusRaw === 'PARTIAL') return 'PARTIAL'
+      return 'UNPAID'
+    })()
+    const paidAt =
+      (x.paidAt as string | undefined) ??
+      (x.PaidAt as string | undefined) ??
+      null
+    const paidAmount =
+      x.paidAmount ?? x.PaidAmount ?? undefined
+    const paymentOrderId =
+      (x.paymentOrderId as string | undefined) ??
+      (x.PaymentOrderId as string | undefined) ??
+      null
+    const paymentUrl =
+      (x.paymentUrl as string | undefined) ??
+      (x.PaymentUrl as string | undefined) ??
+      null
     return {
-      installmentId: String(x.installmentId ?? x.InstallmentId ?? ''),
-      applicationId: String(x.applicationId ?? x.ApplicationId ?? ''),
-      ordinal: Number(x.ordinal ?? x.Ordinal ?? 0),
-      label: (x.label ?? x.Label) as string | null | undefined,
-      amount: Number(x.amount ?? x.Amount ?? 0),
-      dueDate: String(x.dueDate ?? x.DueDate ?? ''),
-      status: (String(x.status ?? x.Status ?? 'UNPAID') as InstallmentStatus),
-      paidAt: (x.paidAt ?? x.PaidAt) as string | null | undefined,
-      paidAmount: Number(x.paidAmount ?? x.PaidAmount ?? 0) || undefined,
-      paymentOrderId: (x.paymentOrderId ?? x.PaymentOrderId) as string | null | undefined,
-      paymentUrl: (x.paymentUrl ?? x.PaymentUrl) as string | null | undefined,
+      installmentId: phaseId,
+      applicationId: appId,
+      ordinal: Number(ord) || 0,
+      label: labelVal,
+      amount: Number(amount) || 0,
+      dueDate,
+      status,
+      paidAt,
+      paidAmount:
+        paidAmount !== undefined ? Number(paidAmount) || undefined : undefined,
+      paymentOrderId,
+      paymentUrl,
     }
   })
 }
