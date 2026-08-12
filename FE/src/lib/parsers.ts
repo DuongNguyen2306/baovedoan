@@ -90,6 +90,8 @@ function readProjectRow(p: Record<string, unknown>): HousingProjectDto {
         p.housingProjectStatusName ?? p.HousingProjectStatusName
       return raw ? labelProjectStatus(String(raw)) : undefined
     })(),
+    publicAnnounceAt: p.publicAnnounceAt ? String(p.publicAnnounceAt ?? p.PublicAnnounceAt) : undefined,
+    rejectReason: p.rejectReason ? String(p.rejectReason ?? p.RejectReason) : undefined,
     createdAt: p.createdAt ? String(p.createdAt ?? p.CreatedAt) : undefined,
     updatedAt: p.updatedAt ? String(p.updatedAt ?? p.UpdatedAt) : undefined,
   }

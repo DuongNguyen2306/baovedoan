@@ -17,7 +17,6 @@ import {
   ListChecks,
 } from 'lucide-react'
 import { housingProjectsApi } from '@/api/housing-projects'
-import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
 import { Modal } from '@/components/ui/modal'
 import { Alert } from '@/components/ui/alert'
 import { ensureHcmLocationsLoaded, HCM_PROVINCE } from '@/lib/vietnam-locations'
@@ -41,7 +40,10 @@ const requiredDot = <span className="text-rose-500" aria-hidden>*</span>
 export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectModalProps) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [statuses, setStatuses] = useState<{ id: string; label: string }[]>([])
+  // Lưu ý nghiệp vụ (commit này): Khi CĐT tạo dự án xong, status LUÔN = PENDING.
+  // Trạng thái chỉ chuyển khi SXD duyệt (PENDING → UPCOMING), sau đó tự mở sau 30 ngày
+  // hoặc SXD bấm "Chuyển sang Đang mở đăng ký" (UPCOMING → OPEN). Vì vậy form tạo
+  // không có ô chọn trạng thái, không load status từ BE.
   const [step, setStep] = useState<1 | 2>(1)
   const bodyRef = useRef<HTMLDivElement>(null)
   const errorRef = useRef<HTMLDivElement>(null)
@@ -58,7 +60,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
   const [lotteryLocation, setLotteryLocation] = useState('')
   const [applicationOpenDate, setApplicationOpenDate] = useState('')
   const [applicationCloseDate, setApplicationCloseDate] = useState('')
-  const [housingProjectStatusId, setHousingProjectStatusId] = useState('')
+  // Trạng thái dự án: KHÔNG cho CĐT chọn — BE mặc định = PENDING.
   const [isConfirmed, setIsConfirmed] = useState(true)
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
   const [imagesFiles, setImagesFiles] = useState<File[]>([])
@@ -79,7 +81,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       setLotteryLocation('')
       setApplicationOpenDate('')
       setApplicationCloseDate('')
-      setHousingProjectStatusId('')
       setIsConfirmed(true)
       setThumbnailFile(null)
       setImagesFiles([])
@@ -88,10 +89,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       setStep(1)
       return
     }
-    void housingProjectStatusesApi
-      .list()
-      .then((data) => setStatuses(parseStatuses(data).map((s) => ({ id: s.id, label: s.label }))))
-      .catch(() => setStatuses([]))
     void ensureHcmLocationsLoaded()
       .then(setWards)
       .catch(() => setWards([]))
@@ -108,7 +105,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
   const validateStep1 = (): string | null => {
     if (!projectName.trim()) return 'Vui lòng nhập tên dự án.'
     if (projectName.trim().length < 5) return 'Tên dự án phải có ít nhất 5 ký tự.'
-    if (!housingProjectStatusId) return 'Vui lòng chọn trạng thái dự án.'
     if (!ward) return 'Vui lòng chọn phường/xã.'
     if (!decisionNumber.trim()) return 'Vui lòng nhập số quyết định phê duyệt.'
     if (!approvalDate) return 'Vui lòng chọn ngày phê duyệt.'
@@ -163,7 +159,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     ward,
     decisionNumber,
     approvalDate,
-    housingProjectStatusId,
     isConfirmed,
     phase1Percentage,
     apartments,
@@ -238,7 +233,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
         applicationOpenDate: applicationOpenDate || undefined,
         applicationCloseDate: applicationCloseDate || undefined,
         isConfirmed,
-        housingProjectStatusId,
+        // housingProjectStatusId: BỎ — BE mặc định = PENDING khi CĐT tạo.
         thumbnailFile: thumbnailFile ?? undefined,
         imagesFiles: imagesFiles.length > 0 ? imagesFiles : undefined,
         apartments: aptPayload,
@@ -298,14 +293,13 @@ useEffect(() => {
   return () => clearTimeout(t)
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [
-  projectName,
-  description,
-  ward,
-  street,
-  decisionNumber,
-  approvalDate,
-  housingProjectStatusId,
-  isConfirmed,
+projectName,
+    description,
+    ward,
+    street,
+    decisionNumber,
+    approvalDate,
+    isConfirmed,
   phase1Percentage,
   lotteryDate,
   lotteryLocation,
@@ -361,8 +355,17 @@ useEffect(() => {
         <div ref={bodyRef} className="flex-1 overflow-y-auto overflow-x-hidden pr-1">
           {step === 1 && (
             <div className="grid gap-x-3 gap-y-2 md:grid-cols-12">
-              {/* === Row 1: Tên dự án (col-7) | Trạng thái (col-5) === */}
-              <Field label="Tên dự án" required className="md:col-span-7">
+              <div className="md:col-span-12 rounded-md border border-sky-200/70 bg-sky-50/60 px-3 py-2 text-[11px] text-slate-700 dark:border-sky-500/30 dark:bg-sky-950/30 dark:text-slate-200">
+                <strong className="font-semibold">Lưu ý:</strong> Dự án sau khi tạo sẽ ở trạng thái{' '}
+                <span className="font-semibold text-amber-700 dark:text-amber-300">Chờ phê duyệt</span>{' '}
+                (Sở Xây dựng xem xét). Khi được duyệt, dự án chuyển sang{' '}
+                <span className="font-semibold">Sắp mở bán</span> và{' '}
+                <span className="font-semibold">tự mở đăng ký sau 30 ngày</span> (hoặc Sở có thể chuyển
+                sớm hơn).
+              </div>
+              {/* === Row 1: Tên dự án (full) — không còn dropdown trạng thái vì CĐT
+                chỉ được tạo ở trạng thái PENDING, SXD sẽ duyệt về sau === */}
+              <Field label="Tên dự án" required className="md:col-span-12">
                 <input
                   className={inputClass}
                   value={projectName}
@@ -371,23 +374,6 @@ useEffect(() => {
                   maxLength={150}
                   disabled={submitting}
                 />
-              </Field>
-              <Field label="Trạng thái" required className="md:col-span-5">
-                <select
-                  className={inputClass}
-                  value={housingProjectStatusId}
-                  onChange={(e) => setHousingProjectStatusId(e.target.value)}
-                  disabled={submitting}
-                >
-                  <option value="">
-                    {statuses.length ? '-- Chọn trạng thái --' : 'Đang tải...'}
-                  </option>
-                  {statuses.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
               </Field>
 
               {/* === Row 2: Tỉnh (col-4) | Phường/Xã (col-4) | Đường (col-4) === */}

@@ -123,12 +123,13 @@ export function toApiFilter(filter: HousingSearchFilter): HousingProjectFilter {
 }
 
 export function matchesOpenStatus(statusLabel: string): boolean {
+  // Nghiệp vụ mới: chỉ cho phép nộp hồ sơ khi dự án ở trạng thái OPEN (Đang mở đăng ký).
+  // UPCOMING (Sắp mở bán) là giai đoạn chờ 30 ngày — Applicant phải đợi, không được nộp.
   const s = statusLabel.toLowerCase()
   return (
-    /open|registration/.test(s) ||
-    s.includes('đang mở') ||
-    s.includes('mở đăng ký') ||
-    s.includes('mở bán')
+    s === 'open' ||
+    s.includes('đang mở đăng ký') ||
+    s.includes('mở đăng ký')
   )
 }
 

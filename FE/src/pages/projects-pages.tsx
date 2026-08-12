@@ -3,6 +3,7 @@ import { CheckCircle2, Heart, MapPin, Plus, Trash2, X } from 'lucide-react'
 import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
 import { CreateProjectModal } from '@/components/developer/create-project-modal'
+import { ProjectStatusControl } from '@/components/developer/project-status-control'
 import { DeveloperDecisionPanel } from '@/components/developer-decision-panel'
 import { LocationFields } from '@/components/forms/location-fields'
 import { RichEditor } from '@/components/forms/rich-editor'
@@ -564,11 +565,10 @@ export function ProjectDetailPage() {
   const [projectId] = useState(() => sessionStorage.getItem('projectId') ?? '')
   const role = getRole()
   const logged = isLoggedIn()
-  const isApplicant = role === 'Applicant'
   const isDeveloper = role === 'Housing Developer'
   const isAdmin = role === 'System Administrator'
-  const isStaffEditor = logged && (isDeveloper || isAdmin || role === 'Department Of Construction')
-  const showPublicView = !logged || isApplicant || !isStaffEditor
+  // SXD (Department Of Construction) có nhánh render riêng bên dưới (panel duyệt
+  // trạng thái dự án) — không cho sửa thông tin dự án, không cấp căn.
 
   return (
     <div>
@@ -585,21 +585,18 @@ export function ProjectDetailPage() {
           <Alert variant="error">
             Không tìm thấy dự án. Quay lại danh sách và chọn lại dự án.
           </Alert>
-        ) : showPublicView ? (
-          <ProjectDetailView projectId={projectId} />
-        ) : (
+        ) : isDeveloper || isAdmin ? (
+          // Dev/Admin: panel cấp căn + form sửa (giữ nguyên luồng cũ)
           <>
-            {(isDeveloper || isAdmin) && (
-              <section
-                id="developer-decision"
-                className="mb-8 rounded-xl border-2 border-blue-200 bg-blue-50/60 p-4 dark:border-blue-800 dark:bg-blue-950/30"
-              >
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
-                  Bước sau khi Sở duyệt — cấp căn / chốt danh sách
-                </p>
-                <DeveloperDecisionPanel projectId={projectId} />
-              </section>
-            )}
+            <section
+              id="developer-decision"
+              className="mb-8 rounded-xl border-2 border-blue-200 bg-blue-50/60 p-4 dark:border-blue-800 dark:bg-blue-950/30"
+            >
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
+                Bước sau khi Sở duyệt — cấp căn / chốt danh sách
+              </p>
+              <DeveloperDecisionPanel projectId={projectId} />
+            </section>
             <details className="rounded-xl border border-slate-200 dark:border-slate-700">
               <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
                 Sửa thông tin dự án (tên, căn, tỉ lệ trả trước…)
@@ -609,13 +606,36 @@ export function ProjectDetailPage() {
               </div>
             </details>
           </>
+        ) : role === 'Department Of Construction' ? (
+          // SXD: panel duyệt trạng thái dự án (PENDING → UPCOMING → OPEN)
+          <ProjectDetailView
+            projectId={projectId}
+            headerSlot={(p) => (
+              <ProjectStatusControl
+                project={p}
+                onChanged={() => {
+                  // refetch do chính ProjectDetailView xử lý (window event)
+                }}
+              />
+            )}
+          />
+        ) : (
+          // Applicant / chưa đăng nhập — view công khai
+          <ProjectDetailView projectId={projectId} />
         )}
       </PageCard>
     </div>
   )
 }
 
-function ProjectDetailView({ projectId }: { projectId: string }) {
+function ProjectDetailView({
+  projectId,
+  headerSlot,
+}: {
+  projectId: string
+  /** Render prop để inject nội dung ở đầu trang (vd: panel SXD). */
+  headerSlot?: (project: HousingProjectDto) => React.ReactNode
+}) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [project, setProject] = useState<HousingProjectDto | null>(null)
@@ -643,6 +663,28 @@ function ProjectDetailView({ projectId }: { projectId: string }) {
     return () => {
       cancelled = true
     }
+  }, [projectId])
+
+  // Lắng nghe tín hiệu SXD đổi trạng thái dự án (từ ProjectStatusControl) → refetch
+  useEffect(() => {
+    const handler = () => {
+      let cancelled = false
+      void housingProjectsApi
+        .getById(projectId)
+        .then((data) => {
+          if (cancelled) return
+          const p = extractSingleProject(data)
+          setProject(p)
+        })
+        .catch(() => {
+          // bỏ qua — lần refetch từ useEffect [projectId] đã xử lý lỗi
+        })
+      return () => {
+        cancelled = true
+      }
+    }
+    window.addEventListener('fecaps:project-status-changed', handler)
+    return () => window.removeEventListener('fecaps:project-status-changed', handler)
   }, [projectId])
 
   if (loading) return <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>
@@ -703,6 +745,7 @@ function ProjectDetailView({ projectId }: { projectId: string }) {
 
   return (
     <div className="space-y-8">
+      {project && headerSlot?.(project)}
       {/* Layout 2 cột: Ảnh | Thông tin */}
       <div className="grid gap-6 lg:grid-cols-5">
         {/* Cột trái: Ảnh */}

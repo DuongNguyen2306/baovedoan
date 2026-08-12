@@ -110,6 +110,10 @@ export interface HousingProjectDto {
   imageUrl?: string
   status?: string
   housingProjectStatusId?: string
+  /** Thời điểm SXD duyệt (công bố). BE set khi status chuyển sang UPCOMING. */
+  publicAnnounceAt?: string
+  /** Lý do SXD từ chối (chỉ có khi status=REJECTED) */
+  rejectReason?: string
   applicationOpenDate?: string
   applicationCloseDate?: string
   createdAt?: string
@@ -160,7 +164,11 @@ export interface CreateHousingProjectRequestDto {
   lotteryLocation?: string
   applicationOpenDate?: string
   applicationCloseDate?: string
-  housingProjectStatusId: string
+  /**
+   * Trạng thái dự án. BỎ required — CĐT không được chọn khi tạo (BE mặc định = PENDING,
+   * SXD sẽ duyệt về sau). Truyền lên chỉ khi cập nhật trạng thái qua form sửa.
+   */
+  housingProjectStatusId?: string
   /** Danh sách căn cụ thể (tên / diện tích / giá) */
   apartments?: CreateApartmentDto[]
 }
