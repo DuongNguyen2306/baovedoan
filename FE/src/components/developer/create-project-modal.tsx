@@ -54,14 +54,15 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
   const [street, setStreet] = useState('')
   const [wards, setWards] = useState<string[]>([])
   const [decisionNumber, setDecisionNumber] = useState('')
-  const [approvalDate, setApprovalDate] = useState('')
+  // approvalDate & isConfirmed: BỎ — CĐT không được tự nhập "ngày SXD duyệt" /
+  // tự tick "đã được SXD phê duyệt". BE sẽ tự set `publicAnnounceAt` khi SXD
+  // gọi PATCH status?action=approve (xem ProjectStatusControl).
   const [phase1Percentage, setPhase1Percentage] = useState('20')
   const [lotteryDate, setLotteryDate] = useState('')
   const [lotteryLocation, setLotteryLocation] = useState('')
   const [applicationOpenDate, setApplicationOpenDate] = useState('')
   const [applicationCloseDate, setApplicationCloseDate] = useState('')
   // Trạng thái dự án: KHÔNG cho CĐT chọn — BE mặc định = PENDING.
-  const [isConfirmed, setIsConfirmed] = useState(true)
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
   const [imagesFiles, setImagesFiles] = useState<File[]>([])
   const [apartments, setApartments] = useState<
@@ -75,13 +76,11 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       setWard('')
       setStreet('')
       setDecisionNumber('')
-      setApprovalDate('')
       setPhase1Percentage('')
       setLotteryDate('')
       setLotteryLocation('')
       setApplicationOpenDate('')
       setApplicationCloseDate('')
-      setIsConfirmed(true)
       setThumbnailFile(null)
       setImagesFiles([])
       setApartments([{ unitName: '', area: '', price: '' }])
@@ -107,8 +106,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     if (projectName.trim().length < 5) return 'Tên dự án phải có ít nhất 5 ký tự.'
     if (!ward) return 'Vui lòng chọn phường/xã.'
     if (!decisionNumber.trim()) return 'Vui lòng nhập số quyết định phê duyệt.'
-    if (!approvalDate) return 'Vui lòng chọn ngày phê duyệt.'
-    if (!isConfirmed) return 'Vui lòng xác nhận đã phê duyệt dự án trước khi tạo.'
+    // approvalDate & isConfirmed: BỎ — SXD sẽ tự set khi duyệt dự án.
     return null
   }
 
@@ -158,8 +156,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     projectName,
     ward,
     decisionNumber,
-    approvalDate,
-    isConfirmed,
     phase1Percentage,
     apartments,
   ])
@@ -226,13 +222,13 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
         maxArea: areas.length ? Math.max(...areas) : 0,
         availableUnits: aptPayload.length,
         decisionNumber: decisionNumber.trim() || undefined,
-        approvalDate: approvalDate || undefined,
+        // approvalDate: BỎ — BE set `publicAnnounceAt` khi SXD duyệt.
         phase1Percentage: parseFloat(phase1Percentage),
         lotteryDate: lotteryDate || undefined,
         lotteryLocation: lotteryLocation.trim() || undefined,
         applicationOpenDate: applicationOpenDate || undefined,
         applicationCloseDate: applicationCloseDate || undefined,
-        isConfirmed,
+        // isConfirmed: BỎ — CĐT không tự xác nhận, SXD sẽ duyệt qua panel riêng.
         // housingProjectStatusId: BỎ — BE mặc định = PENDING khi CĐT tạo.
         thumbnailFile: thumbnailFile ?? undefined,
         imagesFiles: imagesFiles.length > 0 ? imagesFiles : undefined,
@@ -298,9 +294,7 @@ projectName,
     ward,
     street,
     decisionNumber,
-    approvalDate,
-    isConfirmed,
-  phase1Percentage,
+    phase1Percentage,
   lotteryDate,
   lotteryLocation,
   applicationOpenDate,
@@ -413,8 +407,9 @@ projectName,
                 />
               </Field>
 
-              {/* === Row 3: Số QĐ (col-4) | Ngày phê duyệt (col-3) | Phê duyệt checkbox (col-5) === */}
-              <Field label="Số quyết định" required className="md:col-span-4">
+              {/* === Row 3: Số QĐ (full) — Ngày phê duyệt + checkbox SXD BỎ.
+                BE sẽ tự set publicAnnounceAt khi SXD gọi PATCH status?action=approve. === */}
+              <Field label="Số quyết định" required className="md:col-span-12">
                 <input
                   className={inputClass}
                   value={decisionNumber}
@@ -423,34 +418,6 @@ projectName,
                   disabled={submitting}
                 />
               </Field>
-              <Field label="Ngày phê duyệt" required className="md:col-span-3">
-                <input
-                  className={inputClass}
-                  type="date"
-                  value={approvalDate}
-                  onChange={(e) => setApprovalDate(e.target.value)}
-                  disabled={submitting}
-                />
-              </Field>
-              <div className="md:col-span-5">
-                <label className="flex h-full cursor-pointer items-center gap-2.5 rounded-md border border-amber-200/70 bg-amber-50/60 px-3 py-1.5 text-xs text-slate-700 transition hover:bg-amber-100/70 dark:border-amber-500/30 dark:bg-amber-950/20 dark:text-slate-200 dark:hover:bg-amber-950/40">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-indigo-600"
-                    checked={isConfirmed}
-                    onChange={(e) => setIsConfirmed(e.target.checked)}
-                    disabled={submitting}
-                  />
-                  <span className="flex-1">
-                    <strong className="block leading-tight text-slate-900 dark:text-white">
-                      Đã được Sở Xây dựng phê duyệt
-                    </strong>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                      Khi tích, dự án sẽ công khai cho người dân.
-                    </span>
-                  </span>
-                </label>
-              </div>
 
               {/* === Row 4: Mô tả (full) === */}
               <Field
