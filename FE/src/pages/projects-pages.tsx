@@ -878,28 +878,29 @@ function ProjectDetailView({
             </div>
           )}
 
-          {/* Nút hành động */}
-          <div className="flex flex-wrap gap-3 pt-2">
-            {logged && isApplicant && (
+          {/* Nút hành động — CHỈ Applicant (người dân) mới thấy.
+              SXD/CĐT/Admin vào xem dự án không có nút nộp hồ sơ hay wishlist. */}
+          {logged && isApplicant && (
+            <div className="flex flex-wrap gap-3 pt-2">
               <Button
                 variant="outline"
                 disabled={wishlistBusy}
                 onClick={handleWishlist}
                 className="gap-2"
               >
-                <Heart className={`h-4 w-4 ${wishlisted ? 'fill-current text-rose-500' : ''}`} />
+                <Heart className={`h-4 w-4 ${wishlistBusy ? 'animate-spin' : ''} ${wishlisted ? 'fill-current text-rose-500' : ''}`} />
                 {wishlisted ? 'Đã quan tâm' : 'Quan tâm'}
               </Button>
-            )}
-            <Button
-              variant="accent"
-              className="flex-1 sm:flex-none"
-              disabled={!canApply && logged && isApplicant}
-              onClick={() => void handleApply()}
-            >
-              {!logged ? 'Đăng nhập để nộp hồ sơ' : 'Nộp hồ sơ ngay'}
-            </Button>
-          </div>
+              <Button
+                variant="accent"
+                className="flex-1 sm:flex-none"
+                disabled={!canApply}
+                onClick={() => void handleApply()}
+              >
+                {canApply ? 'Nộp hồ sơ ngay' : 'Đã đóng đăng ký'}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
