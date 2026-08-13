@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/label'
 import { Input, Select, Textarea } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
+import { Pagination } from '@/components/ui/pagination'
 import { startVnPayPayment } from '@/api/payment'
 import { openVnPayPopupAndWait, vnPayResultMessage } from '@/lib/vnpay-popup'
 import { navigate } from '@/hooks/useHashRoute'
@@ -41,6 +42,24 @@ function DetailRow({ label, value, danger }: { label: string; value: string; dan
   )
 }
 
+function extractTotalCount(data: unknown): number {
+  if (!data || typeof data !== 'object') return 0
+  const o = data as Record<string, unknown>
+  if (typeof o.totalCount === 'number') return o.totalCount
+  const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
+  if (nested && typeof nested.totalCount === 'number') return nested.totalCount
+  return 0
+}
+
+function extractTotalPages(data: unknown): number {
+  if (!data || typeof data !== 'object') return 1
+  const o = data as Record<string, unknown>
+  if (typeof o.totalPages === 'number') return o.totalPages
+  const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
+  if (nested && typeof nested.totalPages === 'number') return nested.totalPages
+  return 1
+}
+
 export function ApplicationsPage() {
   const role = getRole()
   const isApplicant = role === 'Applicant'
@@ -50,6 +69,9 @@ export function ApplicationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
+  const [pageIndex, setPageIndex] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
   const [status, setStatus] = useState<string>(() => {
     if (typeof window === 'undefined') return ''
     const hash = window.location.hash.replace(/^#\/?/, '')
@@ -63,6 +85,7 @@ export function ApplicationsPage() {
   const [bulkMsg, setBulkMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [exporting, setExporting] = useState(false)
   const [tick, setTick] = useState(0)
+  const PAGE_SIZE = 10
 
   useEffect(() => {
     // Auto-refresh: Applicant 1s, SXD/CĐT mỗi 30s
@@ -72,18 +95,21 @@ export function ApplicationsPage() {
     return () => window.clearInterval(id)
   }, [isSxd, isApplicant, isDeveloper])
 
-  const load = async (filter?: { search?: string; status?: string }) => {
+  const load = async (filter?: { search?: string; status?: string }, page = 1) => {
     setLoading(true)
     setError('')
     try {
       const data = isApplicant
-        ? await housingApplicationsApi.getMy({ pageIndex: 1, pageSize: 50, ...filter })
+        ? await housingApplicationsApi.getMy({ pageIndex: page, pageSize: PAGE_SIZE, ...filter })
         : role === 'Housing Developer'
-        ? await housingApplicationsApi.getDeveloperDashboard({ pageIndex: 1, pageSize: 50, ...filter })
+        ? await housingApplicationsApi.getDeveloperDashboard({ pageIndex: page, pageSize: PAGE_SIZE, ...filter })
         : role === 'Department Of Construction'
-        ? await housingApplicationsApi.getSxdDashboard({ pageIndex: 1, pageSize: 50, ...filter })
-        : await housingApplicationsApi.getAll({ pageIndex: 1, pageSize: 50, ...filter })
+        ? await housingApplicationsApi.getSxdDashboard({ pageIndex: page, pageSize: PAGE_SIZE, ...filter })
+        : await housingApplicationsApi.getAll({ pageIndex: page, pageSize: PAGE_SIZE, ...filter })
       setApps(parsePagedApplications(data))
+      setPageIndex(page)
+      setTotalCount(extractTotalCount(data))
+      setTotalPages(extractTotalPages(data))
     } catch (err) {
       setError(formatError(err))
     } finally {
@@ -322,6 +348,14 @@ export function ApplicationsPage() {
                 })}
               </tbody>
             </table>
+            {totalPages > 1 && (
+              <div className="mt-4 flex items-center justify-between px-3 pb-3">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Hiển thị {(pageIndex - 1) * PAGE_SIZE + 1}–{Math.min(pageIndex * PAGE_SIZE, totalCount)} trong {totalCount} hồ sơ
+                </p>
+                <Pagination pageIndex={pageIndex} totalPages={totalPages} onPageChange={(p) => void load({ search: search || undefined, status: status || undefined }, p)} />
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid gap-3">
