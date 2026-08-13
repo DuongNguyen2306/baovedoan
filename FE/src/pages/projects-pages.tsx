@@ -3,8 +3,8 @@ import { CheckCircle2, Heart, MapPin, Plus, Trash2, X } from 'lucide-react'
 import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
 import { CreateProjectModal } from '@/components/developer/create-project-modal'
-import { ProjectStatusControl } from '@/components/developer/project-status-control'
 import { DeveloperDecisionPanel } from '@/components/developer-decision-panel'
+import { ProjectStatusControl } from '@/components/developer/project-status-control'
 import { LocationFields } from '@/components/forms/location-fields'
 import { RichEditor } from '@/components/forms/rich-editor'
 import { HousingSearchForm } from '@/components/housing/housing-search-form'
@@ -565,10 +565,11 @@ export function ProjectDetailPage() {
   const [projectId] = useState(() => sessionStorage.getItem('projectId') ?? '')
   const role = getRole()
   const logged = isLoggedIn()
+  const isApplicant = role === 'Applicant'
   const isDeveloper = role === 'Housing Developer'
   const isAdmin = role === 'System Administrator'
-  // SXD (Department Of Construction) có nhánh render riêng bên dưới (panel duyệt
-  // trạng thái dự án) — không cho sửa thông tin dự án, không cấp căn.
+  const isStaffEditor = logged && (isDeveloper || isAdmin || role === 'Department Of Construction')
+  const showPublicView = !logged || isApplicant || !isStaffEditor
 
   return (
     <div>
@@ -585,18 +586,24 @@ export function ProjectDetailPage() {
           <Alert variant="error">
             Không tìm thấy dự án. Quay lại danh sách và chọn lại dự án.
           </Alert>
-        ) : isDeveloper || isAdmin ? (
-          // Dev/Admin: panel cấp căn + form sửa (giữ nguyên luồng cũ)
+        ) : showPublicView ? (
+          <ProjectDetailView projectId={projectId} />
+        ) : (
           <>
-            <section
-              id="developer-decision"
-              className="mb-8 rounded-xl border-2 border-blue-200 bg-blue-50/60 p-4 dark:border-blue-800 dark:bg-blue-950/30"
-            >
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
-                Bước sau khi Sở duyệt — cấp căn / chốt danh sách
-              </p>
-              <DeveloperDecisionPanel projectId={projectId} />
-            </section>
+            {(isDeveloper || isAdmin) && (
+              <section
+                id="developer-decision"
+                className="mb-8 rounded-xl border-2 border-blue-200 bg-blue-50/60 p-4 dark:border-blue-800 dark:bg-blue-950/30"
+              >
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
+                  Bước sau khi Sở duyệt — cấp căn / chốt danh sách
+                </p>
+                <DeveloperDecisionPanel projectId={projectId} />
+              </section>
+            )}
+            {(role === 'Department Of Construction' || isAdmin) && (
+              <ProjectStatusSection projectId={projectId} />
+            )}
             <details className="rounded-xl border border-slate-200 dark:border-slate-700">
               <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
                 Sửa thông tin dự án (tên, căn, tỉ lệ trả trước…)
@@ -606,22 +613,6 @@ export function ProjectDetailPage() {
               </div>
             </details>
           </>
-        ) : role === 'Department Of Construction' ? (
-          // SXD: panel duyệt trạng thái dự án (PENDING → UPCOMING → OPEN)
-          <ProjectDetailView
-            projectId={projectId}
-            headerSlot={(p) => (
-              <ProjectStatusControl
-                project={p}
-                onChanged={() => {
-                  // refetch do chính ProjectDetailView xử lý (window event)
-                }}
-              />
-            )}
-          />
-        ) : (
-          // Applicant / chưa đăng nhập — view công khai
-          <ProjectDetailView projectId={projectId} />
         )}
       </PageCard>
     </div>
@@ -663,28 +654,6 @@ function ProjectDetailView({
     return () => {
       cancelled = true
     }
-  }, [projectId])
-
-  // Lắng nghe tín hiệu SXD đổi trạng thái dự án (từ ProjectStatusControl) → refetch
-  useEffect(() => {
-    const handler = () => {
-      let cancelled = false
-      void housingProjectsApi
-        .getById(projectId)
-        .then((data) => {
-          if (cancelled) return
-          const p = extractSingleProject(data)
-          setProject(p)
-        })
-        .catch(() => {
-          // bỏ qua — lần refetch từ useEffect [projectId] đã xử lý lỗi
-        })
-      return () => {
-        cancelled = true
-      }
-    }
-    window.addEventListener('fecaps:project-status-changed', handler)
-    return () => window.removeEventListener('fecaps:project-status-changed', handler)
   }, [projectId])
 
   if (loading) return <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>
@@ -878,29 +847,28 @@ function ProjectDetailView({
             </div>
           )}
 
-          {/* Nút hành động — CHỈ Applicant (người dân) mới thấy.
-              SXD/CĐT/Admin vào xem dự án không có nút nộp hồ sơ hay wishlist. */}
-          {logged && isApplicant && (
-            <div className="flex flex-wrap gap-3 pt-2">
+          {/* Nút hành động */}
+          <div className="flex flex-wrap gap-3 pt-2">
+            {logged && isApplicant && (
               <Button
                 variant="outline"
                 disabled={wishlistBusy}
                 onClick={handleWishlist}
                 className="gap-2"
               >
-                <Heart className={`h-4 w-4 ${wishlistBusy ? 'animate-spin' : ''} ${wishlisted ? 'fill-current text-rose-500' : ''}`} />
+                <Heart className={`h-4 w-4 ${wishlisted ? 'fill-current text-rose-500' : ''}`} />
                 {wishlisted ? 'Đã quan tâm' : 'Quan tâm'}
               </Button>
-              <Button
-                variant="accent"
-                className="flex-1 sm:flex-none"
-                disabled={!canApply}
-                onClick={() => void handleApply()}
-              >
-                {canApply ? 'Nộp hồ sơ ngay' : 'Đã đóng đăng ký'}
-              </Button>
-            </div>
-          )}
+            )}
+            <Button
+              variant="accent"
+              className="flex-1 sm:flex-none"
+              disabled={!canApply && logged && isApplicant}
+              onClick={() => void handleApply()}
+            >
+              {!logged ? 'Đăng nhập để nộp hồ sơ' : 'Nộp hồ sơ ngay'}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -946,6 +914,37 @@ function ProjectDetailView({
       )}
     </div>
   )
+}
+
+// Wrapper SXD: load project rồi render ProjectStatusControl.
+function ProjectStatusSection({ projectId }: { projectId: string }) {
+  const [project, setProject] = useState<HousingProjectDto | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    void housingProjectsApi
+      .getById(projectId)
+      .then((data) => {
+        if (cancelled) return
+        setProject(extractSingleProject(data))
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(formatError(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [projectId])
+
+  if (loading) return <p className="text-sm text-slate-500">Đang tải...</p>
+  if (error) return <Alert variant="error">{error}</Alert>
+  if (!project) return null
+
+  return <ProjectStatusControl project={project} />
 }
 
 function InfoItem({ label, value }: { label: string; value: string | number }) {
