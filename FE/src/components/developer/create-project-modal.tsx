@@ -228,7 +228,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
         lotteryLocation: lotteryLocation.trim() || undefined,
         applicationOpenDate: applicationOpenDate || undefined,
         applicationCloseDate: applicationCloseDate || undefined,
-        // isConfirmed: BỎ — CĐT không tự xác nhận, SXD sẽ duyệt qua panel riêng.
+        isConfirmed: true,
         // housingProjectStatusId: BỎ — BE mặc định = PENDING khi CĐT tạo.
         thumbnailFile: thumbnailFile ?? undefined,
         imagesFiles: imagesFiles.length > 0 ? imagesFiles : undefined,
