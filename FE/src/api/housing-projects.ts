@@ -176,7 +176,7 @@ export function parseProjectEvaluation(data: unknown): ProjectApplicationEvaluat
 
 export const housingProjectsApi = {
   list: (params?: HousingProjectFilter) =>
-    request<ApiResult>(`/api/HousingProjects?${buildQuery(params)}`),
+    request<ApiResult>(`/api/HousingProjects?${buildQuery(params)}`, { auth: true }),
 
   create: (body: CreateHousingProjectRequestDto) =>
     request<ApiResult>('/api/HousingProjects', {
@@ -187,7 +187,7 @@ export const housingProjectsApi = {
     }),
 
   getById: (id: string) =>
-    request<ApiResult>(`/api/HousingProjects/${id}`),
+    request<ApiResult>(`/api/HousingProjects/${id}`, { auth: true }),
 
   update: (id: string, body: CreateHousingProjectRequestDto) =>
     request<ApiResult>(`/api/HousingProjects/${id}`, {
