@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import {
@@ -88,11 +89,16 @@ export function DashboardPage() {
   const role = getRole()
   const home = roleHome(role)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['dashboard-apps'],
     queryFn: () => housingApplicationsApi.getMy({ pageSize: 5 }),
     retry: false,
+    refetchOnMount: true,
   })
+
+  useEffect(() => {
+    void refetch()
+  }, [refetch])
 
   const apps = parsePagedApplications(data)
   const pending = apps.filter((a) => ['SUBMITTED', 'REVIEWING'].includes(a.applicationStatus)).length

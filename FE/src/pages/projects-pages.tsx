@@ -4,6 +4,7 @@ import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
 import { CreateProjectModal } from '@/components/developer/create-project-modal'
 import { DeveloperDecisionPanel } from '@/components/developer-decision-panel'
+import { ProjectStatusControl } from '@/components/developer/project-status-control'
 import { LocationFields } from '@/components/forms/location-fields'
 import { RichEditor } from '@/components/forms/rich-editor'
 import { HousingSearchForm } from '@/components/housing/housing-search-form'
@@ -14,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/label'
 import { Input, Select } from '@/components/ui/input'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Pagination } from '@/components/ui/pagination'
 import { Skeleton } from '@/components/ui/skeleton'
 import { navigate } from '@/hooks/useHashRoute'
 import { useWishlist } from '@/hooks/useWishlist'
@@ -34,6 +36,24 @@ import {
 } from '@/lib/housing-search'
 import type { CreateApartmentDto, CreateHousingProjectRequestDto, HousingProjectDto } from '@/types'
 
+function getTotalCount(data: unknown): number {
+  if (!data || typeof data !== 'object') return 0
+  const o = data as Record<string, unknown>
+  if (typeof o.totalCount === 'number') return o.totalCount
+  const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
+  if (nested && typeof nested.totalCount === 'number') return nested.totalCount
+  return 0
+}
+
+function getTotalPages(data: unknown): number {
+  if (!data || typeof data !== 'object') return 1
+  const o = data as Record<string, unknown>
+  if (typeof o.totalPages === 'number') return o.totalPages
+  const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
+  if (nested && typeof nested.totalPages === 'number') return nested.totalPages
+  return 1
+}
+
 export function ProjectsPage() {
   const [all, setAll] = useState<HousingProjectDto[]>([])
   const [filter, setFilter] = useState<HousingSearchFilter>({ ...EMPTY_HOUSING_SEARCH })
@@ -43,21 +63,30 @@ export function ProjectsPage() {
   const [flashDelete, setFlashDelete] = useState(false)
   const [showCreateProject, setShowCreateProject] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  const [pageIndex, setPageIndex] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
   const isApplicant = getRole() === 'Applicant'
+  const PAGE_SIZE = 12
 
-  const load = async (nextFilter: HousingSearchFilter) => {
+  const load = async (nextFilter: HousingSearchFilter, page = 1) => {
     setLoading(true)
     setError('')
     try {
-      const data = await housingProjectsApi.list(toApiFilter(nextFilter))
+      const data = await housingProjectsApi.list({ ...toApiFilter(nextFilter), pageIndex: page, pageSize: PAGE_SIZE })
       const items = sortHousingProjects(
         applyClientFilters(extractProjects(data), nextFilter),
         nextFilter.sort,
       )
       setAll(items)
+      setPageIndex(page)
+      setTotalCount(getTotalCount(data))
+      setTotalPages(getTotalPages(data))
     } catch (err) {
       setError(formatError(err))
       setAll([])
+      setTotalPages(1)
+      setTotalCount(0)
     } finally {
       setLoading(false)
     }
@@ -177,11 +206,21 @@ export function ProjectsPage() {
         )}
 
         {!loading && cards.length > 0 && (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {cards.map((house) => (
-              <HouseCard key={house.id} house={house} />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {cards.map((house) => (
+                <HouseCard key={house.id} house={house} />
+              ))}
+            </div>
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-between">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Hiển thị {(pageIndex - 1) * PAGE_SIZE + 1}–{Math.min(pageIndex * PAGE_SIZE, totalCount)} trong {totalCount} dự án
+                </p>
+                <Pagination pageIndex={pageIndex} totalPages={totalPages} onPageChange={(p) => void load(filter, p)} />
+              </div>
+            )}
+          </>
         )}
       </PageCard>
       <CreateProjectModal
@@ -600,6 +639,9 @@ export function ProjectDetailPage() {
                 <DeveloperDecisionPanel projectId={projectId} />
               </section>
             )}
+            {(role === 'Department Of Construction' || isAdmin) && (
+              <ProjectStatusSection projectId={projectId} />
+            )}
             <details className="rounded-xl border border-slate-200 dark:border-slate-700">
               <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
                 Sửa thông tin dự án (tên, căn, tỉ lệ trả trước…)
@@ -615,7 +657,14 @@ export function ProjectDetailPage() {
   )
 }
 
-function ProjectDetailView({ projectId }: { projectId: string }) {
+function ProjectDetailView({
+  projectId,
+  headerSlot,
+}: {
+  projectId: string
+  /** Render prop để inject nội dung ở đầu trang (vd: panel SXD). */
+  headerSlot?: (project: HousingProjectDto) => React.ReactNode
+}) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [project, setProject] = useState<HousingProjectDto | null>(null)
@@ -703,6 +752,7 @@ function ProjectDetailView({ projectId }: { projectId: string }) {
 
   return (
     <div className="space-y-8">
+      {project && headerSlot?.(project)}
       {/* Layout 2 cột: Ảnh | Thông tin */}
       <div className="grid gap-6 lg:grid-cols-5">
         {/* Cột trái: Ảnh */}
@@ -902,6 +952,37 @@ function ProjectDetailView({ projectId }: { projectId: string }) {
       )}
     </div>
   )
+}
+
+// Wrapper SXD: load project rồi render ProjectStatusControl.
+function ProjectStatusSection({ projectId }: { projectId: string }) {
+  const [project, setProject] = useState<HousingProjectDto | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    void housingProjectsApi
+      .getById(projectId)
+      .then((data) => {
+        if (cancelled) return
+        setProject(extractSingleProject(data))
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(formatError(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [projectId])
+
+  if (loading) return <p className="text-sm text-slate-500">Đang tải...</p>
+  if (error) return <Alert variant="error">{error}</Alert>
+  if (!project) return null
+
+  return <ProjectStatusControl project={project} />
 }
 
 function InfoItem({ label, value }: { label: string; value: string | number }) {

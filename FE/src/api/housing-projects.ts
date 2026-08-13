@@ -93,7 +93,9 @@ function toFormData(body: CreateHousingProjectRequestDto): FormData {
   if (body.lotteryLocation) fd.append('LotteryLocation', body.lotteryLocation)
   if (body.applicationOpenDate) fd.append('ApplicationOpenDate', body.applicationOpenDate)
   if (body.applicationCloseDate) fd.append('ApplicationCloseDate', body.applicationCloseDate)
-  fd.append('HousingProjectStatusId', body.housingProjectStatusId)
+  // housingProjectStatusId: optional — CĐT tạo không truyền (BE mặc định = PENDING),
+  // chỉ truyền khi SXD / CĐT cập nhật trạng thái qua form sửa.
+  if (body.housingProjectStatusId) fd.append('HousingProjectStatusId', body.housingProjectStatusId)
   if (body.thumbnailUrl) fd.append('ThumbnailUrl', body.thumbnailUrl)
   if (body.thumbnailFile) fd.append('ThumbnailFile', body.thumbnailFile)
   if (body.imagesFiles) {
@@ -174,7 +176,7 @@ export function parseProjectEvaluation(data: unknown): ProjectApplicationEvaluat
 
 export const housingProjectsApi = {
   list: (params?: HousingProjectFilter) =>
-    request<ApiResult>(`/api/HousingProjects?${buildQuery(params)}`),
+    request<ApiResult>(`/api/HousingProjects?${buildQuery(params)}`, { auth: true }),
 
   create: (body: CreateHousingProjectRequestDto) =>
     request<ApiResult>('/api/HousingProjects', {
@@ -185,7 +187,7 @@ export const housingProjectsApi = {
     }),
 
   getById: (id: string) =>
-    request<ApiResult>(`/api/HousingProjects/${id}`),
+    request<ApiResult>(`/api/HousingProjects/${id}`, { auth: true }),
 
   update: (id: string, body: CreateHousingProjectRequestDto) =>
     request<ApiResult>(`/api/HousingProjects/${id}`, {
@@ -204,10 +206,37 @@ export const housingProjectsApi = {
   getEvaluation: (id: string) =>
     request<ApiResult>(`/api/HousingProjects/${id}/application-evaluation`, { auth: true }),
 
+  /**
+   * SXD chuyển trạng thái dự án:
+   *  - action='approve' : PENDING → UPCOMING (BE set publicAnnounceAt = now)
+   *  - action='open'    : UPCOMING → OPEN (mở đăng ký sớm, không cần đợi 30 ngày)
+   *  - action='reject'  : PENDING → REJECTED (cần truyền rejectReason)
+   *
+   * Sau khi gọi, refetch project để có status + publicAnnounceAt mới nhất.
+   */
+  patchStatus: (id: string, opts: PatchStatusOptions) => {
+    const qs = new URLSearchParams()
+    qs.set('action', opts.action)
+    if (opts.rejectReason) qs.set('rejectReason', opts.rejectReason)
+    return request<ApiResult>(`/api/HousingProjects/${id}/status?${qs.toString()}`, {
+      method: 'PATCH',
+      auth: true,
+    })
+  },
+
   executeDeveloperDecision: (id: string, body: DeveloperWorkflowDecisionRequestDto) =>
     request<ApiResult>(`/api/HousingProjects/${id}/developer-decision`, {
       method: 'POST',
       body: JSON.stringify(body),
       auth: true,
     }),
+}
+
+/** Action SXD dùng để chuyển trạng thái dự án. Match với BE controller. */
+export type ProjectStatusAction = 'approve' | 'open' | 'reject'
+
+export interface PatchStatusOptions {
+  action: ProjectStatusAction
+  /** Bắt buộc nếu action='reject' */
+  rejectReason?: string
 }

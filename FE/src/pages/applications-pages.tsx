@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/label'
 import { Input, Select, Textarea } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
+import { Pagination } from '@/components/ui/pagination'
 import { startVnPayPayment } from '@/api/payment'
 import { openVnPayPopupAndWait, vnPayResultMessage } from '@/lib/vnpay-popup'
 import { navigate } from '@/hooks/useHashRoute'
@@ -41,6 +42,24 @@ function DetailRow({ label, value, danger }: { label: string; value: string; dan
   )
 }
 
+function extractTotalCount(data: unknown): number {
+  if (!data || typeof data !== 'object') return 0
+  const o = data as Record<string, unknown>
+  if (typeof o.totalCount === 'number') return o.totalCount
+  const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
+  if (nested && typeof nested.totalCount === 'number') return nested.totalCount
+  return 0
+}
+
+function extractTotalPages(data: unknown): number {
+  if (!data || typeof data !== 'object') return 1
+  const o = data as Record<string, unknown>
+  if (typeof o.totalPages === 'number') return o.totalPages
+  const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
+  if (nested && typeof nested.totalPages === 'number') return nested.totalPages
+  return 1
+}
+
 export function ApplicationsPage() {
   const role = getRole()
   const isApplicant = role === 'Applicant'
@@ -50,6 +69,9 @@ export function ApplicationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
+  const [pageIndex, setPageIndex] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
   const [status, setStatus] = useState<string>(() => {
     if (typeof window === 'undefined') return ''
     const hash = window.location.hash.replace(/^#\/?/, '')
@@ -62,27 +84,32 @@ export function ApplicationsPage() {
   const [bulkSending, setBulkSending] = useState(false)
   const [bulkMsg, setBulkMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [exporting, setExporting] = useState(false)
-  const [, setTick] = useState(0)
+  const [tick, setTick] = useState(0)
+  const PAGE_SIZE = 100 // Tăng để hiển thị tất cả hồ sơ
 
   useEffect(() => {
-    if (!isSxd && !isApplicant) return
-    const ms = isApplicant ? 1_000 : 60_000
+    // Auto-refresh: Applicant 500ms (fast), SXD/CĐT mỗi 30s
+    if (!role || role === 'System Administrator') return
+    const ms = isApplicant ? 500 : 30_000
     const id = window.setInterval(() => setTick((t) => t + 1), ms)
     return () => window.clearInterval(id)
-  }, [isSxd, isApplicant])
+  }, [isSxd, isApplicant, isDeveloper])
 
-  const load = async (filter?: { search?: string; status?: string }) => {
+  const load = async (filter?: { search?: string; status?: string }, page = 1) => {
     setLoading(true)
     setError('')
     try {
       const data = isApplicant
-        ? await housingApplicationsApi.getMy({ pageIndex: 1, pageSize: 50, ...filter })
+        ? await housingApplicationsApi.getMy({ pageIndex: page, pageSize: PAGE_SIZE, ...filter })
         : role === 'Housing Developer'
-        ? await housingApplicationsApi.getDeveloperDashboard({ pageIndex: 1, pageSize: 50, ...filter })
+        ? await housingApplicationsApi.getDeveloperDashboard({ pageIndex: page, pageSize: PAGE_SIZE, ...filter })
         : role === 'Department Of Construction'
-        ? await housingApplicationsApi.getSxdDashboard({ pageIndex: 1, pageSize: 50, ...filter })
-        : await housingApplicationsApi.getAll({ pageIndex: 1, pageSize: 50, ...filter })
+        ? await housingApplicationsApi.getSxdDashboard({ pageIndex: page, pageSize: PAGE_SIZE, ...filter })
+        : await housingApplicationsApi.getAll({ pageIndex: page, pageSize: PAGE_SIZE, ...filter })
       setApps(parsePagedApplications(data))
+      setPageIndex(page)
+      setTotalCount(extractTotalCount(data))
+      setTotalPages(extractTotalPages(data))
     } catch (err) {
       setError(formatError(err))
     } finally {
@@ -90,7 +117,7 @@ export function ApplicationsPage() {
     }
   }
 
-  useEffect(() => { void load({ status: status || undefined }) }, [isApplicant, role])
+  useEffect(() => { void load({ status: status || undefined }) }, [isApplicant, role, status, tick])
 
   const submittable = useMemo(
     () => apps.filter((a) => a.applicationStatus === 'REVIEWING'),
@@ -154,7 +181,7 @@ export function ApplicationsPage() {
       <PageCard className="p-6">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            {loading ? 'Đang tải...' : `Tổng cộng ${apps.length} hồ sơ`}
+            {loading ? 'Đang tải...' : `Tổng cộng ${totalCount} hồ sơ${totalPages > 1 ? ` (trang ${pageIndex}/${totalPages})` : ''}`}
           </p>
           <div className="flex flex-wrap gap-2">
             {(isDeveloper || isSxd) && (
@@ -187,7 +214,12 @@ export function ApplicationsPage() {
               {Object.entries(APPLICATION_STATUS).map(([v, s]) => <option key={v} value={v}>{s.label}</option>)}
             </Select>
           </FormField>
-          <div className="flex items-end"><Button type="submit" variant="outline">Lọc</Button></div>
+          <div className="flex items-end gap-2">
+            <Button type="submit" variant="outline">Lọc</Button>
+            <Button type="button" variant="ghost" onClick={() => void load({ search: search || undefined, status: status || undefined })} title="Tải lại danh sách">
+              <Sparkles className="h-4 w-4" />
+            </Button>
+          </div>
         </form>
 
         {isDeveloper && submittable.length > 0 && (
@@ -316,6 +348,14 @@ export function ApplicationsPage() {
                 })}
               </tbody>
             </table>
+            {totalPages > 1 && (
+              <div className="mt-4 flex items-center justify-between px-3 pb-3">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Hiển thị {(pageIndex - 1) * PAGE_SIZE + 1}–{Math.min(pageIndex * PAGE_SIZE, totalCount)} trong {totalCount} hồ sơ
+                </p>
+                <Pagination pageIndex={pageIndex} totalPages={totalPages} onPageChange={(p) => void load({ search: search || undefined, status: status || undefined }, p)} />
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid gap-3">
