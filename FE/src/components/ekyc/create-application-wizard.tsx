@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowRight,
@@ -175,6 +176,7 @@ function Stepper({ progress }: { progress: Record<Step, 'todo' | 'doing' | 'done
 
 export function CreateApplicationWizard() {
   const { fullName: profileFullName } = useUserProfile()
+  const queryClient = useQueryClient()
 
   const [step, setStep] = useState<Step>(1)
   const [completedSteps, setCompletedSteps] = useState<Step[]>([])
@@ -530,6 +532,9 @@ export function CreateApplicationWizard() {
       const newStatus = result?.newStatus ?? result?.NewStatus ?? 'SUBMITTED'
       setDraftStatus(newStatus)
       setCompletedSteps((prev) => (prev.includes(5) ? prev : [...prev, 5]))
+      // Invalidate dashboard queries so the new application appears immediately in the list
+      await queryClient.invalidateQueries({ queryKey: ['dashboard-apps'] })
+      await queryClient.invalidateQueries({ queryKey: ['housing-applications'] })
       setMsg({ type: 'success', text: `Nộp hồ sơ thành công (trạng thái: ${newStatus}). Hệ thống sẽ chuyển sang trang chi tiết.` })
       setTimeout(() => {
         sessionStorage.setItem('applicationId', draftId)

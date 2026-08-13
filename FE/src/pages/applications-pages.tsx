@@ -85,12 +85,12 @@ export function ApplicationsPage() {
   const [bulkMsg, setBulkMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [exporting, setExporting] = useState(false)
   const [tick, setTick] = useState(0)
-  const PAGE_SIZE = 10
+  const PAGE_SIZE = 100 // Tăng để hiển thị tất cả hồ sơ
 
   useEffect(() => {
-    // Auto-refresh: Applicant 1s, SXD/CĐT mỗi 30s
+    // Auto-refresh: Applicant 500ms (fast), SXD/CĐT mỗi 30s
     if (!role || role === 'System Administrator') return
-    const ms = isApplicant ? 1_000 : 30_000
+    const ms = isApplicant ? 500 : 30_000
     const id = window.setInterval(() => setTick((t) => t + 1), ms)
     return () => window.clearInterval(id)
   }, [isSxd, isApplicant, isDeveloper])
@@ -181,7 +181,7 @@ export function ApplicationsPage() {
       <PageCard className="p-6">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            {loading ? 'Đang tải...' : `Tổng cộng ${apps.length} hồ sơ`}
+            {loading ? 'Đang tải...' : `Tổng cộng ${totalCount} hồ sơ${totalPages > 1 ? ` (trang ${pageIndex}/${totalPages})` : ''}`}
           </p>
           <div className="flex flex-wrap gap-2">
             {(isDeveloper || isSxd) && (
