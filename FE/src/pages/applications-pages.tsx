@@ -62,14 +62,15 @@ export function ApplicationsPage() {
   const [bulkSending, setBulkSending] = useState(false)
   const [bulkMsg, setBulkMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [exporting, setExporting] = useState(false)
-  const [, setTick] = useState(0)
+  const [tick, setTick] = useState(0)
 
   useEffect(() => {
-    if (!isSxd && !isApplicant) return
-    const ms = isApplicant ? 1_000 : 60_000
+    // Auto-refresh: Applicant 1s, SXD/CĐT mỗi 30s
+    if (!role || role === 'System Administrator') return
+    const ms = isApplicant ? 1_000 : 30_000
     const id = window.setInterval(() => setTick((t) => t + 1), ms)
     return () => window.clearInterval(id)
-  }, [isSxd, isApplicant])
+  }, [isSxd, isApplicant, isDeveloper])
 
   const load = async (filter?: { search?: string; status?: string }) => {
     setLoading(true)
@@ -90,7 +91,7 @@ export function ApplicationsPage() {
     }
   }
 
-  useEffect(() => { void load({ status: status || undefined }) }, [isApplicant, role])
+  useEffect(() => { void load({ status: status || undefined }) }, [isApplicant, role, status, tick])
 
   const submittable = useMemo(
     () => apps.filter((a) => a.applicationStatus === 'REVIEWING'),
@@ -187,7 +188,12 @@ export function ApplicationsPage() {
               {Object.entries(APPLICATION_STATUS).map(([v, s]) => <option key={v} value={v}>{s.label}</option>)}
             </Select>
           </FormField>
-          <div className="flex items-end"><Button type="submit" variant="outline">Lọc</Button></div>
+          <div className="flex items-end gap-2">
+            <Button type="submit" variant="outline">Lọc</Button>
+            <Button type="button" variant="ghost" onClick={() => void load({ search: search || undefined, status: status || undefined })} title="Tải lại danh sách">
+              <Sparkles className="h-4 w-4" />
+            </Button>
+          </div>
         </form>
 
         {isDeveloper && submittable.length > 0 && (
