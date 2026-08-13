@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { FormField } from '@/components/ui/label'
 import { Input, Select } from '@/components/ui/input'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Pagination } from '@/components/ui/pagination'
 import { Skeleton } from '@/components/ui/skeleton'
 import { navigate } from '@/hooks/useHashRoute'
 import { useWishlist } from '@/hooks/useWishlist'
@@ -35,6 +36,24 @@ import {
 } from '@/lib/housing-search'
 import type { CreateApartmentDto, CreateHousingProjectRequestDto, HousingProjectDto } from '@/types'
 
+function getTotalCount(data: unknown): number {
+  if (!data || typeof data !== 'object') return 0
+  const o = data as Record<string, unknown>
+  if (typeof o.totalCount === 'number') return o.totalCount
+  const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
+  if (nested && typeof nested.totalCount === 'number') return nested.totalCount
+  return 0
+}
+
+function getTotalPages(data: unknown): number {
+  if (!data || typeof data !== 'object') return 1
+  const o = data as Record<string, unknown>
+  if (typeof o.totalPages === 'number') return o.totalPages
+  const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
+  if (nested && typeof nested.totalPages === 'number') return nested.totalPages
+  return 1
+}
+
 export function ProjectsPage() {
   const [all, setAll] = useState<HousingProjectDto[]>([])
   const [filter, setFilter] = useState<HousingSearchFilter>({ ...EMPTY_HOUSING_SEARCH })
@@ -44,21 +63,30 @@ export function ProjectsPage() {
   const [flashDelete, setFlashDelete] = useState(false)
   const [showCreateProject, setShowCreateProject] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  const [pageIndex, setPageIndex] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
   const isApplicant = getRole() === 'Applicant'
+  const PAGE_SIZE = 12
 
-  const load = async (nextFilter: HousingSearchFilter) => {
+  const load = async (nextFilter: HousingSearchFilter, page = 1) => {
     setLoading(true)
     setError('')
     try {
-      const data = await housingProjectsApi.list(toApiFilter(nextFilter))
+      const data = await housingProjectsApi.list({ ...toApiFilter(nextFilter), pageIndex: page, pageSize: PAGE_SIZE })
       const items = sortHousingProjects(
         applyClientFilters(extractProjects(data), nextFilter),
         nextFilter.sort,
       )
       setAll(items)
+      setPageIndex(page)
+      setTotalCount(getTotalCount(data))
+      setTotalPages(getTotalPages(data))
     } catch (err) {
       setError(formatError(err))
       setAll([])
+      setTotalPages(1)
+      setTotalCount(0)
     } finally {
       setLoading(false)
     }
@@ -178,11 +206,21 @@ export function ProjectsPage() {
         )}
 
         {!loading && cards.length > 0 && (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {cards.map((house) => (
-              <HouseCard key={house.id} house={house} />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {cards.map((house) => (
+                <HouseCard key={house.id} house={house} />
+              ))}
+            </div>
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-between">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Hiển thị {(pageIndex - 1) * PAGE_SIZE + 1}–{Math.min(pageIndex * PAGE_SIZE, totalCount)} trong {totalCount} dự án
+                </p>
+                <Pagination pageIndex={pageIndex} totalPages={totalPages} onPageChange={(p) => void load(filter, p)} />
+              </div>
+            )}
+          </>
         )}
       </PageCard>
       <CreateProjectModal
