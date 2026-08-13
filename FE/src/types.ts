@@ -259,7 +259,9 @@ export interface ApplicationSummaryDto {
   updatedAt?: string | null
   finalDecisionDate?: string | null
   housingStatus: string
+  /** @deprecated BE đã đổi sang monthlyIncome — giữ để tương thích UI cũ */
   estimatedMonthlyIncome: number
+  monthlyIncome?: number | null
   documentCount: number
   receiptUrl?: string | null
   isViolation?: boolean
@@ -306,7 +308,13 @@ export interface ApplicationDetailDto {
   currentResidence: string
   permanentAddress: string
   housingStatus: string
+  maritalStatus?: string | null
+  priorityGroup?: string | null
+  /** @deprecated dùng monthlyIncome */
   estimatedMonthlyIncome: number
+  monthlyIncome?: number | null
+  spouseMonthlyIncome?: number | null
+  averageHousingAreaPerPerson?: number | null
   officerId?: string | null
   officerFullName?: string | null
   documents?: ApplicationDocumentDto[]

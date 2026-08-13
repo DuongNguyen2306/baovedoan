@@ -54,7 +54,13 @@ export function parsePagedApplications(data: unknown): ApplicationSummaryDto[] {
       submittedAt: str(x.submittedAt ?? x.SubmittedAt),
       updatedAt: (x.updatedAt ?? x.UpdatedAt) as string | null | undefined,
       housingStatus: str(x.housingStatus ?? x.HousingStatus),
-      estimatedMonthlyIncome: Number(x.estimatedMonthlyIncome ?? x.EstimatedMonthlyIncome ?? 0),
+      monthlyIncome: (() => {
+        const v = x.monthlyIncome ?? x.MonthlyIncome ?? x.estimatedMonthlyIncome ?? x.EstimatedMonthlyIncome
+        return v == null || v === '' ? null : Number(v)
+      })(),
+      estimatedMonthlyIncome: Number(
+        x.monthlyIncome ?? x.MonthlyIncome ?? x.estimatedMonthlyIncome ?? x.EstimatedMonthlyIncome ?? 0,
+      ),
       documentCount: Number(x.documentCount ?? x.DocumentCount ?? 0),
       receiptUrl: (x.receiptUrl ?? x.ReceiptUrl) as string | null | undefined,
       isViolation: Boolean(x.isViolation ?? x.IsViolation ?? false),
@@ -80,11 +86,24 @@ export function parseApplicationDetail(data: unknown): ApplicationDetailDto | nu
   const aptStatus = o.apartmentStatus ?? o.ApartmentStatus
   const slot = o.slotCode ?? o.SlotCode
   const lottery = o.lotteryResult ?? o.LotteryResult
+  const monthlyRaw = o.monthlyIncome ?? o.MonthlyIncome ?? o.estimatedMonthlyIncome ?? o.EstimatedMonthlyIncome
+  const spouseRaw = o.spouseMonthlyIncome ?? o.SpouseMonthlyIncome
+  const monthlyIncome = monthlyRaw == null || monthlyRaw === '' ? null : Number(monthlyRaw)
+  const spouseMonthlyIncome = spouseRaw == null || spouseRaw === '' ? null : Number(spouseRaw)
   return {
     ...app,
     applicationId: String(o.applicationId ?? o.ApplicationId ?? app.applicationId ?? ''),
     projectId: String(o.projectId ?? o.ProjectId ?? app.projectId ?? ''),
     applicationStatus: String(o.applicationStatus ?? o.ApplicationStatus ?? app.applicationStatus ?? ''),
+    maritalStatus: (o.maritalStatus ?? o.MaritalStatus ?? app.maritalStatus) as string | null | undefined,
+    priorityGroup: (o.priorityGroup ?? o.PriorityGroup ?? app.priorityGroup) as string | null | undefined,
+    monthlyIncome,
+    spouseMonthlyIncome,
+    estimatedMonthlyIncome: monthlyIncome ?? 0,
+    averageHousingAreaPerPerson: (() => {
+      const v = o.averageHousingAreaPerPerson ?? o.AverageHousingAreaPerPerson
+      return v == null || v === '' ? null : Number(v)
+    })(),
     slotCode: slot != null ? String(slot) : app.slotCode,
     lotteryResult: lottery != null ? String(lottery) : app.lotteryResult,
     apartmentId: aptId != null && String(aptId) ? String(aptId) : null,
@@ -304,7 +323,11 @@ export const housingApplicationsApi = {
               currentResidence: context.applicationInfo.currentResidence,
               permanentAddress: context.applicationInfo.permanentAddress,
               housingStatus: context.applicationInfo.housingStatus,
-              estimatedMonthlyIncome: context.applicationInfo.estimatedMonthlyIncome,
+              estimatedMonthlyIncome:
+                context.applicationInfo.monthlyIncome ??
+                context.applicationInfo.estimatedMonthlyIncome,
+              monthlyIncome: context.applicationInfo.monthlyIncome,
+              spouseMonthlyIncome: context.applicationInfo.spouseMonthlyIncome,
               isViolation: context.applicationInfo.isViolation,
               violationReason: context.applicationInfo.violationReason,
               projectId: context.applicationInfo.projectId,

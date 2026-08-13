@@ -658,7 +658,20 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
         <DetailRow label="Nơi ở hiện tại" value={app.currentResidence} />
         <DetailRow label="Thường trú/tạm trú" value={app.permanentAddress} />
         <DetailRow label="Thực trạng nhà ở" value={HOUSING_STATUS_LABELS[app.housingStatus] ?? app.housingStatus} />
-        <DetailRow label="Thu nhập/tháng" value={`${Number(app.estimatedMonthlyIncome).toLocaleString('vi-VN')} VNĐ`} />
+        <DetailRow
+          label="Thu nhập/tháng"
+          value={
+            app.monthlyIncome != null || app.estimatedMonthlyIncome
+              ? `${Number(app.monthlyIncome ?? app.estimatedMonthlyIncome).toLocaleString('vi-VN')} VNĐ`
+              : '—'
+          }
+        />
+        {app.spouseMonthlyIncome != null && (
+          <DetailRow
+            label="Thu nhập vợ/chồng"
+            value={`${Number(app.spouseMonthlyIncome).toLocaleString('vi-VN')} VNĐ`}
+          />
+        )}
         <DetailRow label="Ngày tạo" value={new Date(app.createdAt).toLocaleString('vi-VN')} />
         {app.submittedAt && <DetailRow label="Ngày nộp" value={new Date(app.submittedAt).toLocaleString('vi-VN')} />}
         {app.finalDecisionDate && (
