@@ -229,7 +229,8 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
         applicationOpenDate: applicationOpenDate || undefined,
         applicationCloseDate: applicationCloseDate || undefined,
         isConfirmed: true,
-        // housingProjectStatusId: BỎ — BE mặc định = PENDING khi CĐT tạo.
+        // PENDING GUID từ /api/housing-project-statuses → f4f45259-46f8-4061-9916-7ede2422c159
+        housingProjectStatusId: 'f4f45259-46f8-4061-9916-7ede2422c159',
         thumbnailFile: thumbnailFile ?? undefined,
         imagesFiles: imagesFiles.length > 0 ? imagesFiles : undefined,
         apartments: aptPayload,
