@@ -26,13 +26,53 @@ function str(v: unknown): string {
   return v == null ? '' : String(v)
 }
 
+function pagedBody(data: unknown): Record<string, unknown> {
+  if (!data || typeof data !== 'object') return {}
+  const o = data as Record<string, unknown>
+  const nested = o.data ?? o.Data
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+    return nested as Record<string, unknown>
+  }
+  return o
+}
+
+function extractApplicationItems(data: unknown): unknown[] {
+  if (!data || typeof data !== 'object') return []
+  if (Array.isArray(data)) return data
+
+  const o = data as Record<string, unknown>
+  const direct = o.items ?? o.Items
+  if (Array.isArray(direct)) return direct
+
+  const nested = o.data ?? o.Data
+  if (Array.isArray(nested)) return nested
+  if (nested && typeof nested === 'object') {
+    const inner = nested as Record<string, unknown>
+    const innerItems = inner.items ?? inner.Items ?? inner.data ?? inner.Data
+    if (Array.isArray(innerItems)) return innerItems
+  }
+
+  return []
+}
+
+/** Đọc totalCount / totalPages từ phản hồi phân trang (camelCase + PascalCase + wrapper data). */
+export function parsePagedMeta(
+  data: unknown,
+  fallbackPageSize: number,
+): { totalCount: number; totalPages: number; pageIndex: number; pageSize: number } {
+  const body = pagedBody(data)
+  const totalCount = Number(body.totalCount ?? body.TotalCount ?? extractApplicationItems(data).length)
+  const pageSize = Math.max(1, Number(body.pageSize ?? body.PageSize ?? fallbackPageSize))
+  const pageIndex = Math.max(1, Number(body.pageIndex ?? body.PageIndex ?? 1))
+  const fromApi = Number(body.totalPages ?? body.TotalPages ?? 0)
+  const totalPages =
+    fromApi > 0 ? fromApi : totalCount > 0 ? Math.max(1, Math.ceil(totalCount / pageSize)) : 1
+  return { totalCount, totalPages, pageIndex, pageSize }
+}
+
 /** Normalize list/dashboard items so web always gets applicantFullName + citizenId. */
 export function parsePagedApplications(data: unknown): ApplicationSummaryDto[] {
-  if (!data || typeof data !== 'object') return []
-  const o = data as Record<string, unknown>
-  const items = o.items ?? o.Items
-  if (!Array.isArray(items)) return []
-  return items.map((raw) => {
+  return extractApplicationItems(data).map((raw) => {
     const x = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
     const fullName =
       str(x.applicantFullName) ||

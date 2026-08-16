@@ -5,6 +5,7 @@ import {
   parseApplicationDetail,
   parseAuditChecklist,
   parsePagedApplications,
+  parsePagedMeta,
   type AuditChecklistResponse,
 } from '@/api/housing-applications'
 import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
@@ -42,23 +43,7 @@ function DetailRow({ label, value, danger }: { label: string; value: string; dan
   )
 }
 
-function extractTotalCount(data: unknown): number {
-  if (!data || typeof data !== 'object') return 0
-  const o = data as Record<string, unknown>
-  if (typeof o.totalCount === 'number') return o.totalCount
-  const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
-  if (nested && typeof nested.totalCount === 'number') return nested.totalCount
-  return 0
-}
-
-function extractTotalPages(data: unknown): number {
-  if (!data || typeof data !== 'object') return 1
-  const o = data as Record<string, unknown>
-  if (typeof o.totalPages === 'number') return o.totalPages
-  const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
-  if (nested && typeof nested.totalPages === 'number') return nested.totalPages
-  return 1
-}
+const PAGE_SIZE = 10
 
 export function ApplicationsPage() {
   const role = getRole()
@@ -84,16 +69,10 @@ export function ApplicationsPage() {
   const [bulkSending, setBulkSending] = useState(false)
   const [bulkMsg, setBulkMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [exporting, setExporting] = useState(false)
-  const [tick, setTick] = useState(0)
-  const PAGE_SIZE = 100 // Tăng để hiển thị tất cả hồ sơ
 
   useEffect(() => {
-    // Auto-refresh: Applicant 500ms (fast), SXD/CĐT mỗi 30s
-    if (!role || role === 'System Administrator') return
-    const ms = isApplicant ? 500 : 30_000
-    const id = window.setInterval(() => setTick((t) => t + 1), ms)
-    return () => window.clearInterval(id)
-  }, [isSxd, isApplicant, isDeveloper])
+    setPageIndex(1)
+  }, [status])
 
   const load = async (filter?: { search?: string; status?: string }, page = 1) => {
     setLoading(true)
@@ -106,10 +85,12 @@ export function ApplicationsPage() {
         : role === 'Department Of Construction'
         ? await housingApplicationsApi.getSxdDashboard({ pageIndex: page, pageSize: PAGE_SIZE, ...filter })
         : await housingApplicationsApi.getAll({ pageIndex: page, pageSize: PAGE_SIZE, ...filter })
-      setApps(parsePagedApplications(data))
+      const parsed = parsePagedApplications(data)
+      const meta = parsePagedMeta(data, PAGE_SIZE)
+      setApps(parsed)
       setPageIndex(page)
-      setTotalCount(extractTotalCount(data))
-      setTotalPages(extractTotalPages(data))
+      setTotalCount(meta.totalCount)
+      setTotalPages(meta.totalPages)
     } catch (err) {
       setError(formatError(err))
     } finally {
@@ -117,7 +98,9 @@ export function ApplicationsPage() {
     }
   }
 
-  useEffect(() => { void load({ status: status || undefined }) }, [isApplicant, role, status, tick])
+  useEffect(() => {
+    void load({ search: search || undefined, status: status || undefined }, pageIndex)
+  }, [role, status, pageIndex])
 
   const submittable = useMemo(
     () => apps.filter((a) => a.applicationStatus === 'REVIEWING'),
@@ -205,7 +188,8 @@ export function ApplicationsPage() {
         </div>
         <form className="mb-6 grid gap-3 sm:grid-cols-3" onSubmit={(e) => {
           e.preventDefault()
-          void load({ search: search || undefined, status: status || undefined })
+          setPageIndex(1)
+          void load({ search: search || undefined, status: status || undefined }, 1)
         }}>
           <FormField label="Tìm kiếm" htmlFor="search"><Input id="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Họ tên / CCCD" /></FormField>
           <FormField label="Trạng thái" htmlFor="status">
@@ -216,7 +200,7 @@ export function ApplicationsPage() {
           </FormField>
           <div className="flex items-end gap-2">
             <Button type="submit" variant="outline">Lọc</Button>
-            <Button type="button" variant="ghost" onClick={() => void load({ search: search || undefined, status: status || undefined })} title="Tải lại danh sách">
+            <Button type="button" variant="ghost" onClick={() => void load({ search: search || undefined, status: status || undefined }, pageIndex)} title="Tải lại danh sách">
               <Sparkles className="h-4 w-4" />
             </Button>
           </div>
@@ -348,12 +332,12 @@ export function ApplicationsPage() {
                 })}
               </tbody>
             </table>
-            {totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between px-3 pb-3">
+            {totalCount > PAGE_SIZE && (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 px-3 pb-3">
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   Hiển thị {(pageIndex - 1) * PAGE_SIZE + 1}–{Math.min(pageIndex * PAGE_SIZE, totalCount)} trong {totalCount} hồ sơ
                 </p>
-                <Pagination pageIndex={pageIndex} totalPages={totalPages} onPageChange={(p) => void load({ search: search || undefined, status: status || undefined }, p)} />
+                <Pagination pageIndex={pageIndex} totalPages={totalPages} onPageChange={(p) => setPageIndex(p)} />
               </div>
             )}
           </div>
@@ -386,6 +370,14 @@ export function ApplicationsPage() {
               </button>
               )
             })}
+            {totalCount > PAGE_SIZE && (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Hiển thị {(pageIndex - 1) * PAGE_SIZE + 1}–{Math.min(pageIndex * PAGE_SIZE, totalCount)} trong {totalCount} hồ sơ
+                </p>
+                <Pagination pageIndex={pageIndex} totalPages={totalPages} onPageChange={(p) => setPageIndex(p)} />
+              </div>
+            )}
           </div>
         )}
       </PageCard>
