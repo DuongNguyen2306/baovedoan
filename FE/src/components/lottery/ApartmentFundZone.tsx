@@ -10,7 +10,6 @@ export function ApartmentFundZone({ state }: Props) {
   const remaining = totalStat?.remainingUnits ?? total
   const assigned = totalStat?.assignedUnits ?? 0
   const pct = total > 0 ? Math.round((remaining / total) * 100) : 0
-  const fillPct = total > 0 ? Math.round((assigned / total) * 100) : 0
 
   const funds = state?.apartmentFundStats ?? []
 

@@ -6,7 +6,7 @@ import { DeveloperSubNav, DEVELOPER_SUB_NAV_ROUTES } from '@/components/layout/d
 import { SxdSubNav, SXD_SUB_NAV_ROUTES } from '@/components/layout/sxd-sub-nav'
 import { BrandLogo } from '@/components/brand/brand-logo'
 import { NotificationBell } from '@/components/layout/notification-bell'
-import { RoleAmbient, roleAmbientId } from '@/components/layout/role-ambient'
+import { roleAmbientId } from '@/components/layout/role-ambient'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { resolveRoleTheme } from '@/lib/role-theme'
@@ -14,7 +14,6 @@ import { useHashRoute, navigate } from '@/hooks/useHashRoute'
 import { isLoggedIn, ADMIN_ROLE, AUTH_FORM_ROUTES, getRole, type RouteId } from '@/router'
 import { Sparkles, ChevronDown, LogOut, User, Settings, UserCircle2 } from 'lucide-react'
 import { useUserProfile } from '@/providers/user-profile-provider'
-import { authApi } from '@/api/auth'
 import { clearTokens } from '@/lib/token'
 
 function LandingHeader() {
@@ -144,7 +143,7 @@ function UserAccountCluster() {
   )
 }
 
-function InternalHeader({ logged, role, wideScreen = false }: { logged: boolean; role: string; wideScreen?: boolean }) {
+function InternalHeader({ logged, role }: { logged: boolean; role: string }) {
   const theme = resolveRoleTheme(role, logged)
   const route = useHashRoute()
   const isApplicant = logged && role === 'Applicant'
@@ -155,7 +154,6 @@ function InternalHeader({ logged, role, wideScreen = false }: { logged: boolean;
   const showAdminNav = isAdmin && ADMIN_SUB_NAV_ROUTES.includes(route)
   const showDeveloperNav = isDeveloper && DEVELOPER_SUB_NAV_ROUTES.includes(route)
   const showSxdNav = isSxd && SXD_SUB_NAV_ROUTES.includes(route)
-  const ambientId = roleAmbientId(logged, role)
 
   return (
     <div>
@@ -234,11 +232,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const isFullBleed = route === 'landing'
   const isAuthForm = AUTH_FORM_ROUTES.has(route)
-  const isApplicant = logged && role === 'Applicant'
-  const isDeveloper = logged && role === 'Housing Developer'
-  const isSxd = logged && role === 'SXD Staff'
-  // Developer / Applicant / Sở Xây dựng dùng layout rộng sát 2 cạnh (full màn hình)
-  const isWideScreen = !isFullBleed && (isApplicant || isDeveloper || isSxd)
   const ambientId = roleAmbientId(logged, role)
 
   return (
@@ -248,7 +241,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       ) : isAuthForm ? (
         <AuthHeader />
       ) : (
-        <InternalHeader logged={logged} role={role} wideScreen={isWideScreen} />
+        <InternalHeader logged={logged} role={role} />
       )}
 
       <main className="mx-auto w-full max-w-[1760px] flex-1 px-4 py-6 lg:px-6">

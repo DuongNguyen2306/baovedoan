@@ -64,7 +64,7 @@ export function WinnersZone({ state, myAppId }: Props) {
                   {w.applicantName}
                   {isMine && <span className="ml-1 text-[10px] font-bold text-blue-600 dark:text-blue-300">(bạn)</span>}
                 </span>
-                <span className="font-mono text-xs text-slate-500">{maskCccd(w.maskedCitizenId ?? w.citizenId)}</span>
+                <span className="font-mono text-xs text-slate-500">{maskCccd(w.maskedCitizenId)}</span>
                 <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
                   {w.slotCode || '—'}
                 </span>

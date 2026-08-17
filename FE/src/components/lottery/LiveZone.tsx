@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge'
-import type { LiveStateDto, LiveDrawResultDto } from '@/api/lottery'
+import type { LiveStateDto } from '@/api/lottery'
 
 interface Props {
   state: LiveStateDto | null
@@ -126,7 +126,7 @@ export function LiveZone({ state, sessionStatus, isDev, onDrawNext, busy }: Prop
                 {state.latestDrawResult.applicationCode || state.latestDrawResult.applicationId.slice(0, 8)}
               </p>
               <p className="text-sm text-slate-600 dark:text-slate-300">
-                {state.latestDrawResult.applicantName} · {maskCccd(state.latestDrawResult.maskedCitizenId ?? state.latestDrawResult.citizenId)}
+                {state.latestDrawResult.applicantName} · {maskCccd(state.latestDrawResult.maskedCitizenId)}
               </p>
             </div>
             <div className="text-right space-y-1">

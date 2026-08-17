@@ -1,9 +1,6 @@
 import { Bell, FolderTree, Home, ListTree, User, Users } from 'lucide-react'
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
 import { type RouteId } from '@/router'
-import { ROLE_THEMES } from '@/lib/role-theme'
-
-const THEME = ROLE_THEMES.admin
 
 interface NavItem {
   route: RouteId
