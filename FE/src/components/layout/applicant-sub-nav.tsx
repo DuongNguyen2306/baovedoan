@@ -1,4 +1,4 @@
-import { Building2, FileText, FileSignature, Gavel, Heart, Home, User } from 'lucide-react'
+import { Building2, FileText, Gavel, Heart, Home, User } from 'lucide-react'
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
 import { type RouteId } from '@/router'
 import { ROLE_THEMES } from '@/lib/role-theme'
@@ -18,11 +18,9 @@ const ITEMS: NavItem[] = [
   { route: 'quan-tam', label: 'Quan tâm', icon: Heart },
   { route: 'applications', label: 'Hồ sơ', icon: FileText, aliases: ['application-detail', 'create-application'] },
   { route: 'my-lottery', label: 'Bốc thăm', icon: Gavel, aliases: ['lottery-lobby', 'lottery-live'] },
-  { route: 'contracts', label: 'Hợp đồng', icon: FileSignature, aliases: ['contract-detail'] },
   { route: 'profile', label: 'Tài khoản', icon: User, aliases: ['change-password'] },
 ]
 
-// Tất cả route của Applicant đều dùng sub-nav này, KHÔNG fall-back về header nav cũ.
 export const APPLICANT_SUB_NAV_ROUTES: RouteId[] = [
   'home-user',
   'quan-tam',
@@ -32,7 +30,6 @@ export const APPLICANT_SUB_NAV_ROUTES: RouteId[] = [
   'projects',
   'project-detail',
   'create-project',
-  'contracts',
   'contract-detail',
   'profile',
   'change-password',

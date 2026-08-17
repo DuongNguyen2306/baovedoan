@@ -10,7 +10,6 @@ import {
   Upload,
   X,
   Building2,
-  Wallet,
   ArrowRight,
   ArrowLeft,
   Check,
@@ -57,9 +56,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
   // approvalDate & isConfirmed: BỎ — CĐT không được tự nhập "ngày SXD duyệt" /
   // tự tick "đã được SXD phê duyệt". BE sẽ tự set `publicAnnounceAt` khi SXD
   // gọi PATCH status?action=approve (xem ProjectStatusControl).
-  const [phase1Percentage, setPhase1Percentage] = useState('20')
-  const [lotteryDate, setLotteryDate] = useState('')
-  const [lotteryLocation, setLotteryLocation] = useState('')
   const [applicationOpenDate, setApplicationOpenDate] = useState('')
   const [applicationCloseDate, setApplicationCloseDate] = useState('')
   // Trạng thái dự án: KHÔNG cho CĐT chọn — BE mặc định = PENDING.
@@ -76,9 +72,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       setWard('')
       setStreet('')
       setDecisionNumber('')
-      setPhase1Percentage('')
-      setLotteryDate('')
-      setLotteryLocation('')
       setApplicationOpenDate('')
       setApplicationCloseDate('')
       setThumbnailFile(null)
@@ -111,10 +104,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
   }
 
   const validateStep2 = (): string | null => {
-    const p1 = parseFloat(phase1Percentage)
-    if (!Number.isFinite(p1) || p1 <= 0) return 'Vui lòng nhập tỉ lệ trả trước Đợt 1 (% giá căn).'
-    if (p1 > 30) return 'Tỉ lệ trả trước Đợt 1 không được vượt 30%.'
-
     const filled = apartments.filter(
       (r) => r.unitName.trim() || r.area.trim() || r.price.trim(),
     )
@@ -156,14 +145,12 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
     projectName,
     ward,
     decisionNumber,
-    phase1Percentage,
     apartments,
   ])
 
   // Realtime validity cho step 2 — dùng để disable nút submit khi form invalid.
   // Trùng logic với validateStep2() nhưng trả boolean để dùng trong JSX.
   const isStep2Valid = useMemo(() => validateStep2() === null, [
-    phase1Percentage,
     apartments,
   ])
 
@@ -222,10 +209,7 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
         maxArea: areas.length ? Math.max(...areas) : 0,
         availableUnits: aptPayload.length,
         decisionNumber: decisionNumber.trim() || undefined,
-        // approvalDate: BỎ — BE set `publicAnnounceAt` khi SXD duyệt.
-        phase1Percentage: parseFloat(phase1Percentage),
-        lotteryDate: lotteryDate || undefined,
-        lotteryLocation: lotteryLocation.trim() || undefined,
+        // phase1Percentage + lotteryDate: BỎ — không nhập khi tạo dự án.
         applicationOpenDate: applicationOpenDate || undefined,
         applicationCloseDate: applicationCloseDate || undefined,
         isConfirmed: true,
@@ -276,12 +260,6 @@ export function CreateProjectModal({ open, onClose, onCreated }: CreateProjectMo
       avgPrice: prices.reduce((a, b) => a + b, 0) / filled.length,
     }
   }, [apartments])
-
-const p1Num = parseFloat(phase1Percentage)
-const p1Valid = Number.isFinite(p1Num) && p1Num > 0 && p1Num <= 30
-const p1 = p1Valid ? Math.min(p1Num, 30) : 0
-const p2 = (100 - p1).toFixed(2).replace(/\.00$/, '')
-
 // Auto-clear error khi user sửa bất kỳ field nào (UX mượt hơn, đỡ bị dính alert cũ)
 useEffect(() => {
   if (!error) return
@@ -289,14 +267,11 @@ useEffect(() => {
   return () => clearTimeout(t)
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [
-projectName,
-    description,
-    ward,
-    street,
-    decisionNumber,
-    phase1Percentage,
-  lotteryDate,
-  lotteryLocation,
+  projectName,
+  description,
+  ward,
+  street,
+  decisionNumber,
   applicationOpenDate,
   applicationCloseDate,
   apartments,
@@ -463,61 +438,13 @@ projectName,
           {/* === Step 2 — Chi tiết & lịch trình (2 cột compact, không cần cuộn trang) === */}
           {step === 2 && (
             <div className="grid items-start gap-2 md:grid-cols-2">
-              {/* === Cột trái: Thanh toán + Lịch đăng ký / bốc thăm === */}
+              {/* === Cột trái: Lịch đăng ký (KHÔNG có bốc thăm — giai đoạn đầu chưa cần) === */}
               <div className="flex flex-col gap-2">
-                {/* Phân bổ thanh toán */}
-                <SectionCard
-                  icon={Wallet}
-                  title="Phân bổ thanh toán"
-                  subtitle="Trả trước đợt đầu tối đa 30% giá căn"
-                  compact
-                >
-                  <Field label="Tỉ lệ trả trước đợt đầu" required suffix="%">
-                    <input
-                      className={`${inputClass} pr-10`}
-                      type="number"
-                      min={0.01}
-                      max={30}
-                      step={0.01}
-                      value={phase1Percentage}
-                      onChange={(e) => setPhase1Percentage(e.target.value)}
-                      placeholder="VD: 20"
-                      disabled={submitting}
-                    />
-                  </Field>
-                  <div className="space-y-1">
-                    <div className="flex h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                      {p1Valid ? (
-                        <>
-                          <div
-                            className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
-                            style={{ width: `${p1}%` }}
-                          />
-                          <div
-                            className="h-full bg-gradient-to-r from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500"
-                            style={{ width: `${100 - p1}%` }}
-                          />
-                        </>
-                      ) : (
-                        <div className="h-full w-full bg-slate-200 dark:bg-slate-700" />
-                      )}
-                    </div>
-                    <div className="flex justify-between text-[10px] font-semibold">
-                      <span className="text-indigo-600 dark:text-indigo-300">
-                        Đợt đầu: {p1Valid ? `${p1}%` : '—'}
-                      </span>
-                      <span className="text-slate-500 dark:text-slate-400">
-                        Đợt sau: {p1Valid ? `${p2}%` : '—'}
-                      </span>
-                    </div>
-                  </div>
-                </SectionCard>
-
-                {/* Lịch đăng ký & bốc thăm */}
+                {/* Lịch đăng ký */}
                 <SectionCard
                   icon={CalendarDays}
-                  title="Lịch đăng ký & bốc thăm"
-                  subtitle="Thời gian mở đăng ký, bốc thăm và địa điểm"
+                  title="Lịch đăng ký"
+                  subtitle="Thời gian mở và đóng đăng ký (không bắt buộc)"
                   compact
                 >
                   <div className="grid grid-cols-2 gap-2">
@@ -536,24 +463,6 @@ projectName,
                         type="datetime-local"
                         value={applicationCloseDate}
                         onChange={(e) => setApplicationCloseDate(e.target.value)}
-                        disabled={submitting}
-                      />
-                    </Field>
-                    <Field label="Ngày bốc thăm" className="col-span-2">
-                      <input
-                        className={inputClass}
-                        type="datetime-local"
-                        value={lotteryDate}
-                        onChange={(e) => setLotteryDate(e.target.value)}
-                        disabled={submitting}
-                      />
-                    </Field>
-                    <Field label="Địa điểm bốc thăm" className="col-span-2">
-                      <input
-                        className={inputClass}
-                        value={lotteryLocation}
-                        onChange={(e) => setLotteryLocation(e.target.value)}
-                        placeholder="VD: Hội trường Trung tâm hành chính thành phố"
                         disabled={submitting}
                       />
                     </Field>
@@ -715,7 +624,7 @@ projectName,
         >
           <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
             <ListChecks className="mr-1 inline h-3 w-3 text-indigo-500" />
-            Bước {step}/2 · {filledCount} căn · Đợt 1: {p1Valid ? `${p1}%` : '—'}
+            Bước {step}/2 · {filledCount} căn
             {step === 2 && !isStep2Valid && !submitting && (
               <span className="ml-2 text-amber-700 dark:text-amber-400">
                 · chưa sẵn sàng để tạo
@@ -749,7 +658,7 @@ projectName,
                 disabled={submitting}
                 className="inline-flex items-center gap-1.5 rounded-md bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-1.5 text-xs font-bold text-white shadow-md transition hover:shadow-lg hover:brightness-110 disabled:opacity-50"
               >
-                Tiếp tục: Chi tiết & lịch trình
+                Tiếp tục: Chi tiết dự án
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
             ) : (
@@ -758,7 +667,7 @@ projectName,
                 disabled={submitting || !isStep2Valid}
                 title={
                   !isStep2Valid
-                    ? 'Vui lòng nhập đầy đủ: tỉ lệ Đợt 1 (1–30%) và ít nhất 1 căn hợp lệ (tên + diện tích + giá).'
+                    ? 'Vui lòng nhập đầy đủ: ít nhất 1 căn hợp lệ (tên + diện tích + giá).'
                     : undefined
                 }
                 className="inline-flex items-center gap-1.5 rounded-md bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-1.5 text-xs font-bold text-white shadow-md transition hover:shadow-lg hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
@@ -788,7 +697,7 @@ projectName,
 function Stepper({ current }: { current: 1 | 2 }) {
   const steps = [
     { num: 1, label: 'Thông tin dự án', icon: Home, desc: 'Tên, vị trí, hồ sơ' },
-    { num: 2, label: 'Chi tiết & lịch trình', icon: Building2, desc: 'Căn, thanh toán, lịch' },
+    { num: 2, label: 'Chi tiết dự án', icon: Building2, desc: 'Căn hộ, lịch đăng ký' },
   ]
   return (
     <div className="flex items-stretch gap-1.5 rounded-lg border border-slate-200/70 bg-slate-100/60 p-1 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/40">

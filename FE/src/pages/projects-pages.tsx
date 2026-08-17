@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Heart, MapPin, Plus, Trash2, X } from 'lucide-react'
+import { CheckCircle2, Heart, MapPin, Plus, Trash2, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
 import { CreateProjectModal } from '@/components/developer/create-project-modal'
@@ -668,6 +668,7 @@ function ProjectDetailView({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [project, setProject] = useState<HousingProjectDto | null>(null)
+  const [currentGalleryIdx, setCurrentGalleryIdx] = useState(0)
   const { isWishlisted, toggle } = useWishlist()
   const [wishlistBusy, setWishlistBusy] = useState(false)
   const logged = isLoggedIn()
@@ -681,6 +682,7 @@ function ProjectDetailView({
         if (cancelled) return
         const p = extractSingleProject(data)
         setProject(p)
+        setCurrentGalleryIdx(0)
       })
       .catch((err) => {
         if (cancelled) return
@@ -737,6 +739,24 @@ function ProjectDetailView({
     navigate('create-application')
   }
 
+  const scrollGallery = (idx: number) => {
+    if (!project?.images?.length) return
+    const len = project.images.length
+    setCurrentGalleryIdx(((idx % len) + len) % len)
+  }
+
+  const prevGallery = () => {
+    if (!project?.images?.length) return
+    const len = project.images.length
+    setCurrentGalleryIdx((currentGalleryIdx - 1 + len) % len)
+  }
+
+  const nextGallery = () => {
+    if (!project?.images?.length) return
+    const len = project.images.length
+    setCurrentGalleryIdx((currentGalleryIdx + 1) % len)
+  }
+
   const formatPrice = (v?: number) => {
     if (!v) return '—'
     if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)} tỷ`
@@ -776,14 +796,68 @@ function ProjectDetailView({
                 🏠
               </div>
             )}
-            {/* Gallery */}
+            {/* Gallery carousel */}
             {project.images && project.images.length > 0 && (
-              <div className="mt-3 grid grid-cols-4 gap-2">
-                {project.images.slice(0, 4).map((img, idx) => (
-                  <div key={img.id} className="overflow-hidden rounded-xl bg-white/10">
-                    <img src={img.imageUrl} alt={`Ảnh ${idx + 1}`} className="aspect-square w-full object-cover" loading="lazy" decoding="async" />
+              <div className="mt-3 relative group/gallery">
+                <div className="overflow-hidden rounded-2xl">
+                  <div
+                    id="gallery-track"
+                    className="flex transition-transform duration-500 ease-in-out"
+                    style={{ transform: `translateX(-${currentGalleryIdx * 100}%)` }}
+                  >
+                    {project.images.map((img, idx) => (
+                      <div key={img.id} className="w-full flex-shrink-0">
+                        <img
+                          src={img.imageUrl}
+                          alt={`Ảnh ${idx + 1}`}
+                          className="aspect-[16/9] w-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+
+                {/* Nút mũi tên */}
+                {project.images.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={prevGallery}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-all hover:bg-black/60 group-hover/gallery:opacity-100"
+                      aria-label="Ảnh trước"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={nextGallery}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-all hover:bg-black/60 group-hover/gallery:opacity-100"
+                      aria-label="Ảnh tiếp theo"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </>
+                )}
+
+                {/* Dots + đếm */}
+                <div className="mt-2 flex items-center justify-center gap-2">
+                  {project.images.length > 1 && project.images.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`h-2 rounded-full transition-all ${
+                        idx === currentGalleryIdx ? 'w-5 bg-blue-500' : 'w-2 bg-slate-300 dark:bg-slate-600'
+                      }`}
+                      onClick={() => scrollGallery(idx)}
+                      aria-label={`Ảnh ${idx + 1}`}
+                    />
+                  ))}
+                  <span className="ml-1 text-xs text-slate-400">
+                    {currentGalleryIdx + 1}/{project.images.length}
+                  </span>
+                </div>
               </div>
             )}
           </div>
