@@ -92,11 +92,11 @@ interface UnlockButtonProps {
   onUnlocked?: () => void
 }
 
-const PHASE_MAP: Record<number, { trigger: 'CONSTRUCTION_ROUGH_FLOOR' | 'FINISHING_ROOM_WALL' | 'CONCRETE_ROOF' | 'HANDOVER' | 'FINAL_SETTLEMENT'; label: string }> = {
+const PHASE_MAP: Record<number, { trigger: 'CONSTRUCTION_ROUGH_FLOOR' | 'ROOFING_COMPLETED' | 'HANDOVER' | 'RED_BOOK_ISSUED'; label: string }> = {
   3: { trigger: 'CONSTRUCTION_ROUGH_FLOOR', label: 'Mở đợt 3' },
-  4: { trigger: 'FINISHING_ROOM_WALL', label: 'Mở đợt 4' },
-  5: { trigger: 'CONCRETE_ROOF', label: 'Mở đợt 5' },
-  6: { trigger: 'HANDOVER', label: 'Mở đợt 6' },
+  4: { trigger: 'ROOFING_COMPLETED', label: 'Mở đợt 4' },
+  5: { trigger: 'HANDOVER', label: 'Mở đợt 5' },
+  6: { trigger: 'RED_BOOK_ISSUED', label: 'Mở đợt 6' },
 }
 
 function UnlockButton({ projectId, ordinal, allInstallments, onUnlocked }: UnlockButtonProps) {
@@ -146,14 +146,13 @@ export function InstallmentRow({
   inst,
   onPaid,
   signedAt,
-  totalAmount,
   applicationId,
   applicationStatus,
   installments,
   role,
   projectId,
   onUnlocked,
-}: InstallmentRowProps) {
+}: Omit<InstallmentRowProps, 'totalAmount'>) {
   const [paying, setPaying] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const isOverdue = inst.status !== 'PAID' && new Date(inst.dueDate) < new Date()
@@ -506,7 +505,6 @@ interface InstallmentTimelineProps {
   installments: PaymentInstallment[]
   signedAt: string | null
   onPaid: () => void
-  totalAmount: number
   applicationId: string
   applicationStatus: string
   role?: string
@@ -515,8 +513,8 @@ interface InstallmentTimelineProps {
 }
 
 export function InstallmentTimeline({
-  installments, signedAt, onPaid, totalAmount, applicationId, applicationStatus, role, projectId, onUnlocked,
-}: InstallmentTimelineProps) {
+  installments, signedAt, onPaid, applicationId, applicationStatus, role, projectId, onUnlocked,
+}: Omit<InstallmentTimelineProps, 'totalAmount'>) {
   const unlocked = installments // show all 6 installments including LOCKED ones
 
   return (
@@ -528,7 +526,6 @@ export function InstallmentTimeline({
             inst={inst}
             signedAt={signedAt}
             onPaid={onPaid}
-            totalAmount={totalAmount}
             applicationId={applicationId}
             applicationStatus={applicationStatus}
             installments={installments}
@@ -652,9 +649,6 @@ export function PaymentSection({
   role,
   projectId,
 }: PaymentSectionProps) {
-  const totalAmount =
-    contractPrice ?? officialPrice ?? housePrice ?? installments.reduce((s, i) => s + (i.amount || 0), 0)
-
   if (hasError) {
     return (
       <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-700 dark:bg-yellow-900/20">
@@ -733,7 +727,6 @@ export function PaymentSection({
           installments={installments}
           signedAt={signedAt}
           onPaid={onReload}
-          totalAmount={totalAmount}
           applicationId={applicationId}
           applicationStatus={applicationStatus}
           role={role}

@@ -104,6 +104,7 @@ export interface HousingProjectDto {
   minArea?: number
   maxArea?: number
   availableUnits?: number
+  totalUnits?: number
   /** Tỉ lệ Đợt 1 (% giá căn), tối đa 30; Đợt 2 = phần còn lại */
   phase1Percentage?: number
   thumbnailUrl?: string

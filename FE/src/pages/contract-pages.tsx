@@ -26,7 +26,7 @@ import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { navigate } from '@/hooks/useHashRoute'
 import { formatError } from '@/lib/format-error'
 import { getRole } from '@/router'
-import { extractOrderId, extractPaymentUrl, paymentApi, downloadContractPdf, startVnPayPayment } from '@/api/payment'
+import { extractOrderId, extractPaymentUrl, paymentApi, downloadContractPdf } from '@/api/payment'
 import { housingApplicationsApi } from '@/api/housing-applications'
 import { openVnPayPopupAndWait, vnPayResultMessage } from '@/lib/vnpay-popup'
 import type { ApplicationSummaryDto } from '@/types'
@@ -839,18 +839,6 @@ function InstallmentTimelineDot({ inst }: { inst: PaymentInstallment }) {
  * Đợt 5=25%+2%PBT, Đợt 6=5%.
  * Hạn đợt 1 = signedAt + 168h (7 ngày), các đợt sau +60 ngày mỗi đợt.
  */
-
-/** Deterministic UUID-like ID từ applicationId + ordinal. Cùng input → cùng output. */
-function fallbackId(applicationId: string, ordinal: number): string {
-  let h = 0x811c9dc5
-  const str = `${applicationId}:${ordinal}`
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i)
-    h = Math.imul(h, 0x01000193)
-  }
-  const p = (n: number, pad: number) => (n >>> 0).toString(16).padStart(pad, '0')
-  return `${p(h, 8)}-${p(h >>> 16, 4)}-${p((h & 0x0fff) | 0x5000, 4)}-${p((h >>> 8) & 0xff, 2)}${p((h >> 24) & 0xff, 2)}${p((h >> 32) & 0xff, 2)}-${p(h >>> 40, 12)}`
-}
 
 function ApplicationSummaryCard({
   appDetail,

@@ -18,7 +18,6 @@ import {
   PaymentSection,
   SignContractSection,
 } from '@/components/payment/payment-section'
-import { ApplicationPaymentPanel } from '@/components/developer/application-payment-panel'
 import { contractApi, parseContractStatus, parseInstallmentsEnvelope, summarizeInstallments } from '@/api/contracts'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { StatusBadge } from '@/components/shared/status-badge'

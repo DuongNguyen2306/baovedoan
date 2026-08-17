@@ -155,10 +155,10 @@ export function MyLotteryPage() {
     if (row.application.applicationStatus === 'CONTRACT_PENDING') {
       return {
         applicationId: me,
-        applicantName: row.application.applicantFullName ?? row.application.fullName ?? '—',
+        applicantName: row.application.applicantFullName ?? '—',
         citizenId: row.application.citizenId ?? '',
         lotteryResult: 'WON' as const,
-        slotCode: row.application.apartmentId ?? null,
+        slotCode: null,
         applicationStatus: 'CONTRACT_PENDING',
       }
     }

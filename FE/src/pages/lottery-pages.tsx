@@ -7,15 +7,12 @@ import {
   parseLotteryResult,
   parseLotterySchedule,
   parseEligibleList,
-  parseLiveState,
   type LotteryEligibleEntry,
   type LotteryResultDto,
   type LotteryScheduleDto,
-  type LiveStateDto,
 } from '@/api/lottery'
 import { connectLotteryHub, stopLotteryHub } from '@/api/lotteryHub'
 import { housingProjectsApi } from '@/api/housing-projects'
-import { housingApplicationsApi, parsePagedApplications } from '@/api/housing-applications'
 import type { HousingProjectSummaryDto } from '@/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
