@@ -26,7 +26,7 @@ import { HousingSearchPage } from '@/pages/housing-search-page'
 import { AnnouncementsPage } from '@/pages/announcements-page'
 import { LookupPage } from '@/pages/lookup-page'
 import { NotificationsPage } from '@/pages/notifications-page'
-import { CreatePaymentPage, PaymentsPage } from '@/pages/payments-pages'
+import { PaymentsPage } from '@/pages/payments-pages'
 import { ProfilePage } from '@/pages/profile-page'
 import { CreateProjectPage, ProjectDetailPage, ProjectsPage } from '@/pages/projects-pages'
 import { ReportIssuePage } from '@/pages/report-issue-page'
@@ -43,6 +43,7 @@ import {
   ContractDetailPage,
   ContractsPage,
 } from '@/pages/contract-pages'
+import { MyApartmentPage } from '@/pages/my-apartment-page'
 import { AuditDetailPage, AuditListPage, AuditCreatePage } from '@/pages/audit-pages'
 import {
   CategoriesPage,
@@ -94,7 +95,6 @@ function RouteView({ route }: { route: RouteId }) {
     case 'create-project': return <CreateProjectPage />
     case 'project-detail': return <ProjectDetailPage />
     case 'payments': return <PaymentsPage />
-    case 'create-payment': return <CreatePaymentPage />
     case 'admin-staff': return <AdminStaffPage />
     case 'create-staff': return <CreateStaffPage />
     case 'staff-detail': return <StaffDetailPage />
@@ -109,6 +109,7 @@ function RouteView({ route }: { route: RouteId }) {
     case 'contracts': return <ContractsPage />
     case 'contract-create': return <ContractCreatePage />
     case 'contract-detail': return <ContractDetailPage />
+    case 'my-apartment': return <MyApartmentPage />
     case 'audit-list': return <AuditListPage />
     case 'audit-create': return <AuditCreatePage />
     case 'audit-detail': return <AuditDetailPage />

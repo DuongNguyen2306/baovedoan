@@ -13,6 +13,13 @@ import { reportsApi } from '@/api/reports'
 import { CreateApplicationWizard } from '@/components/ekyc/create-application-wizard'
 import { ApplicationTimeline } from '@/components/shared/application-timeline'
 import { FileDropzone } from '@/components/shared/file-dropzone'
+import {
+  ApartmentCard,
+  PaymentSection,
+  SignContractSection,
+} from '@/components/payment/payment-section'
+import { ApplicationPaymentPanel } from '@/components/developer/application-payment-panel'
+import { contractApi, parseContractStatus, parseInstallmentsEnvelope, summarizeInstallments } from '@/api/contracts'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Alert } from '@/components/ui/alert'
@@ -22,8 +29,6 @@ import { FormField } from '@/components/ui/label'
 import { Input, Select, Textarea } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
 import { Pagination } from '@/components/ui/pagination'
-import { startVnPayPayment } from '@/api/payment'
-import { openVnPayPopupAndWait, vnPayResultMessage } from '@/lib/vnpay-popup'
 import { navigate } from '@/hooks/useHashRoute'
 import { labelApplicationStatus } from '@/lib/labels'
 import { APPLICATION_STATUS, DOC_TYPE_LABELS, HOUSING_STATUS_LABELS } from '@/lib/constants'
@@ -447,10 +452,45 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
   const [aiAuditResult, setAiAuditResult] = useState<AuditChecklistResponse | null>(null)
   const [aiAuditOpen, setAiAuditOpen] = useState(false)
   const [aiAuditError, setAiAuditError] = useState('')
+  // Payment / contract state
+  const [contractStatus, setContractStatus] = useState<{
+    isSigned: boolean
+    signedAt?: string | null
+    applicationStatus: string
+  } | null>(null)
+  const [installments, setInstallments] = useState<import('@/api/contracts').PaymentInstallment[]>([])
+  const [installmentsError, setInstallmentsError] = useState(false)
+  const [contractPrice, setContractPrice] = useState<number | null>(null)
+  const [housePrice, setHousePrice] = useState<number | null>(null)
+  const [officialPrice, setOfficialPrice] = useState<number | null>(null)
+  const [signing, setSigning] = useState(false)
 
   const refresh = async () => {
     const data = await housingApplicationsApi.getById(appId)
     setApp(parseApplicationDetail(data))
+
+    // Load contract status + installments
+    try {
+      const s = await contractApi.getStatus(appId)
+      const parsed = parseContractStatus(s)
+      setContractStatus(parsed ? { isSigned: parsed.isSigned, signedAt: parsed.signedAt, applicationStatus: parsed.applicationStatus } : null)
+    } catch { setContractStatus(null) }
+
+    try {
+      const i = await contractApi.getInstallments(appId)
+      const env = parseInstallmentsEnvelope(i)
+      setInstallments(env.installments)
+      setInstallmentsError(false)
+      setContractPrice(env.contractPrice ?? null)
+      setHousePrice(env.housePrice ?? null)
+      setOfficialPrice(env.officialPrice ?? null)
+    } catch {
+      setInstallments([])
+      setInstallmentsError(true)
+      setContractPrice(null)
+      setHousePrice(null)
+      setOfficialPrice(null)
+    }
   }
 
   useEffect(() => {
@@ -592,6 +632,21 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
     }
   }
 
+  const handleSign = async () => {
+    if (signing) return
+    setSigning(true)
+    setMsg(null)
+    try {
+      await contractApi.sign(appId)
+      await refresh()
+      setMsg({ type: 'success', text: 'Đã ký HĐ thành công. Đợt 2 (20%) đã tự mở — có thể đóng ngay.' })
+    } catch (err) {
+      setMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setSigning(false)
+    }
+  }
+
   const confirmWithdraw = async () => {
     if (!withdrawReason.trim()) {
       setMsg({ type: 'error', text: 'Vui lòng nhập lý do rút hồ sơ.' })
@@ -623,7 +678,9 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
     app.applicationStatus === 'PENDING_SXD_REVIEW'
       ? formatSxdCountdown(app.submittedAt || app.createdAt)
       : null
-  const depositCountdown = formatDepositCountdown(app.applicationStatus, app.updatedAt)
+  const deposit1Paid = installments.some(i => i.ordinal === 1 && i.status === 'PAID')
+  const deposit2Paid = installments.some(i => i.ordinal === 2 && i.status === 'PAID')
+  const depositCountdown = !deposit1Paid && !deposit2Paid ? formatDepositCountdown(app.applicationStatus, app.updatedAt) : null
   const pdfDoc = (app.documents ?? []).find((d) => d.fileUrl?.toLowerCase().includes('.pdf') || d.fileName?.toLowerCase().endsWith('.pdf'))
   const isStaff = role === 'Housing Developer' || role === 'Department Of Construction'
 
@@ -634,13 +691,6 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
           <strong>Cảnh báo vi phạm:</strong> {app.violationReason || 'Hồ sơ bị đánh dấu vi phạm (trùng CCCD / đã có nhà đất).'}
         </Alert>
       )}
-      {role === 'Applicant' && ['APPROVED', 'APPROVED_BY_TIMEOUT'].includes(app.applicationStatus) && (
-        <Alert variant="info">
-          <strong>Hồ sơ đã được Sở duyệt.</strong> Tiếp theo cần qua bốc thăm / chốt danh sách → ký{' '}
-          <strong>hợp đồng mua bán nhà ở xã hội</strong> → rồi thanh toán Đợt 1 qua VNPay. Trạng thái cần để thanh toán:{' '}
-          <code>CONTRACT_SIGNED</code>.
-        </Alert>
-      )}
       {role === 'Applicant' && depositCountdown && (
         <Alert variant={depositCountdown.isOverdue ? 'error' : 'warning'}>
           <strong>Hạn thanh toán Đợt 1 ({depositCountdown.daysLimit} ngày sau khi ký).</strong>{' '}
@@ -648,18 +698,6 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             ? <>Đã quá hạn Đợt 1 — tải lại trang để xem trạng thái mới nhất từ hệ thống.</>
             : <>Còn lại: <strong>{depositCountdown.label}</strong></>}
           {' · '}đến {depositCountdown.deadline.toLocaleString('vi-VN')}
-        </Alert>
-      )}
-      {role === 'Applicant' && app.applicationStatus === 'CONTRACT_PENDING' && (
-        <Alert variant="info">
-          <strong>Chờ ký hợp đồng mua bán nhà ở xã hội.</strong> Vào mục <strong>Hợp đồng</strong> để xem và ký,
-          sau đó mới thanh toán Đợt 1 được.
-        </Alert>
-      )}
-      {role === 'Applicant' && app.applicationStatus === 'CONTRACT_SIGNED' && (
-        <Alert variant="info">
-          <strong>Đã ký hợp đồng mua bán nhà ở xã hội.</strong> Vui lòng thanh toán Đợt 1 qua VNPay.
-          Thẻ sandbox: NCB · <code>9704198526191432198</code> · hết hạn <code>07/15</code> · OTP <code>123456</code>.
         </Alert>
       )}
       {role === 'Applicant' && app.applicationStatus === 'NEED_MORE_DOCUMENTS' && (
@@ -678,7 +716,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
 
       <div className="glass-card p-4">
         <h3 className="mb-3 font-semibold">Tiến độ hồ sơ</h3>
-        <ApplicationTimeline currentStatus={app.applicationStatus} histories={app.reviewHistories} />
+        <ApplicationTimeline currentStatus={app.applicationStatus} depositPaid={deposit1Paid} histories={app.reviewHistories} />
       </div>
 
       <div className={`glass-card p-4 ${app.isViolation ? 'ring-2 ring-rose-400' : ''}`}>
@@ -781,6 +819,51 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
           )}
         </div>
       )}
+
+      {/* Căn được cấp */}
+      <ApartmentCard
+        apartmentUnitName={app.apartmentUnitName}
+        apartmentArea={app.apartmentArea}
+        apartmentPrice={app.apartmentPrice}
+        projectName={app.projectName}
+        lotteryResult={app.lotteryResult}
+      />
+
+      {/* Ký HĐ */}
+      <SignContractSection
+        canSign={
+          role === 'Applicant' &&
+          !!app.apartmentId &&
+          !contractStatus?.isSigned &&
+          (
+            contractStatus?.applicationStatus === 'CONTRACT_PENDING' ||
+            contractStatus?.applicationStatus === 'DEPOSIT_PENDING' ||
+            contractStatus?.applicationStatus === 'CONTRACTING'
+          )
+        }
+        signing={signing}
+        onSign={() => void handleSign()}
+        applicationStatus={contractStatus?.applicationStatus ?? app.applicationStatus}
+      />
+
+      {/* Lịch 6 đợt thanh toán + nút thanh toán + lịch sử GD */}
+      <PaymentSection
+        installments={installments}
+        paid={installments.filter(i => i.status === 'PAID').reduce((s, i) => s + (i.paidAmount ?? i.amount), 0)}
+        remaining={summarizeInstallments(installments).remaining}
+        progress={summarizeInstallments(installments).progress}
+        contractPrice={contractPrice}
+        officialPrice={officialPrice}
+        housePrice={housePrice}
+        signedAt={contractStatus?.signedAt ?? null}
+        applicationId={appId}
+        applicationStatus={contractStatus?.applicationStatus ?? app.applicationStatus}
+        hasError={installmentsError}
+        hasApartment={!!app.apartmentId}
+        onReload={() => void refresh()}
+        role={role}
+        projectId={app.projectId}
+      />
 
       <div className="glass-card p-4">
         <h3 className="mb-2 font-semibold">Tài liệu đính kèm</h3>
@@ -968,45 +1051,7 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
             }
           }}>{acting === 'submit' ? 'Đang nộp…' : 'Nộp lại sau bổ sung'}</Button>
         )}
-        {role === 'Applicant' && app.applicationStatus === 'CONTRACT_PENDING' && (
-          <Button variant="accent" onClick={() => navigate('contracts')}>
-            Xem &amp; ký hợp đồng mua bán NOXH
-          </Button>
-        )}
-        {role === 'Applicant' && app.applicationStatus === 'CONTRACT_SIGNED' && (
-          <Button
-            variant="accent"
-            disabled={acting === 'pay'}
-            onClick={async () => {
-              if (acting) return
-              setActing('pay')
-              setMsg(null)
-              try {
-                const { url, orderId } = await startVnPayPayment(
-                  app.applicationId,
-                  `Dat coc ho so ${app.applicationId.slice(0, 8)}`,
-                )
-                setMsg({ type: 'success', text: 'Đã mở cổng VNPay — đang chờ kết quả…' })
-                const result = await openVnPayPopupAndWait(url, orderId)
-                const notice = vnPayResultMessage(result)
-                setMsg(notice)
-                if (result === 'success') await refresh()
-              } catch (err) {
-                setMsg({ type: 'error', text: formatError(err) })
-              } finally {
-                setActing('')
-              }
-            }}
-          >
-            {acting === 'pay' ? 'Đang chờ thanh toán…' : 'Thanh toán Đợt 1 / VNPay'}
-          </Button>
-        )}
-        {role === 'Applicant' && app.applicationStatus === 'DEPOSIT_PAID' && (
-          <Button variant="outline" onClick={() => navigate('payments')}>
-            Xem lịch sử thanh toán
-          </Button>
-        )}
-        {role === 'Applicant' && !['APPROVED', 'APPROVED_BY_TIMEOUT', 'DEPOSIT_PAID', 'CONTRACT_SIGNED', 'CONTRACT_PENDING', 'REJECTED', 'CANCELED', 'EXPIRED', 'LOTTERY_LOST'].includes(app.applicationStatus) && (
+        {!['APPROVED', 'APPROVED_BY_TIMEOUT', 'DEPOSIT_PAID', 'CONTRACT_SIGNED', 'CONTRACT_PENDING', 'REJECTED', 'CANCELED', 'EXPIRED', 'LOTTERY_LOST'].includes(app.applicationStatus) && (
           <Button variant="outline" className="text-red-600" disabled={acting === 'cancel'} onClick={() => setWithdrawOpen(true)}>
             Rút hồ sơ
           </Button>

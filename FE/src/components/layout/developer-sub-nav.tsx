@@ -4,7 +4,6 @@ import {
   Building2,
   Gavel,
   Radio,
-  FileSignature,
   User,
 } from 'lucide-react'
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
@@ -45,12 +44,6 @@ const ITEMS: NavItem[] = [
     label: 'Bốc thăm trực tiếp',
     icon: Radio,
   },
-  {
-    route: 'contracts',
-    label: 'Hợp đồng',
-    icon: FileSignature,
-    aliases: ['contract-detail'],
-  },
   { route: 'profile', label: 'Tài khoản', icon: User, aliases: ['change-password'] },
 ]
 
@@ -65,8 +58,6 @@ export const DEVELOPER_SUB_NAV_ROUTES: RouteId[] = [
   'lottery-sessions',
   'lottery-live',
   'my-lottery',
-  'contracts',
-  'contract-detail',
   'dashboard',
   'profile',
   'change-password',

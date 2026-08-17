@@ -4,6 +4,7 @@ import { housingProjectsApi, parseApartments } from '@/api/housing-projects'
 import { housingProjectStatusesApi, parseStatuses } from '@/api/housing-project-statuses'
 import { CreateProjectModal } from '@/components/developer/create-project-modal'
 import { DeveloperDecisionPanel } from '@/components/developer-decision-panel'
+import { PaymentPhaseControl } from '@/components/developer/payment-phase-control'
 import { ProjectStatusControl } from '@/components/developer/project-status-control'
 import { LocationFields } from '@/components/forms/location-fields'
 import { RichEditor } from '@/components/forms/rich-editor'
@@ -639,6 +640,9 @@ export function ProjectDetailPage() {
                 <DeveloperDecisionPanel projectId={projectId} />
               </section>
             )}
+            {isDeveloper && (
+              <PaymentPhaseSection projectId={projectId} />
+            )}
             {(role === 'Department Of Construction' || isAdmin) && (
               <ProjectStatusSection projectId={projectId} />
             )}
@@ -983,6 +987,37 @@ function ProjectStatusSection({ projectId }: { projectId: string }) {
   if (!project) return null
 
   return <ProjectStatusControl project={project} />
+}
+
+// Wrapper CĐT: load project rồi render PaymentPhaseControl.
+function PaymentPhaseSection({ projectId }: { projectId: string }) {
+  const [project, setProject] = useState<HousingProjectDto | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    void housingProjectsApi
+      .getById(projectId)
+      .then((data) => {
+        if (cancelled) return
+        setProject(extractSingleProject(data))
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(formatError(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [projectId])
+
+  if (loading) return <p className="text-sm text-slate-500">Đang tải...</p>
+  if (error) return <Alert variant="error">{error}</Alert>
+  if (!project) return null
+
+  return <PaymentPhaseControl project={project} />
 }
 
 function InfoItem({ label, value }: { label: string; value: string | number }) {

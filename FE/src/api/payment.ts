@@ -61,4 +61,27 @@ export const paymentApi = {
 
   getMyPayments: () =>
     request<ApiResult>('/api/Payment/my-payments', { auth: true }),
+
+  getDepositResult: (orderId: string) =>
+    request<ApiResult>(`/api/Payment/deposit-result/${orderId}`, { auth: true }),
+}
+
+/** Tải PDF hợp đồng — dùng fetch blob + Bearer (KHÔNG dùng request JSON vì endpoint trả file). */
+export async function downloadContractPdf(applicationId: string): Promise<void> {
+  const token = sessionStorage.getItem('accessToken')
+  if (!token) throw new Error('Chưa đăng nhập.')
+  const res = await fetch(
+    `${import.meta.env.VITE_API_BASE_URL ?? ''}/api/Payment/download-contract/${applicationId}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  if (!res.ok) throw new Error(`Không tải được PDF (HTTP ${res.status})`)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `hop-dong-${applicationId.slice(0, 8)}.pdf`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }

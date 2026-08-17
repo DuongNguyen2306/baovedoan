@@ -37,17 +37,23 @@ export function MyLotteryPage() {
     try {
       const data = await housingApplicationsApi.getMy({ pageIndex: 1, pageSize: 50 })
       const apps = parsePagedApplications(data)
-      // Chỉ quan tâm hồ sơ đã duyệt (APPROVED) hoặc PROPOSED — những hồ sơ đủ điều kiện đi tiếp bốc thăm
+      // Hiện hồ sơ đã duyệt hoặc trúng (CONTRACT_PENDING) hoặc trượt bốc (LOTTERY_LOST)
       const eligible = apps.filter((a) => {
         const s = String(a.applicationStatus || '').toUpperCase()
-        return s === 'APPROVED' || s === 'PROPOSED'
+        return (
+          s === 'APPROVED' ||
+          s === 'APPROVED_BY_TIMEOUT' ||
+          s === 'PROPOSED' ||
+          s === 'CONTRACT_PENDING' ||
+          s === 'LOTTERY_LOST'
+        )
       })
       if (eligible.length === 0) {
         setRows([])
         setInfo(
           apps.length === 0
             ? 'Bạn chưa có hồ sơ nào. Hãy tạo và nộp hồ sơ trước khi tham gia bốc thăm.'
-            : 'Chưa có hồ sơ nào đủ điều kiện bốc thăm. Hồ sơ cần được duyệt (APPROVED) bởi Sở Xây dựng trước khi vào bốc thăm.',
+            : 'Chưa có hồ sơ nào đủ điều kiện. Hồ sơ cần được Sở duyệt (APPROVED) trước khi vào sảnh.',
         )
         return
       }
@@ -71,7 +77,7 @@ export function MyLotteryPage() {
       )
       setRows(enriched)
       if (enriched.length === 0) {
-        setInfo('Chưa có lịch bốc thăm cho dự án nào trong hồ sơ đã duyệt của bạn.')
+        setInfo('Chưa có lịch bốc thăm cho dự án nào trong hồ sơ của bạn.')
       }
     } catch (err) {
       setError(formatError(err))
@@ -96,13 +102,31 @@ export function MyLotteryPage() {
 
   const myOwnResult = (row: Row) => {
     const me = row.application.applicationId
-    return (
+    // Ưu tiên result API (sau Finish/Publish), fallback từ applicationStatus
+    const fromResult =
       row.result?.participants?.find((p) => p.applicationId === me) ??
       row.result?.winners?.find((w) => w.applicationId === me) ??
       row.result?.losers?.find((w) => w.applicationId === me) ??
       row.result?.allEntries?.find((w) => w.applicationId === me) ??
       null
-    )
+    if (fromResult) return fromResult
+    // Infer trúng từ CONTRACT_PENDING nếu result chưa có (chưa Finish)
+    if (row.application.applicationStatus === 'CONTRACT_PENDING') {
+      return {
+        applicationId: me,
+        applicantName: row.application.applicantFullName ?? row.application.fullName ?? '—',
+        citizenId: row.application.citizenId ?? '',
+        lotteryResult: 'WON' as const,
+        slotCode: row.application.apartmentId ?? null,
+        applicationStatus: 'CONTRACT_PENDING',
+      }
+    }
+    return null
+  }
+
+  const isWon = (row: Row): boolean => {
+    const own = myOwnResult(row)
+    return !!(own && (own.lotteryResult === 'WON' || own.lotteryResult === 'PRIORITY_WON'))
   }
 
   return (
@@ -113,8 +137,7 @@ export function MyLotteryPage() {
           <div>
             <h2 className="text-xl font-bold">Bốc thăm của tôi</h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Hồ sơ đã được duyệt sẽ hiển thị ở đây. Bạn vào sảnh chờ bằng OTP và bốc căn khi phiên
-              mở (do Chủ đầu tư chuyển sang <strong>Live</strong>).
+              Hồ sơ đã được duyệt sẽ hiển thị ở đây. Bạn vào sảnh chờ bằng OTP và theo dõi kết quả do Chủ đầu tư công bố.
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={() => void load()}>
@@ -132,7 +155,9 @@ export function MyLotteryPage() {
               const own = myOwnResult(row)
               const phase = row.schedule?.status ?? 'NOT_SCHEDULED'
               const isFinished = phase === 'Finished' || phase === 'Published' || phase === 'FINISHED'
-              const isLive = phase === 'Live' || phase === 'Live'.toUpperCase() || phase === 'RUNNING'
+              const isLive = phase === 'Live' || phase === 'RUNNING'
+              const won = isWon(row)
+              const hasSlot = !!own?.slotCode
 
               return (
                 <div
@@ -146,6 +171,12 @@ export function MyLotteryPage() {
                         <Badge variant={LOTTERY_STATUS_TONE[phase] ?? 'secondary'}>
                           {LOTTERY_STATUS_LABEL[phase] ?? phase}
                         </Badge>
+                        {row.application.applicationStatus === 'CONTRACT_PENDING' && (
+                          <Badge variant="success">Đã trúng</Badge>
+                        )}
+                        {row.application.applicationStatus === 'LOTTERY_LOST' && (
+                          <Badge variant="warning">Chưa trúng</Badge>
+                        )}
                       </div>
                       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                         Hồ sơ #{row.application.applicationId.slice(0, 8)} · CCCD {row.application.citizenId}
@@ -158,7 +189,8 @@ export function MyLotteryPage() {
                       )}
                       {row.schedule?.joinCode && (
                         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          OTP vào sảnh: <strong className="font-mono">{row.schedule.joinCode}</strong>
+                          Mã OTP vào sảnh:{' '}
+                          <strong className="font-mono text-blue-700 dark:text-blue-300">{row.schedule.joinCode}</strong>
                         </p>
                       )}
                     </div>
@@ -166,11 +198,11 @@ export function MyLotteryPage() {
                       {!isFinished && (
                         <Button variant="accent" size="sm" onClick={() => enterLobby(row.application.projectId)}>
                           <ExternalLink className="mr-1.5 h-4 w-4" />
-                          Vào sảnh bốc thăm
+                          Vào sảnh
                         </Button>
                       )}
                       <Button variant="outline" size="sm" onClick={() => watchLive(row.application.projectId)}>
-                        Xem trực tiếp
+                        Xem sảnh Live
                       </Button>
                     </div>
                   </div>
@@ -179,7 +211,7 @@ export function MyLotteryPage() {
                   {own && (
                     <div
                       className={`mt-3 rounded-lg border p-3 text-sm ${
-                        own.lotteryResult === 'WON' || own.lotteryResult === 'PRIORITY_WON'
+                        won
                           ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200'
                           : own.lotteryResult === 'LOST'
                             ? 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200'
@@ -190,15 +222,22 @@ export function MyLotteryPage() {
                         <div>
                           <p className="font-semibold">
                             <Trophy className="mr-1 inline h-4 w-4" />
-                            Kết quả của bạn:&nbsp;
-                            {own.lotteryResult === 'WON' || own.lotteryResult === 'PRIORITY_WON'
-                              ? 'TRÚNG'
+                            Kết quả:&nbsp;
+                            {won
+                              ? 'ĐÃ TRÚNG SUẤT'
                               : own.lotteryResult === 'LOST'
                                 ? 'CHƯA TRÚNG (chờ bổ sung)'
                                 : own.lotteryResult || 'ĐANG CẬP NHẬT'}
                           </p>
-                          {own.slotCode && (
-                            <p className="mt-1 font-mono text-xs">Mã căn: {own.slotCode}</p>
+                          {won && !hasSlot && (
+                            <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                              Chờ CĐT chọn căn
+                            </p>
+                          )}
+                          {won && hasSlot && (
+                            <p className="mt-1 font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                              Mã căn: {own.slotCode}
+                            </p>
                           )}
                         </div>
                         {isLive && (

@@ -25,7 +25,8 @@ function stepLabel(code: string) {
   return APPLICATION_STATUS[code]?.label ?? code
 }
 
-function resolveIndex(status: string): number {
+function resolveIndex(status: string, depositPaid?: boolean): number {
+  if (depositPaid) return PIPELINE.indexOf('DEPOSIT_PAID' as (typeof PIPELINE)[number])
   const mapped = STATUS_ALIAS[status] ?? status
   const idx = PIPELINE.indexOf(mapped as (typeof PIPELINE)[number])
   return idx >= 0 ? idx : 0
@@ -33,11 +34,13 @@ function resolveIndex(status: string): number {
 
 export function ApplicationTimeline({
   currentStatus,
+  depositPaid,
 }: {
   currentStatus: string
+  depositPaid?: boolean
   histories?: unknown
 }) {
-  const currentIdx = resolveIndex(currentStatus)
+  const currentIdx = resolveIndex(currentStatus, depositPaid)
   const isNeedMore = currentStatus === 'NEED_MORE_DOCUMENTS'
   const isFailed = TERMINAL_FAIL.has(currentStatus)
   const isComplete = TERMINAL_SUCCESS.has(currentStatus)

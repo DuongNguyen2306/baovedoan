@@ -185,6 +185,7 @@ export interface ProjectFilterDto {
 export interface CreatePaymentDto {
   ApplicationId: string
   OrderInfo?: string
+  Ordinal?: number   // BE dùng để xác định đợt thanh toán (1 = Đợt 1 cọc 10%)
 }
 
 export interface PaymentInfoDto {

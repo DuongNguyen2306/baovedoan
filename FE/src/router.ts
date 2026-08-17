@@ -22,7 +22,6 @@ export type RouteId =
   | 'project-detail'
   | 'create-project'
   | 'payments'
-  | 'create-payment'
   | 'admin-staff'
   | 'create-staff'
   | 'staff-detail'
@@ -42,6 +41,8 @@ export type RouteId =
   | 'contracts'
   | 'contract-create'
   | 'contract-detail'
+  // My apartment (Applicant: deposit → sign → pay)
+  | 'my-apartment'
   // Audit (mock)
   | 'audit-list'
   | 'audit-detail'
@@ -270,16 +271,7 @@ export const routes: RouteConfig[] = [
     auth: true,
     title: 'Lịch sử thanh toán',
     subtitle: 'Xem lịch sử các giao dịch thanh toán của bạn.',
-    cta: 'Tạo thanh toán mới',
-  },
-  {
-    id: 'create-payment',
-    label: 'Tạo thanh toán',
-    group: 'workspace',
-    auth: true,
-    title: 'Tạo giao dịch thanh toán',
-    subtitle: 'Tạo một giao dịch thanh toán mới cho dự án.',
-    cta: 'Tạo thanh toán',
+    cta: '',
   },
   {
     id: 'admin-staff',
@@ -388,22 +380,22 @@ export const routes: RouteConfig[] = [
   },
   {
     id: 'lottery-lobby',
-    label: 'Sảnh chờ',
+    label: 'Vào sảnh',
     group: 'workspace',
     auth: true,
     roles: ['Applicant'],
-    title: 'Sảnh chờ bốc thăm',
-    subtitle: 'Bạn đang ở trong sảnh chờ bốc thăm trực tiếp. Vui lòng không rời trang.',
+    title: 'Vào sảnh bốc thăm',
+    subtitle: 'Nhập OTP từ thông báo để vào sảnh theo dõi. Bạn chỉ theo dõi, không tự bốc.',
     cta: '',
   },
   {
     id: 'lottery-live',
-    label: 'Bốc thăm trực tiếp',
+    label: 'Sảnh Live',
     group: 'workspace',
     auth: true,
     roles: ['Applicant', 'Housing Developer', 'Department Of Construction'],
-    title: 'Giám sát bốc thăm trực tiếp',
-    subtitle: 'Theo dõi tiến độ realtime: biểu đồ căn đã bốc và live log người trúng.',
+    title: 'Sảnh quay số trực tiếp',
+    subtitle: 'Theo dõi tiến độ bốc hồ sơ trúng, danh sách và quỹ căn. CĐT bốc tiếp; dân chỉ xem.',
     cta: '',
   },
   {
@@ -413,7 +405,7 @@ export const routes: RouteConfig[] = [
     auth: true,
     roles: ['Applicant'],
     title: 'Bốc thăm của tôi',
-    subtitle: 'Các dự án có hồ sơ được duyệt — vào sảnh chờ, bốc căn và xem kết quả trực tiếp.',
+    subtitle: 'Xem OTP vào sảnh, kết quả trúng chưa trúng, trạng thái CĐT gán căn.',
     cta: '',
   },
   // ====== Contracts (mock cho BE chưa có) ======
@@ -443,6 +435,16 @@ export const routes: RouteConfig[] = [
     auth: true,
     title: 'Chi tiết hợp đồng',
     subtitle: 'Xem thông tin, ký hợp đồng và theo dõi lịch thanh toán.',
+    cta: '',
+  },
+  {
+    id: 'my-apartment',
+    label: 'Căn của tôi',
+    group: 'workspace',
+    auth: true,
+    roles: ['Applicant'],
+    title: 'Căn của tôi',
+    subtitle: 'Xem căn, đặt cọc, ký hợp đồng và thanh toán các đợt.',
     cta: '',
   },
   // ====== Audit / Hậu kiểm (mock cho BE chưa có) ======
@@ -569,19 +571,19 @@ export function onRouteChange(cb: (id: RouteId) => void): void {
 }
 
 export function isLoggedIn(): boolean {
-  return !!localStorage.getItem('accessToken')
+  return !!sessionStorage.getItem('accessToken')
 }
 
 export function getRole(): string {
-  return localStorage.getItem('userRole') ?? ''
+  return sessionStorage.getItem('userRole') ?? ''
 }
 
 export function setRole(role: string): void {
-  if (role) localStorage.setItem('userRole', role)
+  if (role) sessionStorage.setItem('userRole', role)
 }
 
 export function clearRole(): void {
-  localStorage.removeItem('userRole')
+  sessionStorage.removeItem('userRole')
 }
 
 export const ADMIN_ROLE = 'System Administrator'
@@ -668,7 +670,6 @@ const ROLE_ACCESS: Record<string, RouteId[]> = {
     'contracts',
     'contract-detail',
     'payments',
-    'create-payment',
     'report-issue',
   ],
 }
@@ -701,7 +702,7 @@ const NAV_BY_ROLE: Record<string, RouteId[]> = {
   'System Administrator': ['admin-staff', 'admin-logs', 'admin-categories', 'notifications', 'profile'],
   'Housing Developer': ['home-developer', 'applications', 'projects', 'lottery-sessions', 'lottery-live', 'contracts', 'notifications', 'profile'],
   'Department Of Construction': ['home-sxd', 'applications', 'projects', 'lottery-sessions', 'lottery-live', 'contracts', 'audit-list', 'notifications', 'profile'],
-  Applicant: ['home-user', 'quan-tam', 'applications', 'projects', 'my-lottery', 'contracts', 'payments', 'notifications', 'profile'],
+  Applicant: ['home-user', 'quan-tam', 'applications', 'projects', 'my-lottery', 'my-apartment', 'notifications', 'profile'],
 }
 
 export function navRoutes(role: string): RouteId[] {
