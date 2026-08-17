@@ -6,6 +6,8 @@ const PIPELINE = [
   'REVIEWING',
   'PENDING_SXD_REVIEW',
   'APPROVED',
+  'DEPOSIT_PENDING',
+  'CONTRACTING',
   'CONTRACT_PENDING',
   'CONTRACT_SIGNED',
   'DEPOSIT_PAID',
@@ -19,6 +21,7 @@ const STATUS_ALIAS: Record<string, (typeof PIPELINE)[number]> = {
   NEED_MORE_DOCUMENTS: 'SUBMITTED',
   APPROVED_BY_TIMEOUT: 'APPROVED',
   FULLY_PAID: 'DEPOSIT_PAID',
+  PAID: 'DEPOSIT_PAID',
 }
 
 function stepLabel(code: string) {

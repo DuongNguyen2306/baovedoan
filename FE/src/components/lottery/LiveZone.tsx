@@ -29,7 +29,9 @@ export function LiveZone({ state, sessionStatus, isDev, onDrawNext, busy }: Prop
   // vượt mốc. Log 1 lần để FE team báo lại BE.
   const total = Math.max(0, rawTotal)
   const drawn = Math.min(rawDrawn, total)
-  const remaining = state?.remainingUnits ?? Math.max(0, total - drawn)
+  // Luôn tính remaining = total - drawn, KHÔNG dùng BE.remainingUnits vì BE
+  // đang trả sai (ví dụ: drawn=4,total=8 nhưng remaining=5 thay vì 4).
+  const remaining = Math.max(0, total - drawn)
   const pct = total > 0 ? Math.min(100, Math.round((drawn / total) * 100)) : 0
   if (rawDrawn > rawTotal && rawTotal > 0 && !(LiveZone as { _warned?: boolean })._warned) {
     (LiveZone as { _warned?: boolean })._warned = true
