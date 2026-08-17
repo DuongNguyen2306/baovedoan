@@ -64,6 +64,18 @@ export const paymentApi = {
 
   getDepositResult: (orderId: string) =>
     request<ApiResult>(`/api/Payment/deposit-result/${orderId}`, { auth: true }),
+
+  /** Lấy dashboard thanh toán dành cho SXD — các đợt cuối và Red Book cần xác nhận */
+  getSxdPaymentDashboard: () =>
+    request<ApiResult>('/api/Payment/sxd-dashboard', { auth: true }),
+
+  /** SXD phê duyệt/xác nhận một đợt thanh toán cụ thể */
+  sxdApproveInstallment: (installmentId: string, body: { action: 'APPROVE' | 'REJECT'; note?: string }) =>
+    request<ApiResult>(`/api/Payment/installments/${installmentId}/sxd-approve`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+      auth: true,
+    }),
 }
 
 /** Tải PDF hợp đồng — dùng fetch blob + Bearer (KHÔNG dùng request JSON vì endpoint trả file). */

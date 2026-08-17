@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Eye, FileText, Printer, Send, Sparkles, Loader2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { Eye, FileText, Printer, Send, Sparkles, Loader2, CheckCircle2, XCircle, AlertTriangle, CheckCheck, X, FilePlus } from 'lucide-react'
 import {
   housingApplicationsApi,
   parseApplicationDetail,
@@ -74,6 +74,9 @@ export function ApplicationsPage() {
   const [bulkMsg, setBulkMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [exporting, setExporting] = useState(false)
 
+  // SXD bulk actions
+  const [sxdBulkSending, setSxdBulkSending] = useState(false)
+
   useEffect(() => {
     setPageIndex(1)
   }, [status])
@@ -122,8 +125,9 @@ export function ApplicationsPage() {
 
   const toggleSelectAll = () => {
     setSelected((prev) => {
-      if (prev.size === submittable.length) return new Set()
-      return new Set(submittable.map((a) => a.applicationId))
+      const pool = isDeveloper ? submittable : sxdSelectable
+      if (prev.size === pool.length) return new Set()
+      return new Set(pool.map((a) => a.applicationId))
     })
   }
 
@@ -143,6 +147,63 @@ export function ApplicationsPage() {
       setBulkMsg({ type: 'error', text: formatError(err) })
     } finally {
       setBulkSending(false)
+    }
+  }
+
+  // SXD bulk: chỉ chọn những PENDING_SXD_REVIEW
+  const sxdSelectable = useMemo(
+    () => apps.filter((a) => a.applicationStatus === 'PENDING_SXD_REVIEW'),
+    [apps],
+  )
+
+  const sxdToggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const sxdToggleSelectAll = () => {
+    setSelected((prev) => {
+      if (prev.size === sxdSelectable.length) return new Set()
+      return new Set(sxdSelectable.map((a) => a.applicationId))
+    })
+  }
+
+  const sxdBulkApprove = async () => {
+    if (selected.size === 0 || sxdBulkSending) return
+    if (!window.confirm(`Phê duyệt ${selected.size} hồ sơ đã chọn?`)) return
+    setSxdBulkSending(true)
+    setBulkMsg(null)
+    try {
+      await housingApplicationsApi.bulkSxdApprove(Array.from(selected))
+      setBulkMsg({ type: 'success', text: `Đã phê duyệt ${selected.size} hồ sơ.` })
+      setSelected(new Set())
+      await load({ search: search || undefined, status: status || undefined })
+    } catch (err) {
+      setBulkMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setSxdBulkSending(false)
+    }
+  }
+
+  const sxdBulkReject = async () => {
+    if (selected.size === 0 || sxdBulkSending) return
+    const note = window.prompt(`Từ chối ${selected.size} hồ sơ — nhập lý do (bắt buộc):`)
+    if (!note?.trim()) return
+    setSxdBulkSending(true)
+    setBulkMsg(null)
+    try {
+      await housingApplicationsApi.bulkSxdReject(Array.from(selected), note.trim())
+      setBulkMsg({ type: 'success', text: `Đã từ chối ${selected.size} hồ sơ.` })
+      setSelected(new Set())
+      await load({ search: search || undefined, status: status || undefined })
+    } catch (err) {
+      setBulkMsg({ type: 'error', text: formatError(err) })
+    } finally {
+      setSxdBulkSending(false)
     }
   }
 
@@ -232,6 +293,42 @@ export function ApplicationsPage() {
             </Button>
           </div>
         )}
+
+        {/* SXD bulk approve/reject toolbar */}
+        {isSxd && sxdSelectable.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 dark:border-indigo-800 dark:bg-indigo-950/30">
+            <label className="flex items-center gap-2 text-sm font-semibold text-indigo-900 dark:text-indigo-200">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-indigo-600"
+                checked={sxdSelectable.length > 0 && selected.size === sxdSelectable.length}
+                onChange={sxdToggleSelectAll}
+              />
+              Đã chọn <strong>{selected.size}</strong> / {sxdSelectable.length} hồ sơ chờ SXD duyệt
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="accent"
+                size="sm"
+                disabled={selected.size === 0 || sxdBulkSending}
+                onClick={() => void sxdBulkApprove()}
+              >
+                <CheckCheck className="mr-1.5 h-4 w-4" />
+                {sxdBulkSending ? 'Đang duyệt…' : `Duyệt đồng loạt (${selected.size || 0})`}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-amber-400 text-amber-700 dark:text-amber-300"
+                disabled={selected.size === 0 || sxdBulkSending}
+                onClick={() => void sxdBulkReject()}
+              >
+                <X className="mr-1.5 h-4 w-4" />
+                Từ chối đồng loạt
+              </Button>
+            </div>
+          </div>
+        )}
         {bulkMsg && (
           <Alert variant={bulkMsg.type === 'error' ? 'error' : 'success'} className="mb-4">
             {bulkMsg.text}
@@ -249,7 +346,7 @@ export function ApplicationsPage() {
             <table className="min-w-full text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
                 <tr>
-                  {isDeveloper && <th className="px-3 py-2">Chọn</th>}
+                  {(isDeveloper || isSxd) && <th className="px-3 py-2">Chọn</th>}
                   <th className="px-3 py-2">Họ tên</th>
                   <th className="px-3 py-2">CCCD</th>
                   <th className="px-3 py-2">Dự án</th>
@@ -261,6 +358,7 @@ export function ApplicationsPage() {
               <tbody>
                 {apps.map((app) => {
                   const canSelect = isDeveloper && app.applicationStatus === 'REVIEWING'
+                    || isSxd && app.applicationStatus === 'PENDING_SXD_REVIEW'
                   const countdown =
                     isSxd && app.applicationStatus === 'PENDING_SXD_REVIEW'
                       ? formatSxdCountdown(app.submittedAt || app.createdAt)
@@ -749,7 +847,76 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
         {app.officerFullName && <DetailRow label="Cán bộ thẩm định" value={app.officerFullName} />}
         {app.slotCode && <DetailRow label="Mã suất" value={app.slotCode} />}
         {app.lotteryResult && <DetailRow label="Kết quả bốc thăm" value={app.lotteryResult} />}
+        {app.priorityScore != null && app.priorityScore > 0 && (
+          <DetailRow label="Điểm ưu tiên" value={`${app.priorityScore} điểm`} />
+        )}
+        {app.maritalStatus && <DetailRow label="Tình trạng hôn nhân" value={app.maritalStatus} />}
+        {app.averageHousingAreaPerPerson != null && (
+          <DetailRow label="DT ở/người" value={`${app.averageHousingAreaPerPerson} m²`} />
+        )}
       </div>
+
+      {/* Kết quả thẩm định điều kiện (SXD) */}
+      {role === 'Department Of Construction' && app.eligibility && (
+        <div className={`rounded-xl border p-4 ${app.eligibility.isEligible ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20' : 'border-rose-200 bg-rose-50/50 dark:border-rose-800 dark:bg-rose-950/20'}`}>
+          <h3 className={`mb-3 font-semibold ${app.eligibility.isEligible ? 'text-emerald-800 dark:text-emerald-200' : 'text-rose-800 dark:text-rose-200'}`}>
+            Kết quả thẩm định điều kiện
+          </h3>
+          <div className="grid gap-2 text-sm sm:grid-cols-2">
+            <div className="flex items-center gap-2">
+              {app.eligibility.isIncomeEligible ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <XCircle className="h-4 w-4 text-rose-500" />}
+              <span>Thu nhập hợp lệ</span>
+              {app.eligibility.totalScore != null && <span className="ml-auto font-medium">{app.eligibility.totalScore} điểm</span>}
+            </div>
+            <div className="flex items-center gap-2">
+              {app.eligibility.isHousingStatusEligible ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <XCircle className="h-4 w-4 text-rose-500" />}
+              <span>Thực trạng nhà ở</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {app.eligibility.isPriorityGroupEligible ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <XCircle className="h-4 w-4 text-rose-500" />}
+              <span>Nhóm ưu tiên</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {app.eligibility.isEligible ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <XCircle className="h-4 w-4 text-rose-500" />}
+              <span className="font-medium">Tổng kết: {app.eligibility.isEligible ? 'Đủ điều kiện' : 'Không đủ điều kiện'}</span>
+            </div>
+          </div>
+          {app.eligibility.verifiedAt && (
+            <p className="mt-2 text-xs text-slate-500">Xác minh lúc: {new Date(app.eligibility.verifiedAt).toLocaleString('vi-VN')}</p>
+          )}
+        </div>
+      )}
+
+      {/* Thành viên hộ gia đình (SXD) */}
+      {role === 'Department Of Construction' && app.householdMembers && app.householdMembers.length > 0 && (
+        <div className="glass-card p-4">
+          <h3 className="mb-3 font-semibold">Thành viên hộ gia đình ({app.householdMembers.length} người)</h3>
+          <div className="overflow-x-auto rounded-lg border border-slate-100 dark:border-slate-800">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
+                <tr>
+                  <th className="px-3 py-2 text-left">Họ tên</th>
+                  <th className="px-3 py-2 text-left">Quan hệ</th>
+                  <th className="px-3 py-2 text-left">Ngày sinh</th>
+                  <th className="px-3 py-2 text-left">CCCD</th>
+                </tr>
+              </thead>
+              <tbody>
+                {app.householdMembers.map((m, i) => (
+                  <tr key={i} className="border-t border-slate-100 dark:border-slate-800">
+                    <td className="px-3 py-2 font-medium">{m.fullName}</td>
+                    <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{m.relationship}</td>
+                    <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
+                      {m.dateOfBirth ? new Date(m.dateOfBirth).toLocaleDateString('vi-VN') : '—'}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs text-slate-600 dark:text-slate-400">{m.citizenId || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {(isStaff || app.apartmentId) && (
         <div className="glass-card space-y-3 p-4">
@@ -1083,6 +1250,69 @@ function ApplicationDetailInner({ appId }: { appId: string }) {
           <>
             <Button variant="accent" disabled={!!acting} onClick={() => void review('APPROVE')}>Phê duyệt</Button>
             <Button variant="outline" disabled={!!acting} onClick={() => void review('REJECT', true)}>Từ chối</Button>
+            <Button variant="outline" className="border-amber-400 text-amber-700 dark:text-amber-300" disabled={!!acting} onClick={async () => {
+              const note = window.prompt('Yêu cầu CĐT bổ sung giấy tờ — nhập nội dung:')
+              if (!note?.trim()) return
+              setActing('request-docs')
+              try {
+                await housingApplicationsApi.sxdRequestDocs(app.applicationId, note.trim())
+                await refresh()
+                setMsg({ type: 'success', text: 'Đã gửi yêu cầu bổ sung giấy tờ.' })
+              } catch (err) {
+                setMsg({ type: 'error', text: formatError(err) })
+              } finally {
+                setActing('')
+              }
+            }}>
+              <FilePlus className="mr-1.5 h-4 w-4" />
+              Yêu cầu CĐT bổ sung
+            </Button>
+            {app.isViolation ? (
+              <Button
+                variant="outline"
+                className="border-emerald-400 text-emerald-700 dark:text-emerald-300"
+                disabled={!!acting}
+                onClick={async () => {
+                  if (!window.confirm('Gỡ cờ vi phạm cho hồ sơ này?')) return
+                  setActing('unflag')
+                  try {
+                    await housingApplicationsApi.unflagViolation(app.applicationId)
+                    await refresh()
+                    setMsg({ type: 'success', text: 'Đã gỡ cờ vi phạm.' })
+                  } catch (err) {
+                    setMsg({ type: 'error', text: formatError(err) })
+                  } finally {
+                    setActing('')
+                  }
+                }}
+              >
+                <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                Gỡ cờ vi phạm
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="border-rose-400 text-rose-700 dark:text-rose-300"
+                disabled={!!acting}
+                onClick={async () => {
+                  const reason = window.prompt('Lý do gắn cờ vi phạm (VD: CCCD trùng, đã có nhà đất):')
+                  if (!reason?.trim()) return
+                  setActing('flag')
+                  try {
+                    await housingApplicationsApi.flagViolation(app.applicationId, reason.trim())
+                    await refresh()
+                    setMsg({ type: 'success', text: 'Đã gắn cờ vi phạm cho hồ sơ.' })
+                  } catch (err) {
+                    setMsg({ type: 'error', text: formatError(err) })
+                  } finally {
+                    setActing('')
+                  }
+                }}
+              >
+                <AlertTriangle className="mr-1.5 h-4 w-4" />
+                Gắn cờ vi phạm
+              </Button>
+            )}
           </>
         )}
       </div>

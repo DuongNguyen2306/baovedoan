@@ -7,6 +7,9 @@ import {
   FileSignature,
   ScrollText,
   User,
+  CheckSquare,
+  Wallet,
+  Bell,
 } from 'lucide-react'
 
 import { useHashRoute, navigate } from '@/hooks/useHashRoute'
@@ -31,10 +34,10 @@ const ITEMS: NavItem[] = [
     aliases: ['application-detail'],
   },
   {
-    route: 'projects',
-    label: 'Dự án',
-    icon: Building2,
-    aliases: ['project-detail'],
+    route: 'sxd-projects',
+    label: 'Duyệt dự án',
+    icon: CheckSquare,
+    aliases: ['sxd-project-detail'],
   },
   {
     route: 'lottery-sessions',
@@ -43,6 +46,16 @@ const ITEMS: NavItem[] = [
     aliases: ['lottery-detail'],
   },
   { route: 'lottery-live', label: 'Bốc thăm trực tiếp', icon: Radio },
+  {
+    route: 'sxd-payments',
+    label: 'Thanh toán',
+    icon: Wallet,
+  },
+  {
+    route: 'sxd-announcements',
+    label: 'Thông báo',
+    icon: Bell,
+  },
   {
     route: 'audit-list',
     label: 'Hậu kiểm',
@@ -63,11 +76,13 @@ export const SXD_SUB_NAV_ROUTES: RouteId[] = [
   'home-sxd',
   'applications',
   'application-detail',
-  'projects',
-  'project-detail',
+  'sxd-projects',
+  'sxd-project-detail',
+  'sxd-announcements',
   'lottery-sessions',
   'lottery-detail',
   'lottery-live',
+  'sxd-payments',
   'audit-list',
   'audit-detail',
   'contracts',
@@ -75,7 +90,6 @@ export const SXD_SUB_NAV_ROUTES: RouteId[] = [
   'profile',
   'change-password',
   'notifications',
-  'report-issue',
 ]
 
 function isActive(current: RouteId, item: NavItem): boolean {

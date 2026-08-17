@@ -23,7 +23,7 @@ import { AdminStaffPage, CreateStaffPage, StaffDetailPage } from '@/pages/admin-
 import { LandingPage } from '@/pages/landing-page'
 import { LoginPage } from '@/pages/login-page'
 import { HousingSearchPage } from '@/pages/housing-search-page'
-import { AnnouncementsPage } from '@/pages/announcements-page'
+import { AnnouncementsPage, SxdAnnouncementsPage } from '@/pages/announcements-page'
 import { LookupPage } from '@/pages/lookup-page'
 import { NotificationsPage } from '@/pages/notifications-page'
 import { PaymentsPage } from '@/pages/payments-pages'
@@ -45,6 +45,8 @@ import {
 } from '@/pages/contract-pages'
 import { MyApartmentPage } from '@/pages/my-apartment-page'
 import { AuditDetailPage, AuditListPage, AuditCreatePage } from '@/pages/audit-pages'
+import { SxdProjectDetailPage, SxdProjectsPage } from '@/pages/sxd-projects-pages'
+import { SxdPaymentsPage } from '@/pages/sxd-payments-page'
 import {
   CategoriesPage,
   SystemLogsPage,
@@ -113,6 +115,10 @@ function RouteView({ route }: { route: RouteId }) {
     case 'audit-list': return <AuditListPage />
     case 'audit-create': return <AuditCreatePage />
     case 'audit-detail': return <AuditDetailPage />
+    case 'sxd-projects': return <SxdProjectsPage />
+    case 'sxd-project-detail': return <SxdProjectDetailPage />
+    case 'sxd-announcements': return <SxdAnnouncementsPage />
+    case 'sxd-payments': return <SxdPaymentsPage />
     case 'admin-logs': return <SystemLogsPage />
     case 'admin-categories': return <CategoriesPage />
     default: return null

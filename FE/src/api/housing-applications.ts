@@ -151,6 +151,31 @@ export function parseApplicationDetail(data: unknown): ApplicationDetailDto | nu
     apartmentArea: aptArea != null && aptArea !== '' ? Number(aptArea) : null,
     apartmentPrice: aptPrice != null && aptPrice !== '' ? Number(aptPrice) : null,
     apartmentStatus: aptStatus != null ? String(aptStatus) : null,
+    householdMembers: (() => {
+      const raw = o.householdMembers ?? o.HouseholdMembers
+      if (!Array.isArray(raw)) return undefined
+      return raw.map((m: Record<string, unknown>) => ({
+        memberId: (m.memberId ?? m.MemberId) as string | null,
+        fullName: String(m.fullName ?? m.FullName ?? ''),
+        citizenId: m.citizenId != null ? String(m.citizenId) : null,
+        dateOfBirth: m.dateOfBirth != null ? String(m.dateOfBirth) : null,
+        relationship: String(m.relationship ?? m.Relationship ?? ''),
+        note: (m.note ?? m.Note) as string | null | undefined,
+      }))
+    })(),
+    eligibility: (() => {
+      const raw = o.eligibility ?? o.Eligibility
+      if (!raw || typeof raw !== 'object') return null
+      const e = raw as Record<string, unknown>
+      return {
+        isEligible: Boolean(e.isEligible ?? e.IsEligible),
+        isIncomeEligible: Boolean(e.isIncomeEligible ?? e.IsIncomeEligible),
+        isHousingStatusEligible: Boolean(e.isHousingStatusEligible ?? e.IsHousingStatusEligible),
+        isPriorityGroupEligible: Boolean(e.isPriorityGroupEligible ?? e.IsPriorityGroupEligible),
+        totalScore: e.totalScore != null ? Number(e.totalScore) : null,
+        verifiedAt: e.verifiedAt ? String(e.verifiedAt) : null,
+      }
+    })(),
   }
 }
 
@@ -268,6 +293,30 @@ export const housingApplicationsApi = {
       auth: true,
     }),
 
+  /** SXD bulk approve nhiều PENDING_SXD_REVIEW cùng lúc */
+  bulkSxdApprove: (ids: string[]) =>
+    request<ApiResult>('/api/housing-applications/bulk-sxd-approve', {
+      method: 'PATCH',
+      body: JSON.stringify({ ids }),
+      auth: true,
+    }),
+
+  /** SXD bulk reject nhiều PENDING_SXD_REVIEW cùng lúc */
+  bulkSxdReject: (ids: string[], note: string) =>
+    request<ApiResult>('/api/housing-applications/bulk-sxd-reject', {
+      method: 'PATCH',
+      body: JSON.stringify({ ids, note }),
+      auth: true,
+    }),
+
+  /** SXD yêu cầu CĐT bổ sung giấy tờ → application quay về NEED_MORE_DOCUMENTS */
+  sxdRequestDocs: (id: string, note: string) =>
+    request<ApiResult>(`/api/housing-applications/${id}/sxd-request-docs`, {
+      method: 'PATCH',
+      body: JSON.stringify({ note }),
+      auth: true,
+    }),
+
   cancel: (id: string, reason?: string) =>
     request<ApiResult>(`/api/housing-applications/${id}/cancel`, {
       method: 'PATCH',
@@ -288,6 +337,21 @@ export const housingApplicationsApi = {
   assign: (id: string) =>
     request<ApiResult>(`/api/housing-applications/${id}/assign`, {
       method: 'PATCH',
+      auth: true,
+    }),
+
+  /** Gắn cờ vi phạm (gian lận đất đai) */
+  flagViolation: (id: string, reason: string) =>
+    request<ApiResult>(`/api/housing-applications/${id}/flag-violation`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+      auth: true,
+    }),
+
+  /** Gỡ cờ vi phạm */
+  unflagViolation: (id: string) =>
+    request<ApiResult>(`/api/housing-applications/${id}/unflag-violation`, {
+      method: 'POST',
       auth: true,
     }),
 

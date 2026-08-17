@@ -29,7 +29,10 @@ export type RouteId =
   | 'create-application'
   | 'application-detail'
   | 'notifications'
-  | 'report-issue'
+  | 'sxd-projects'
+  | 'sxd-project-detail'
+  | 'sxd-announcements'
+  | 'sxd-payments'
   // Lottery (mock)
   | 'lottery-sessions'
   | 'lottery-create'
@@ -347,6 +350,47 @@ export const routes: RouteConfig[] = [
     subtitle: 'Gửi phản ánh về lỗi kỹ thuật, dữ liệu hoặc tài khoản tới quản trị viên.',
     cta: 'Gửi báo cáo',
   },
+  // ====== SXD Duyệt dự án ======
+  {
+    id: 'sxd-projects',
+    label: 'Duyệt dự án',
+    group: 'workspace',
+    auth: true,
+    roles: ['Department Of Construction'],
+    title: 'Phê duyệt dự án',
+    subtitle: 'Xem xét và phê duyệt các dự án nhà ở xã hội mới.',
+    cta: '',
+  },
+  {
+    id: 'sxd-project-detail',
+    label: 'Chi tiết dự án',
+    group: 'workspace',
+    auth: true,
+    roles: ['Department Of Construction'],
+    title: 'Chi tiết dự án',
+    subtitle: 'Xem thông tin chi tiết và thao tác phê duyệt dự án.',
+    cta: '',
+  },
+  {
+    id: 'sxd-announcements',
+    label: 'Quản lý thông báo',
+    group: 'workspace',
+    auth: true,
+    roles: ['Department Of Construction'],
+    title: 'Quản lý thông báo',
+    subtitle: 'Tạo, sửa, xóa và xuất báo cáo thông báo từ Sở Xây dựng.',
+    cta: '',
+  },
+  {
+    id: 'sxd-payments',
+    label: 'Thanh toán',
+    group: 'workspace',
+    auth: true,
+    roles: ['Department Of Construction'],
+    title: 'Xác nhận thanh toán',
+    subtitle: 'Xác nhận các đợt thanh toán cuối cùng và cấp sổ đỏ.',
+    cta: '',
+  },
   // ====== Lottery (mock cho BE chưa có) ======
   {
     id: 'lottery-sessions',
@@ -570,6 +614,36 @@ export function onRouteChange(cb: (id: RouteId) => void): void {
   run()
 }
 
+/**
+ * Đọc query string từ hash (vd `#/sxd-project-detail?id=abc` -> `{ id: 'abc' }`).
+ * Trả về `{}` nếu không có query.
+ */
+export function getHashQuery(): Record<string, string> {
+  const hash = location.hash.replace(/^#\/?/, '')
+  const qIdx = hash.indexOf('?')
+  if (qIdx < 0) return {}
+  const query = hash.slice(qIdx + 1)
+  const out: Record<string, string> = {}
+  for (const part of query.split('&')) {
+    const [k, v] = part.split('=')
+    if (k) out[decodeURIComponent(k)] = v ? decodeURIComponent(v) : ''
+  }
+  return out
+}
+
+/** Navigate tới route kèm query string (vd `navigateWithQuery('sxd-project-detail', { id })`). */
+export function navigateWithQuery(route: RouteId | string, query: Record<string, string | number | undefined>): void {
+  const qs = new URLSearchParams()
+  for (const [k, v] of Object.entries(query)) {
+    if (v == null) continue
+    qs.set(k, String(v))
+  }
+  const id = String(route)
+  const base = id.startsWith('#') ? id : `#/${id}`
+  const q = qs.toString()
+  location.hash = q ? `${base}?${q}` : base
+}
+
 export function isLoggedIn(): boolean {
   return !!sessionStorage.getItem('accessToken')
 }
@@ -651,6 +725,9 @@ const ROLE_ACCESS: Record<string, RouteId[]> = {
     'contract-detail',
     'audit-list',
     'audit-detail',
+    'sxd-projects',
+    'sxd-project-detail',
+    'sxd-payments',
   ],
   Applicant: [
     'home-user',
@@ -701,7 +778,7 @@ export function publicNavRoutes(): RouteId[] {
 const NAV_BY_ROLE: Record<string, RouteId[]> = {
   'System Administrator': ['admin-staff', 'admin-logs', 'admin-categories', 'notifications', 'profile'],
   'Housing Developer': ['home-developer', 'applications', 'projects', 'lottery-sessions', 'lottery-live', 'contracts', 'notifications', 'profile'],
-  'Department Of Construction': ['home-sxd', 'applications', 'projects', 'lottery-sessions', 'lottery-live', 'contracts', 'audit-list', 'notifications', 'profile'],
+  'Department Of Construction': ['home-sxd', 'applications', 'sxd-projects', 'sxd-announcements', 'lottery-sessions', 'lottery-live', 'sxd-payments', 'audit-list', 'contracts', 'notifications', 'profile'],
   Applicant: ['home-user', 'quan-tam', 'applications', 'projects', 'my-lottery', 'my-apartment', 'notifications', 'profile'],
 }
 

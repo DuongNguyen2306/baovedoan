@@ -233,6 +233,7 @@ export interface ApplicationFilterDto {
 }
 
 export interface HouseholdMemberDto {
+  memberId?: string | null
   fullName: string
   citizenId?: string | null
   dateOfBirth?: string | null
@@ -341,6 +342,15 @@ export interface ApplicationDetailDto {
   apartmentArea?: number | null
   apartmentPrice?: number | null
   apartmentStatus?: string | null
+  householdMembers?: HouseholdMemberDto[]
+  eligibility?: {
+    isEligible?: boolean
+    isIncomeEligible?: boolean
+    isHousingStatusEligible?: boolean
+    isPriorityGroupEligible?: boolean
+    totalScore?: number | null
+    verifiedAt?: string | null
+  } | null
 }
 
 export interface ReviewRequestDto {

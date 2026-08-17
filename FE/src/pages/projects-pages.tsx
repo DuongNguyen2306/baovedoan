@@ -45,12 +45,17 @@ function getTotalCount(data: unknown): number {
   return 0
 }
 
-function getTotalPages(data: unknown): number {
+function getTotalPages(data: unknown, pageSize = 12): number {
   if (!data || typeof data !== 'object') return 1
   const o = data as Record<string, unknown>
-  if (typeof o.totalPages === 'number') return o.totalPages
+  if (typeof o.totalPages === 'number' && o.totalPages > 0) return o.totalPages
   const nested = (o.data ?? o.Data) as Record<string, unknown> | undefined
-  if (nested && typeof nested.totalPages === 'number') return nested.totalPages
+  if (nested && typeof nested.totalPages === 'number' && nested.totalPages > 0) return nested.totalPages
+  // Fallback: tính từ totalCount
+  const totalCount = (nested?.totalCount ?? o.totalCount) as number | undefined
+  if (typeof totalCount === 'number' && totalCount > 0) {
+    return Math.max(1, Math.ceil(totalCount / pageSize))
+  }
   return 1
 }
 
@@ -67,6 +72,7 @@ export function ProjectsPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const isApplicant = getRole() === 'Applicant'
+  const isSxd = getRole() === 'Department Of Construction' || getRole() === 'SXD Staff'
   const PAGE_SIZE = 12
 
   const load = async (nextFilter: HousingSearchFilter, page = 1) => {
@@ -75,13 +81,15 @@ export function ProjectsPage() {
     try {
       const data = await housingProjectsApi.list({ ...toApiFilter(nextFilter), pageIndex: page, pageSize: PAGE_SIZE })
       const items = sortHousingProjects(
-        applyClientFilters(extractProjects(data), nextFilter),
+        applyClientFilters(extractProjects(data), nextFilter).filter(
+          (p) => (p.availableUnits ?? 0) > 0,
+        ),
         nextFilter.sort,
       )
       setAll(items)
       setPageIndex(page)
       setTotalCount(getTotalCount(data))
-      setTotalPages(getTotalPages(data))
+      setTotalPages(getTotalPages(data, PAGE_SIZE))
     } catch (err) {
       setError(formatError(err))
       setAll([])
@@ -208,9 +216,31 @@ export function ProjectsPage() {
         {!loading && cards.length > 0 && (
           <>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {cards.map((house) => (
-                <HouseCard key={house.id} house={house} />
-              ))}
+              {cards.map((house) => {
+                const project = all.find((p) => p.id === house.id)
+                const isPending = project?.status === 'Đang chờ' || project?.status === 'Pending' || project?.status === 'PENDING'
+                return (
+                  <HouseCard
+                    key={house.id}
+                    house={house}
+                    actionButton={
+                      isSxd && isPending ? (
+                        <Button
+                          size="sm"
+                          variant="accent"
+                          className="w-full"
+                          onClick={() => {
+                            sessionStorage.setItem('projectId', house.id)
+                            navigate('project-detail')
+                          }}
+                        >
+                          Duyệt dự án
+                        </Button>
+                      ) : undefined
+                    }
+                  />
+                )
+              })}
             </div>
             {totalPages > 1 && (
               <div className="mt-6 flex items-center justify-between">
@@ -639,10 +669,21 @@ export function ProjectDetailPage() {
                 <DeveloperDecisionPanel projectId={projectId} />
               </section>
             )}
-            {(role === 'Department Of Construction' || isAdmin) && (
-              <ProjectStatusSection projectId={projectId} />
-            )}
-            <details className="rounded-xl border border-slate-200 dark:border-slate-700">
+            {/* Với SXD/Admin: vẫn render view công khai để xem chi tiết + chèn panel duyệt/từ chối ở đầu */}
+            <ProjectDetailView
+              projectId={projectId}
+              headerSlot={(p) =>
+                role === 'Department Of Construction' ? (
+                  <section className="mb-6 rounded-xl border-2 border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-800 dark:bg-indigo-950/30">
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
+                      Phê duyệt dự án (Sở Xây Dựng)
+                    </p>
+                    <ProjectStatusControl project={p} />
+                  </section>
+                ) : null
+              }
+            />
+            <details className="mt-6 rounded-xl border border-slate-200 dark:border-slate-700">
               <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
                 Sửa thông tin dự án (tên, căn, tỉ lệ trả trước…)
               </summary>
@@ -774,6 +815,9 @@ function ProjectDetailView({
     <div className="space-y-10">
       {project && headerSlot?.(project)}
 
+      {/* Panel thống kê hồ sơ dự án — hiện cho SXD */}
+      <EvaluationPanel projectId={projectId} />
+
       {/* ═══ Hero banner ══════════════════════════════════════════ */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 p-8 shadow-2xl shadow-blue-900/30 lg:p-10">
         {/* decorative blobs */}
@@ -894,10 +938,12 @@ function ProjectDetailView({
                 )}
               </div>
               <div className="mt-3 flex flex-wrap gap-4 text-sm text-blue-100">
-                <div className="flex items-center gap-1.5">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-xs font-bold">🏠</span>
-                  <span>{project.availableUnits ?? 0} căn còn</span>
-                </div>
+                {(project.availableUnits ?? 0) > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-xs font-bold">🏠</span>
+                    <span>{project.availableUnits} căn còn</span>
+                  </div>
+                )}
                 {project.totalUnits != null && (
                   <div className="flex items-center gap-1.5">
                     <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-xs font-bold">📋</span>
@@ -967,7 +1013,7 @@ function ProjectDetailView({
       )}
 
       {/* ═══ Danh sách căn hộ ══════════════════════════════════════ */}
-      {project.apartments && project.apartments.length > 0 && (
+      {(project.apartments && project.apartments.length > 0 && (project.availableUnits ?? 0) > 0) && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="flex items-center gap-2 text-base font-bold text-slate-800 dark:text-slate-100">
@@ -1024,33 +1070,83 @@ function ProjectDetailView({
   )
 }
 
-// Wrapper SXD: load project rồi render ProjectStatusControl.
-function ProjectStatusSection({ projectId }: { projectId: string }) {
-  const [project, setProject] = useState<HousingProjectDto | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+// Panel thống kê hồ sơ dự án (chỉ SXD thấy)
+function EvaluationPanel({ projectId }: { projectId: string }) {
+  const role = getRole()
+  const isSxd = role === 'Department Of Construction' || role === 'SXD Staff' || role === 'System Administrator'
+  const [data, setData] = useState<{
+    availableUnits?: number
+    approvedApplications?: number
+    eligibleApplications?: number
+    pendingSxdReview?: number
+    ineligible?: number
+    status?: string
+  } | null>(null)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
+    if (!isSxd) return
     let cancelled = false
-    void housingProjectsApi
-      .getById(projectId)
-      .then((data) => {
+    setLoading(true)
+    housingProjectsApi
+      .getEvaluation(projectId)
+      .then((raw: unknown) => {
         if (cancelled) return
-        setProject(extractSingleProject(data))
+        const root = raw as Record<string, unknown>
+        const nested = (root.data ?? root.Data) as Record<string, unknown> | undefined
+        const o = (nested && typeof nested === 'object' ? nested : root) as Record<string, unknown>
+        setData({
+          availableUnits: o.availableUnits != null ? Number(o.availableUnits) : undefined,
+          approvedApplications: o.approvedApplications != null ? Number(o.approvedApplications) : undefined,
+          eligibleApplications: o.eligibleApplications != null ? Number(o.eligibleApplications) : undefined,
+          pendingSxdReview: o.pendingSxdReview != null ? Number(o.pendingSxdReview) : undefined,
+          ineligible: o.ineligible != null ? Number(o.ineligible) : undefined,
+          status: o.status != null ? String(o.status) : undefined,
+        })
       })
-      .catch((err) => {
-        if (cancelled) return
-        setError(formatError(err))
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
+      .catch(() => { /* im lặng nếu API lỗi */ })
+      .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [projectId])
+  }, [projectId, isSxd])
 
-  if (loading) return <p className="text-sm text-slate-500">Đang tải...</p>
-  if (error) return <Alert variant="error">{error}</Alert>
-  if (!project) return null
+  if (!isSxd) return null
+  if (loading && !data) return null
+  if (!data) return null
 
-  return <ProjectStatusControl project={project} />
+  const cards: { label: string; value: number | undefined; color: string }[] = [
+    { label: 'Căn khả dụng', value: data.availableUnits, color: 'text-blue-600' },
+    { label: 'Hồ sơ đủ ĐK', value: data.eligibleApplications, color: 'text-emerald-600' },
+    { label: 'Chờ SXD duyệt', value: data.pendingSxdReview, color: 'text-amber-600' },
+    { label: 'Đã phê duyệt', value: data.approvedApplications, color: 'text-indigo-600' },
+    { label: 'Không đủ ĐK', value: data.ineligible, color: 'text-rose-600' },
+  ]
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold text-slate-800 dark:text-slate-100">Thống kê hồ sơ dự án</h3>
+        {data.status && (
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${
+            data.status === 'OVERSUBSCRIBED'
+              ? 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:ring-rose-800'
+              : data.status === 'SUBSCRIBED'
+                ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-800'
+                : 'bg-slate-50 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700'
+          }`}>
+            {data.status === 'OVERSUBSCRIBED' ? 'Vượt suất' : data.status === 'SUBSCRIBED' ? 'Đạt suất' : 'Còn suất'}
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {cards.map((c) => (
+          <div key={c.label} className="rounded-lg border border-slate-100 bg-slate-50/50 p-3 text-center dark:border-slate-700 dark:bg-slate-800/50">
+            <p className="text-xs text-slate-500 dark:text-slate-400">{c.label}</p>
+            <p className={`mt-1 text-2xl font-bold ${c.color}`}>{c.value ?? '—'}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
 }
+
+// Wrapper SXD: load project rồi render ProjectStatusControl — không còn dùng (SXD xem qua ProjectDetailView với headerSlot).
