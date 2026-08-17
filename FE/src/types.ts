@@ -274,6 +274,7 @@ export interface ApplicationSummaryDto {
   monthlyIncome?: number | null
   documentCount: number
   receiptUrl?: string | null
+  apartmentId?: string | null
   isViolation?: boolean
   violationReason?: string | null
 }

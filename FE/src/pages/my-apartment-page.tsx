@@ -9,6 +9,7 @@ import {
   type ContractStatus,
 } from '@/api/contracts'
 import { housingApplicationsApi, parseApplicationDetail } from '@/api/housing-applications'
+import { APPLICATION_STATUS } from '@/lib/constants'
 import { PageCard, PageHeader } from '@/components/layout/page-header'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -317,8 +318,10 @@ export function MyApartmentPage() {
                         <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                           {a.applicantFullName}
                         </p>
-                        <Badge className="mt-2">
-                          {a.applicationStatus}
+                        <Badge
+                          variant={(APPLICATION_STATUS[a.applicationStatus]?.variant as 'default' | 'success' | 'warning' | 'danger' | 'secondary') ?? 'secondary'}
+                        >
+                          {APPLICATION_STATUS[a.applicationStatus]?.label ?? a.applicationStatus}
                         </Badge>
                       </div>
                     </div>

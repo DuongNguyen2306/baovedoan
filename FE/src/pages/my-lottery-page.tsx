@@ -158,7 +158,7 @@ export function MyLotteryPage() {
         applicantName: row.application.applicantFullName ?? '—',
         citizenId: row.application.citizenId ?? '',
         lotteryResult: 'WON' as const,
-        slotCode: null,
+        slotCode: (row.application as unknown as { apartmentId?: string | null }).apartmentId ?? null,
         applicationStatus: 'CONTRACT_PENDING',
       }
     }
