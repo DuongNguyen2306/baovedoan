@@ -421,12 +421,19 @@ function InstallmentRow({
 
       if (isDeposit1PreSign || isDeposit1PostSign) {
         // Đợt 1 (trước hoặc sau ký): gọi create-payment-url.
-        const res = await paymentApi.createPaymentUrl({ ApplicationId: applicationId, Ordinal: 1 })
+        const res = await paymentApi.createPaymentUrl({
+          ApplicationId: applicationId,
+          Ordinal: 1,
+          ReturnUrl: `${window.location.origin}/contracts`,
+        })
         paymentUrl = extractPaymentUrl(res)
         orderId = extractOrderId(res)
       } else {
         // Đợt 2–6 (PENDING/OVERDUE): gọi installments/{id}/pay.
-        const res = await contractApi.payInstallment(inst.installmentId)
+        const res = await contractApi.payInstallment(
+          inst.installmentId,
+          `${window.location.origin}/contracts`,
+        )
         paymentUrl = extractPaymentUrl(res)
         orderId = extractOrderId(res)
       }

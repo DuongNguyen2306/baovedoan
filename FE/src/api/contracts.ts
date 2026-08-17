@@ -229,10 +229,11 @@ export const contractApi = {
     return request<ApiResult>(`/api/Payment/installments/${applicationId}`, { auth: true })
   },
 
-  payInstallment(installmentId: string) {
+  payInstallment(installmentId: string, returnUrl?: string) {
+    const body = returnUrl ? JSON.stringify({ returnUrl }) : undefined
     return request<PaymentResponseDto>(
       `/api/Payment/installments/${installmentId}/pay`,
-      { method: 'POST', auth: true },
+      { method: 'POST', body, auth: true },
     )
   },
 

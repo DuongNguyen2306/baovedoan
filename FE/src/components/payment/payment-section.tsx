@@ -188,11 +188,18 @@ export function InstallmentRow({
       const isDeposit1PostSign = inst.ordinal === 1 && applicationStatus === 'CONTRACT_SIGNED'
 
       if (isDeposit1PreSign || isDeposit1PostSign) {
-        const res = await paymentApi.createPaymentUrl({ ApplicationId: applicationId, Ordinal: 1 })
+        const res = await paymentApi.createPaymentUrl({
+          ApplicationId: applicationId,
+          Ordinal: 1,
+          ReturnUrl: `${window.location.origin}/my-apartment`,
+        })
         paymentUrl = extractPaymentUrl(res)
         orderId = extractOrderId(res)
       } else {
-        const res = await contractApi.payInstallment(inst.installmentId)
+        const res = await contractApi.payInstallment(
+          inst.installmentId,
+          `${window.location.origin}/my-apartment`,
+        )
         paymentUrl = extractPaymentUrl(res)
         orderId = extractOrderId(res)
       }
